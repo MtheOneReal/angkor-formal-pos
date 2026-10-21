@@ -1,0 +1,126 @@
+// Logic tests for the Firebase version, run against an in-memory fake Firestore.
+// Run: node --test fb/tests/backend.test.js
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createBackend } from '../../web/src/fb/backend.js';
+import { createApi } from '../../web/src/fb/routes.js';
+import { createFake, createFakeAuth } from './fakefs.js';
+
+function boot() {
+  const F = createFake(); const A = createFakeAuth();
+  let t = Date.parse('2026-10-21T03:00:00Z');
+  const secondary = { ...A.secondary, signInAs: async (e, p) => { const r = await A.secondary.signInAs(e, p); return { ...r, db: F.db }; } };
+  const B = createBackend({ fs: F.fs, db: F.db, auth: A.auth, secondary, now: () => (t += 1000) });
+  const api = createApi(B);
+  return { F, A, B, api };
+}
+const fails = async (p, code) => { try { await p; } catch (e) { assert.equal(e.code, code, `${e.code}: ${e.message}`); return; } assert.fail(`expected ${code}`); };
+
+async function setup() {
+  const s = boot();
+  const { api, A } = s;
+  assert.deepEqual(await api.get('/setup/status'), { needed: true });
+  await api.post('/setup/create', { name: 'Vibol', email: 'vibol@x.com', password: 'Strong-pass-1' });
+  assert.deepEqual(await api.get('/setup/status'), { needed: false });
+  await fails(api.post('/setup/create', { name: 'Eve', email: 'e@x.com', password: 'Strong-pass-1' }), 'ALREADY_SETUP');
+  // staff
+  const mgr = await api.post('/admin/users', { name: 'Mgr', role: 'manager', email: 'mgr@x.com', password: 'Mgr-pass-123', store_ids: [1] });
+  const cas = await api.post('/admin/users', { name: 'Cashier', role: 'cashier', pin: '123456', store_ids: [1] });
+  // catalogue
+  const d = await api.post('/designs', { brand_id: 1, type_code: 'S', name_en: 'Navy suit', price_usd: 200, cost_usd: 90, colours: ['NVY'], sizes: ['48', '50'] });
+  assert.equal(d.skus.length, 2);
+  return { ...s, mgr, cas, d };
+}
+
+test('first owner setup seeds stores and blocks a second setup', async () => {
+  const { api } = await setup();
+  const stores = await api.get('/public/stores');
+  assert.equal(stores.length, 5);
+  const me = await api.get('/me');
+  assert.equal(me.role, 'owner'); assert.equal(me.stores.length, 5);
+});
+
+test('stock in, lookup and a cashier sale reduce stock and number the receipt', async () => {
+  const { api, A, d } = await setup();
+  const sku = d.skus[0];
+  const item = await api.get(`/items/code/${sku}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 5 }], reference: 'delivery' });
+  assert.equal((await api.get(`/items/code/${sku}?store_id=1`)).on_hand, 5);
+  // cashier signs in with PIN
+  const staff = await api.get('/public/stores/1/staff');
+  await api.post('/auth/logout');
+  const who = staff.find((x) => x.name === 'Cashier');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: who.id, pin: '123456' });
+  await fails(api.post('/auth/pin-login', { store_id: 1, user_id: who.id, pin: '000000' }), 'BAD_LOGIN');
+  assert.equal((await api.get('/me')).role, 'cashier');
+  await fails(api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 20000 }] }), 'SHIFT_REQUIRED');
+  await api.post('/shifts/open', { store_id: 1, open_usd: 50, open_khr: 0 });
+  const sale = await api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 2, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 40000 }] });
+  assert.equal(sale.receipt_no, 'AF-000001'); assert.equal(sale.total_cents, 40000);
+  assert.equal((await api.get(`/items/code/${sku}?store_id=1`)).on_hand, 3);
+  await fails(api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 9, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 180000 }] }), 'OUT_OF_STOCK');
+  await fails(api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 100 }] }), 'PAYMENT_MISMATCH');
+  // cashiers cannot see cost
+  const row = await api.get(`/items/code/${sku}?store_id=1`);
+  assert.equal('cost_cents' in row, false);
+  await fails(api.get('/admin/users'), 'FORBIDDEN');
+});
+
+test('big discount needs a manager sign-in; self-approval and wrong password fail', async () => {
+  const { api, d } = await setup();
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 5 }] });
+  const staff = await api.get('/public/stores/1/staff'); await api.post('/auth/logout');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  await api.post('/shifts/open', { store_id: 1, open_usd: 0, open_khr: 0 });
+  const body = (pin) => ({ store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], discount: { type: 'percent', value: 30, reason: 'VIP' }, payments: [{ method: 'cash', currency: 'USD', amount: 14000 }], ...(pin ? { manager_pin: pin } : {}) });
+  await fails(api.post('/sales', body()), 'APPROVAL_REQUIRED');
+  await fails(api.post('/sales', body('mgr@x.com\nwrong')), 'BAD_LOGIN');
+  const sale = await api.post('/sales', body('mgr@x.com\nMgr-pass-123'));
+  assert.equal(sale.total_cents, 14000); assert.equal(sale.approved_by_name, 'Mgr');
+});
+
+test('transfer: request, approve reserves, send, receive moves stock; own request cannot be approved', async () => {
+  const { api, d } = await setup();
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 4 }] });
+  const tr = await api.post('/transfers', { from_store_id: 1, to_store_id: 2, lines: [{ item_id: item.id, qty: 3 }], reason: 'customer' });
+  await fails(api.post(`/transfers/${tr.id}/approve`), 'FORBIDDEN'); // owner requested it themselves
+  // manager of store 1 approves
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'mgr@x.com', password: 'Mgr-pass-123' });
+  const ap = await api.post(`/transfers/${tr.id}/approve`); assert.equal(ap.status, 'approved');
+  let l = (await api.get(`/stock?store_id=1&q=${d.skus[0]}`))[0]; assert.equal(l.reserved, 3); assert.equal(l.on_hand, 4);
+  const sent = await api.post(`/transfers/${tr.id}/send`, {}); assert.equal(sent.status, 'in_transit');
+  l = (await api.get(`/stock?store_id=1&q=${d.skus[0]}`))[0]; assert.equal(l.on_hand, 1); assert.equal(l.reserved, 0);
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
+  const rec = await api.post(`/transfers/${tr.id}/receive`, { lines: [{ line_id: sent.lines[0].id, qty_received: 2 }] });
+  assert.equal(rec.status, 'discrepancy');
+  const at2 = (await api.get(`/stock?store_id=2&q=${d.skus[0]}`))[0]; assert.equal(at2.on_hand, 2);
+  const res = await api.post(`/transfers/${tr.id}/resolve`, { resolution: 'found', note: 'was in the box' });
+  assert.equal(res.status, 'resolved');
+  assert.equal((await api.get(`/stock?store_id=2&q=${d.skus[0]}`))[0].on_hand, 3);
+});
+
+test('void restores stock and dashboard totals follow sales', async () => {
+  const { api, d } = await setup();
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 5 }] });
+  await api.post('/shifts/open', { store_id: 1, open_usd: 0, open_khr: 0 });
+  const sale = await api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 2, entry: 'search' }], payments: [{ method: 'khqr', currency: 'USD', amount: 40000 }] });
+  let dash = await api.get('/dashboard?store=1&period=today');
+  assert.equal(dash.cards.sales_cents, 40000); assert.equal(dash.cards.orders, 1); assert.equal(dash.cards.gross_profit_cents, 22000);
+  await fails(api.post(`/sales/${sale.id}/void`, { reason: 'x' }), 'BAD_INPUT'.length ? 'REASON_REQUIRED' : '');
+  const v = await api.post(`/sales/${sale.id}/void`, { reason: 'customer left' });
+  assert.equal(v.status, 'voided');
+  assert.equal((await api.get(`/items/code/${d.skus[0]}?store_id=1`)).on_hand, 5);
+  dash = await api.get('/dashboard?store=1&period=today'); assert.equal(dash.cards.sales_cents, 0);
+});
+
+test('cashier cannot reach another store or stock-in', async () => {
+  const { api, d } = await setup();
+  const staff = await api.get('/public/stores/1/staff'); await api.post('/auth/logout');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  await fails(api.get('/stock?store_id=2'), 'FORBIDDEN');
+  await fails(api.post('/stock/in', { store_id: 1, lines: [{ item_id: 1, qty: 1 }] }), 'FORBIDDEN');
+  await fails(api.get('/admin/audit'), 'FORBIDDEN');
+});

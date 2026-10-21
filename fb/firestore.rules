@@ -1,0 +1,222 @@
+rules_version = '2';
+
+// Angkor Formal – Firestore security rules.
+// Roles live in /users/{uid}. Everything is denied unless a rule below allows it.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function meExists() { return exists(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function active() { return signedIn() && meExists() && me().active == true; }
+    function isOwner() { return active() && me().role == 'owner'; }
+    function isManager() { return active() && me().role == 'manager'; }
+    function isCashier() { return active() && me().role == 'cashier'; }
+    function isLead() { return isOwner() || isManager(); }
+    function inStore(sid) { return isOwner() || (active() && (sid in me().storeIds)); }
+    function leadOf(sid) { return isOwner() || (isManager() && (sid in me().storeIds)); }
+    function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    // ---------- people ----------
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isOwner());
+      // Only owners create or change people. Nobody deletes (deactivate instead).
+      allow create, update: if isOwner();
+      // First owner only: allowed when /setup/state is created in the same batch by this very person.
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'owner' && request.resource.data.active == true
+        && !exists(/databases/$(database)/documents/setup/state)
+        && existsAfter(/databases/$(database)/documents/setup/state)
+        && getAfter(/databases/$(database)/documents/setup/state).data.firstOwner == uid;
+      allow delete: if false;
+    }
+
+    // One-time setup: the very first person to sign in creates the first owner.
+    match /setup/{id} {
+      allow get: if true;
+      allow create: if signedIn() && id == 'state' && request.resource.data.firstOwner == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /meta/{id} { allow read: if active(); allow write: if isOwner(); }
+
+    // Till login screen needs names only, never roles or PINs.
+    match /staffDirectory/{id} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    // ---------- stores and settings ----------
+    // Names only, so the sign-in screen can list stores before anyone is signed in.
+    match /publicStores/{id} { allow read: if true; allow write: if isOwner(); }
+    match /stores/{sid} {
+      allow read: if active();
+      allow write: if isOwner();
+    }
+    match /brands/{id} { allow read: if active(); allow write: if isOwner(); }
+    match /types/{id}   { allow read: if active(); allow write: if isOwner(); }
+    match /colours/{id} { allow read: if active(); allow write: if isOwner(); }
+    match /settings/{id} {
+      allow read: if active();
+      allow write: if (id == 'rate' && isLead()) || isOwner();
+    }
+
+    // ---------- catalogue (no cost in here) ----------
+    match /designs/{id} { allow read: if active(); allow write: if isOwner(); }
+    match /items/{id}   { allow read: if active(); allow write: if isOwner(); }
+    // Cost lives apart so cashiers can never read it.
+    match /costs/{id}   { allow read: if isLead(); allow write: if isOwner(); }
+
+    // ---------- stock ----------
+    // Document id: <storeId>_<itemId>
+    match /stock/{key} {
+      allow read: if active();
+      // Managers and owners adjust stock of their own store.
+      allow create, update: if leadOf(request.resource.data.storeId);
+      // A cashier may only lower stock, never below zero, and only together with a sale
+      // written in the same batch.
+      allow update: if isCashier()
+        && inStore(resource.data.storeId)
+        && request.resource.data.storeId == resource.data.storeId
+        && request.resource.data.onHand >= 0
+        && request.resource.data.onHand < resource.data.onHand
+        && request.resource.data.lastSaleId is string
+        && existsAfter(/databases/$(database)/documents/sales/$(request.resource.data.lastSaleId));
+      allow delete: if false;
+    }
+    // Every change to stock is also written here. Records can only be added.
+    match /movements/{id} {
+      allow read: if isLead();
+      allow create: if active()
+        && inStore(request.resource.data.storeId)
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ---------- selling ----------
+    match /counters/{sid} {
+      allow read: if active() && inStore(int(sid));
+      allow create: if active() && inStore(int(sid)) && request.resource.data.seq == 1;
+      allow update: if active() && inStore(int(sid)) && request.resource.data.seq == resource.data.seq + 1;
+    }
+
+    match /sales/{id} {
+      allow read: if active() && (isLead() ? inStore(resource.data.storeId) : (inStore(resource.data.storeId) && resource.data.cashierId == request.auth.uid));
+      allow create: if active()
+        && inStore(request.resource.data.storeId)
+        && request.resource.data.cashierId == request.auth.uid
+        && request.resource.data.status == 'completed'
+        // A discount above the store's limit needs a manager's approval that already exists
+        // (managers and owners may discount freely in their own store).
+        && (leadOf(request.resource.data.storeId)
+            || (request.resource.data.discountCents * 100 <= request.resource.data.subtotalCents
+                  * get(/databases/$(database)/documents/stores/$(string(request.resource.data.storeId))).data.switches.cashier_discount_limit_percent
+                && (!get(/databases/$(database)/documents/stores/$(string(request.resource.data.storeId))).data.switches.pin_every_discount
+                    || request.resource.data.discountCents == 0))
+            || (request.resource.data.approvalId is string
+                && get(/databases/$(database)/documents/approvals/$(request.resource.data.approvalId)).data.status == 'approved'
+                && get(/databases/$(database)/documents/approvals/$(request.resource.data.approvalId)).data.storeId == request.resource.data.storeId));
+      // Voiding needs a manager or owner, and only the void fields may change.
+      allow update: if leadOf(resource.data.storeId)
+        && resource.data.status == 'completed'
+        && request.resource.data.status == 'voided'
+        && onlyChanges(['status', 'voidedBy', 'voidReason', 'voidedTs']);
+      allow delete: if false;
+    }
+
+    // Returns are always written by a manager or owner (a manager signs in at the till to approve).
+    match /returns/{id} {
+      allow read: if active() && (isLead() ? inStore(resource.data.storeId) : resource.data.requestedBy == request.auth.uid);
+      allow create: if leadOf(request.resource.data.storeId);
+      allow update, delete: if false;
+    }
+
+    match /shifts/{id} {
+      allow read: if active() && (isLead() ? inStore(resource.data.storeId) : resource.data.userId == request.auth.uid);
+      allow create: if active() && inStore(request.resource.data.storeId) && request.resource.data.userId == request.auth.uid;
+      // Close your own shift, or a lead reviews someone else's.
+      allow update: if active() && inStore(resource.data.storeId)
+        && ((resource.data.userId == request.auth.uid && resource.data.closedTs == null)
+            || (isLead() && resource.data.userId != request.auth.uid && onlyChanges(['reviewedBy', 'reviewedTs'])));
+      allow delete: if false;
+    }
+
+    // Daily totals the dashboard reads. Cashiers may add to them but never read them.
+    match /dailyStats/{key} {
+      allow read: if active() && isLead() && inStore(resource.data.storeId);
+      allow create, update: if active() && inStore(request.resource.data.storeId);
+      allow delete: if false;
+    }
+
+    // Monthly totals (for the year view).
+    match /monthStats/{key} {
+      allow read: if active() && isLead() && inStore(resource.data.storeId);
+      allow create, update: if active() && inStore(request.resource.data.storeId);
+      allow delete: if false;
+    }
+
+    // Manager approvals (replace PIN entry on the cashier's screen).
+    match /approvals/{id} {
+      allow read: if active() && (resource.data.requestedBy == request.auth.uid || leadOf(resource.data.storeId));
+      allow create: if active() && inStore(request.resource.data.storeId)
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'pending';
+      // Nobody approves their own request.
+      allow update: if leadOf(resource.data.storeId)
+        && resource.data.requestedBy != request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['approved', 'rejected']
+        && onlyChanges(['status', 'decidedBy', 'decidedTs']);
+      allow delete: if false;
+    }
+
+    match /customers/{id} {
+      allow read, create: if active();
+      allow update: if active();
+      allow delete: if false;
+    }
+
+    // ---------- transfers between stores ----------
+    match /transfers/{id} {
+      allow read: if active() && (isOwner() || inStore(resource.data.fromStoreId) || inStore(resource.data.toStoreId));
+      allow create: if active()
+        && (inStore(request.resource.data.fromStoreId) || inStore(request.resource.data.toStoreId))
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'requested';
+      allow update: if active() && (
+        // approve or reject: lead of the sending store, never the requester
+        (resource.data.status == 'requested'
+          && leadOf(resource.data.fromStoreId)
+          && resource.data.requestedBy != request.auth.uid
+          && request.resource.data.status in ['approved', 'awaiting_owner', 'rejected'])
+        // owner approves large transfers
+        || (resource.data.status == 'awaiting_owner' && isOwner() && resource.data.requestedBy != request.auth.uid
+            && request.resource.data.status in ['approved', 'rejected'])
+        // sending store marks as sent
+        || (resource.data.status == 'approved' && leadOf(resource.data.fromStoreId)
+            && request.resource.data.status == 'in_transit')
+        // receiving store confirms
+        || (resource.data.status == 'in_transit' && leadOf(resource.data.toStoreId)
+            && request.resource.data.status in ['received', 'discrepancy'])
+        // the owner settles a difference
+        || (resource.data.status == 'discrepancy' && isOwner() && request.resource.data.status == 'resolved')
+        // cancel before it is sent (stock already set aside can only be released by a lead of the sending store)
+        || (resource.data.status == 'requested'
+            && (resource.data.requestedBy == request.auth.uid || leadOf(resource.data.fromStoreId))
+            && request.resource.data.status == 'cancelled')
+        || (resource.data.status in ['awaiting_owner', 'approved'] && leadOf(resource.data.fromStoreId)
+            && request.resource.data.status == 'cancelled')
+      );
+      allow delete: if false;
+    }
+
+    // ---------- activity log ----------
+    match /auditLog/{id} {
+      allow read: if isLead();
+      allow create: if active() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

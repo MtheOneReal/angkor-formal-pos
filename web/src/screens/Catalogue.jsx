@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import { useApp, useT, useName, Modal, useToast } from '../ui.jsx';
 import { usd } from '../format.js';
 
-const photo = (p) => (p ? (p.startsWith('/') ? p : '/uploads/' + p) : null);
+const photo = (p) => (p ? ((p.startsWith('/') || p.startsWith('data:')) ? p : '/uploads/' + p) : null);
 const SIZE_SETS = { Suit: ['44', '46', '48', '50', '52', '54', '56'], Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] };
 
 function Barcode({ value }) {
@@ -42,7 +42,7 @@ function NewDesign({ meta, onClose, onDone }) {
   const [f, setF] = useState({ brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', price_usd: '', cost_usd: '', colours: [], sizes: [], photo: null });
   const [err, setErr] = useState('');
   const toggle = (k, v) => setF((x) => ({ ...x, [k]: x[k].includes(v) ? x[k].filter((y) => y !== v) : [...x[k], v] }));
-  const pickPhoto = (file) => { if (!file) return; const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => { const s = Math.min(1, 900 / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = img.width * s; c.height = img.height * s; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); setF((x) => ({ ...x, photo: c.toDataURL('image/jpeg', 0.82) })); }; img.src = r.result; }; r.readAsDataURL(file); };
+  const pickPhoto = (file) => { if (!file) return; const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => { const s = Math.min(1, 480 / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = img.width * s; c.height = img.height * s; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); setF((x) => ({ ...x, photo: c.toDataURL('image/jpeg', 0.7) })); }; img.src = r.result; }; r.readAsDataURL(file); };
   return (
     <Modal title="New design" onClose={onClose} wide>
       <div className="grid g2">

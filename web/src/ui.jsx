@@ -39,13 +39,23 @@ export function PinPad({ onDone, length = 4, error, busy }) {
   );
 }
 
-// Asks a manager for a PIN (used when the server says approval is needed).
+// Asks a manager to sign in (email and password) to approve something at the till.
+// The two values travel together as "email\npassword"; the till itself stays signed in as the cashier.
 export function ManagerPin({ message, onSubmit, onClose }) {
-  const [err, setErr] = useState('');
+  const [err, setErr] = useState(''); const [email, setEmail] = useState(''); const [pw, setPw] = useState(''); const [busy, setBusy] = useState(false);
+  const go = async (e) => {
+    e.preventDefault(); setBusy(true); setErr('');
+    try { await onSubmit(`${email.trim()}\n${pw}`); } catch (x) { setErr(x.message); } finally { setBusy(false); }
+  };
   return (
-    <Modal title="Manager PIN" onClose={onClose}>
-      <p className="muted">{message || 'A manager must approve this. Ask a manager to enter their PIN.'}</p>
-      <PinPad error={err} onDone={async (pin) => { try { await onSubmit(pin); } catch (e) { setErr(e.message); } }} />
+    <Modal title="Manager approval" onClose={onClose}>
+      <form onSubmit={go}>
+        <p className="muted">{message || 'A manager must approve this. Ask a manager to sign in here.'}</p>
+        <label>Manager email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus autoComplete="off" />
+        <label>Manager password</label><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="off" />
+        {err && <div className="error">{err}</div>}
+        <button className="btn primary big" style={{ width: '100%', marginTop: 16 }} disabled={busy || !email || !pw}>Approve</button>
+      </form>
     </Modal>
   );
 }

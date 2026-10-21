@@ -28,7 +28,9 @@ function Login({ onDone }) {
   const [email, setEmail] = useState(''); const [pw, setPw] = useState(''); const [busy, setBusy] = useState(false);
   const lang = localStorage.getItem('af_lang') || 'en';
   const t = (k) => tr(lang, k);
-  useEffect(() => { api.get('/public/stores').then(setStores); }, []);
+  const [needSetup, setNeedSetup] = useState(null);
+  useEffect(() => { api.get('/setup/status').then((r) => setNeedSetup(r.needed)).catch(() => setNeedSetup(false)); }, []);
+  useEffect(() => { api.get('/public/stores').then(setStores).catch(() => {}); }, [needSetup]);
   useEffect(() => { if (store) api.get(`/public/stores/${store.id}/staff`).then(setStaff); }, [store]);
   const pinLogin = async (pin) => {
     setBusy(true); setErr('');
@@ -38,10 +40,12 @@ function Login({ onDone }) {
     e.preventDefault(); setBusy(true); setErr('');
     try { await api.post('/auth/login', { email, password: pw }); onDone(); } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
+  if (needSetup === null) return <Spinner />;
+  if (needSetup) return <FirstSetup onDone={() => { setNeedSetup(false); onDone(); }} />;
   return (
     <div className="login theme-ivory" style={{ background: '#F2EBDD' }}>
       <div className="box">
-        <img src="/brand/angkor-formal-logo-espresso.svg" alt="Angkor Formal" style={{ width: 220, display: 'block', margin: '0 auto 24px' }} />
+        <img src={`${import.meta.env.BASE_URL}brand/angkor-formal-logo-espresso.svg`} alt="Angkor Formal" style={{ width: 220, display: 'block', margin: '0 auto 24px' }} />
         <div className="tabs" style={{ justifyContent: 'center' }}>
           <button className={`chip ${mode === 'till' ? 'on' : ''}`} onClick={() => { setMode('till'); setErr(''); }}>{t('till_login')}</button>
           <button className={`chip ${mode === 'owner' ? 'on' : ''}`} onClick={() => { setMode('owner'); setErr(''); }}>{t('owner_login')}</button>
@@ -67,6 +71,26 @@ function Login({ onDone }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function FirstSetup({ onDone }) {
+  const [f, setF] = useState({ name: '', email: '', password: '' }); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const go = async (e) => { e.preventDefault(); setBusy(true); setErr(''); try { await api.post('/setup/create', f); onDone(); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
+  return (
+    <div className="login theme-ivory" style={{ background: '#F2EBDD' }}>
+      <div className="box"><div className="card">
+        <h2>Welcome. Create the first owner.</h2>
+        <p className="muted">This is a one-time step. The account you create here can manage everything. Use a strong password you do not use anywhere else.</p>
+        <form onSubmit={go}>
+          <label>Your name</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus />
+          <label>Email</label><input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} autoComplete="username" />
+          <label>Password (8 or more characters)</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="new-password" />
+          {err && <div className="error">{err}</div>}
+          <button className="btn primary big" style={{ width: '100%', marginTop: 16 }} disabled={busy}>Create owner and set up</button>
+        </form>
+      </div></div>
     </div>
   );
 }
@@ -133,7 +157,7 @@ export default function App() {
         {me.demo && <div className="banner">{t('demo_banner')}</div>}
         <div className="shell" style={{ flex: 1, minHeight: 0 }}>
           <aside className="side">
-            <img className="logo" src={`/brand/angkor-formal-logo-${effTheme === 'dark' ? 'gold' : 'bronze'}.svg`} alt="Angkor Formal" />
+            <img className="logo" src={`${import.meta.env.BASE_URL}brand/angkor-formal-logo-${effTheme === 'dark' ? 'gold' : 'bronze'}.svg`} alt="Angkor Formal" />
             {allowed.map(([k, , ic]) => <button key={k} className={`nav ${cur === k ? 'on' : ''}`} onClick={() => go(k)}><span>{ic}</span>{t(k)}</button>)}
             <div style={{ flex: 1 }} />
             <div className="small muted" style={{ padding: '0 8px' }}>{me.name} · {me.role}</div>

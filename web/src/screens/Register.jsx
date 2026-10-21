@@ -4,7 +4,7 @@ import { useApp, useT, Modal, PinPad, ManagerPin, useToast, useName, LevelBadge 
 import { usd, riel, toRiel } from '../format.js';
 
 const BASE = (import.meta.env?.BASE_URL || '/');
-const photo = (p) => (p ? (p.startsWith('/') ? p : '/uploads/' + p) : null);
+const photo = (p) => (p ? ((p.startsWith('/') || p.startsWith('data:')) ? p : '/uploads/' + p) : null);
 
 function CameraScan({ onCode, onClose }) {
   const vid = useRef(); const [err, setErr] = useState('');
