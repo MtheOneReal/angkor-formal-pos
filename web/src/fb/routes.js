@@ -637,6 +637,23 @@ export function createApi(B, extra = {}) {
     need('settings.manage'); const stores = await B.loadStores(true); const brands = (await B.loadCatalog()).brandsList;
     return { stores: stores.map((s) => ({ id: s.id, code: s.code, name: s.name, brand_id: s.brandId, receipt_footer: s.receiptFooter || '', active: s.active === false ? 0 : 1, brand_code: brands.find((b) => String(b.id) === String(s.brandId))?.code, brand_name: brands.find((b) => String(b.id) === String(s.brandId))?.name, switches: s.switches })), defaults: SWITCH_DEFAULTS };
   }
+  async function adminStoreCreate(b) {
+    need('settings.manage');
+    const name = txt(b.name, 80).trim(); const code = String(b.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    if (!name || code.length < 2) throw bad('BAD_INPUT', 'Enter a store name and a short code (2 to 4 letters or numbers).');
+    const stores = await B.loadStores(true); const cat = await B.loadCatalog();
+    const brand = cat.brandsList.find((x) => Number(x.id) === Number(b.brand_id));
+    if (!brand) throw bad('BAD_INPUT', 'Choose a brand.');
+    if (stores.some((x) => x.code === code)) throw bad('DUPLICATE', 'This code is already used by another store.');
+    const id = Math.max(0, ...stores.map((x) => x.id)) + 1;
+    const wb = writeBatch(db);
+    wb.set(ref('stores', id), { id, code, name, brandId: Number(brand.id), receiptFooter: 'Thank you.', active: true, switches: { ...SWITCH_DEFAULTS } });
+    wb.set(ref('publicStores', id), { id, code, name, active: true, brandCode: brand.code });
+    auditIn(wb, id, 'store.create', 'store', id, { name, code });
+    await wb.commit().catch(wrap('Could not add the store'));
+    await B.loadStores(true); await B.startSession();
+    return { id };
+  }
   async function adminStoreUpdate(id, b) {
     need('settings.manage'); const s = await storeById(id); if (!s) throw notFound();
     const sw = { ...s.switches }; const changed = {};
@@ -844,6 +861,7 @@ export function createApi(B, extra = {}) {
       // admin and dashboard
       if (method === 'GET' && path === '/dashboard') return await dashboard(q);
       if (method === 'GET' && path === '/admin/stores') return await adminStores();
+      if (method === 'POST' && path === '/admin/stores') return await adminStoreCreate(b);
       if (method === 'PUT' && (m = path.match(/^\/admin\/stores\/(\d+)$/))) return await adminStoreUpdate(m[1], b);
       if (method === 'GET' && path === '/admin/users') return await adminUsers();
       if (method === 'POST' && path === '/admin/users') return await adminUserCreate(b);

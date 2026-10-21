@@ -24,6 +24,23 @@ export default function Settings() {
   );
 }
 
+function AddStore({ onAdded }) {
+  const [f, setF] = useState({ name: '', code: '', brand_id: '' }); const [brands, setBrands] = useState([]); const [err, setErr] = useState(''); const [open, setOpen] = useState(false);
+  useEffect(() => { api.get('/meta').then((m) => { setBrands(m.brands); setF((x) => ({ ...x, brand_id: m.brands[0]?.id })); }); }, []);
+  const go = async (e) => { e.preventDefault(); setErr(''); try { await api.post('/admin/stores', f); setF({ ...f, name: '', code: '' }); setOpen(false); onAdded(); } catch (x) { setErr(x.message); } };
+  if (!open) return <button className="btn" style={{ marginTop: 12 }} onClick={() => setOpen(true)}>+ Add a store</button>;
+  return (
+    <form className="card" style={{ marginTop: 12 }} onSubmit={go}>
+      <h3>Add a store</h3>
+      <label>Store name</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+      <label>Short code (2 to 4 letters, used on receipts)</label><input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} style={{ width: 120 }} />
+      <label>Brand</label><select value={f.brand_id} onChange={(e) => setF({ ...f, brand_id: e.target.value })}>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+      {err && <div className="error">{err}</div>}
+      <div className="row" style={{ marginTop: 12 }}><button className="btn primary">Add store</button><button type="button" className="btn" onClick={() => setOpen(false)}>Cancel</button></div>
+    </form>
+  );
+}
+
 function Stores() {
   const [data, setData] = useState(null); const [sid, setSid] = useState(null); const [toast, show] = useToast();
   const load = () => api.get('/admin/stores').then((d) => { setData(d); setSid((x) => x ?? d.stores[0].id); });
@@ -46,6 +63,7 @@ function Stores() {
             <input type="checkbox" checked={!!s.switches[k]} onChange={(e) => save({ switches: { [k]: e.target.checked } })} style={{ width: 22, height: 22, minHeight: 0 }} />
             <span><b>{l}</b>{h && <span className="muted small"> — {h}</span>}</span></label>))}
       </div>
+      <AddStore onAdded={() => { load(); window.dispatchEvent(new Event('af-reload-me')); }} />
       <p className="muted small" style={{ marginTop: 10 }}>Approval rules (no self-approval, second approver for large amounts) are always on.</p>{toast}
     </div>
   );
