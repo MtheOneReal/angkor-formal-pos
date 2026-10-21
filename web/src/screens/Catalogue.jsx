@@ -28,7 +28,8 @@ export default function Catalogue() {
             <div className="ph">{photo(d.photo) ? <img src={photo(d.photo)} alt="" /> : d.type_code}</div>
             <div className="in"><b style={{ fontSize: 13 }}>{nm(d)}</b><div className="small muted">{d.brand_code}-{d.type_code}{String(d.number).padStart(2, '0')} · {d.items.length} variants</div>
               <div className="row between"><b className="num">{usd(d.price_cents)}</b>{canCost && <span className="small muted">cost {usd(d.cost_cents)}</span>}</div>
-              <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={() => setLabels(d)}>Print labels</button></div>
+              <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={() => setLabels(d)}>Print labels</button>
+              {me.perms.includes('catalog.edit') && <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={async () => { if (!window.confirm(`Delete “${nm(d)}” and its ${d.items.length} variants for good?`)) return; try { await api.post(`/designs/${d.id}/delete`); show('Deleted'); load(); } catch (e) { window.alert(e.message); } }}>Delete</button>}</div>
           </div>))}
       </div>
       {add && meta && <NewDesign meta={meta} onClose={() => setAdd(false)} onDone={() => { setAdd(false); show('Design added'); load(); }} />}

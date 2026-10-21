@@ -46,7 +46,7 @@ function Stores() {
   const load = () => api.get('/admin/stores').then((d) => { setData(d); setSid((x) => x ?? d.stores[0].id); });
   useEffect(() => { load(); }, []);
   if (!data) return null;
-  const s = data.stores.find((x) => x.id === sid);
+  const s = data.stores.find((x) => x.id === sid) || data.stores[0];
   const save = async (patch) => { await api.put(`/admin/stores/${s.id}`, patch); show('Saved'); load(); window.dispatchEvent(new Event('af-reload-me')); };
   return (
     <div>
@@ -68,6 +68,7 @@ function Stores() {
             <input type="checkbox" checked={!!s.switches[k]} onChange={(e) => save({ switches: { [k]: e.target.checked } })} style={{ width: 22, height: 22, minHeight: 0 }} />
             <span><b>{l}</b>{h && <span className="muted small"> — {h}</span>}</span></label>))}
       </div>
+      <button className="btn" style={{ marginTop: 12, marginRight: 8, color: '#c0392b' }} onClick={async () => { if (!window.confirm(`Delete “${s.name}” for good? This only works if it has no records.`)) return; try { await api.post(`/admin/stores/${s.id}/delete`); show('Deleted'); setSid(null); load(); window.dispatchEvent(new Event('af-reload-me')); } catch (e) { window.alert(e.message); } }}>Delete this store (only if it has no records)</button>
       <AddStore onAdded={() => { load(); window.dispatchEvent(new Event('af-reload-me')); }} />
       <p className="muted small" style={{ marginTop: 10 }}>Approval rules (no self-approval, second approver for large amounts) are always on.</p>{toast}
     </div>

@@ -656,6 +656,33 @@ export function createApi(B, extra = {}) {
     await B.loadStores(true); await B.startSession();
     return { id };
   }
+  // ---------- safe deletes: only when there is no history ----------
+  const noHistory = (what) => bad('HAS_HISTORY', `${what} Turn it off instead, so old receipts and reports stay correct.`);
+  async function adminStoreDelete(id) {
+    need('settings.manage'); const st = await storeById(id); if (!st) throw notFound();
+    const n = Number(id); const stores = await B.loadStores();
+    if (stores.length <= 1) throw bad('LAST_STORE', 'You cannot delete your only store.');
+    const used = [await list('sales', where('storeId', '==', n)), await list('shifts', where('storeId', '==', n)), await list('movements', where('storeId', '==', n)), await list('stock', where('storeId', '==', n)),
+      await list('transfers', where('fromStoreId', '==', n)), await list('transfers', where('toStoreId', '==', n)), await list('expenses', where('storeId', '==', n)), await list('attendance', where('storeId', '==', n))];
+    const staff = (await list('users')).filter((u) => (u.storeIds || []).map(Number).includes(n));
+    if (used.some((x) => x.length) || staff.length) throw noHistory(staff.length && !used.some((x) => x.length) ? 'People are still assigned to this store (remove them from it first).' : 'This store already has sales, stock, transfers, shifts or other records.');
+    const wb = writeBatch(db); wb.delete(ref('stores', n)); wb.delete(ref('publicStores', n)); auditIn(wb, null, 'store.delete', 'store', n, { name: st.name, code: st.code });
+    await wb.commit().catch(wrap('Could not delete the store')); await B.loadStores(true); await B.startSession(); return { ok: true };
+  }
+  async function designDelete(id) {
+    need('catalog.edit'); const cat = await B.loadCatalog(true); const d = cat.designs.get(String(id)); if (!d) throw notFound('Design not found.');
+    const items = cat.items.filter((i) => Number(i.designId) === Number(id)); const itemIds = new Set(items.map((i) => i.id));
+    const stockRows = await list('stock'); if (stockRows.some((r) => itemIds.has(Number(r.itemId)))) throw noHistory('This design has stock records.');
+    for (let i = 0; i < items.length; i += 10) { if ((await list('movements', where('itemId', 'in', items.slice(i, i + 10).map((x) => x.id)))).length) throw noHistory('This design has sales or stock movements.'); }
+    if ((await list('transfers')).some((t) => (t.lines || []).some((l) => itemIds.has(Number(l.itemId))))) throw noHistory('This design is used in a transfer.');
+    const wb = writeBatch(db); items.forEach((i) => wb.delete(ref('items', i.id))); wb.delete(ref('costs', id)); wb.delete(ref('designs', id));
+    auditIn(wb, null, 'design.delete', 'design', id, { name: d.nameEn, variants: items.length }); await wb.commit().catch(wrap('Could not delete the design')); await B.loadCatalog(true); return { ok: true };
+  }
+  async function customerDelete(id) {
+    need('settings.manage'); const c = await read('customers', id); if (!c) throw notFound();
+    if ((await list('sales', where('customerId', '==', String(id)))).length) throw noHistory('This customer has purchases.');
+    const wb = writeBatch(db); wb.delete(ref('customers', id)); auditIn(wb, null, 'customer.delete', 'customer', id, { name: c.name }); await wb.commit().catch(wrap('Could not delete')); return { ok: true };
+  }
   async function adminStoreUpdate(id, b) {
     need('settings.manage'); const s = await storeById(id); if (!s) throw notFound();
     const sw = { ...s.switches }; const changed = {};
@@ -883,6 +910,9 @@ export function createApi(B, extra = {}) {
       // admin and dashboard
       if (method === 'GET' && path === '/dashboard') return await dashboard(q);
       if (method === 'GET' && path === '/admin/stores') return await adminStores();
+      if (method === 'POST' && (m = path.match(/^\/admin\/stores\/(\d+)\/delete$/))) return await adminStoreDelete(m[1]);
+      if (method === 'POST' && (m = path.match(/^\/designs\/([^/]+)\/delete$/))) return await designDelete(m[1]);
+      if (method === 'POST' && (m = path.match(/^\/customers\/([^/]+)\/delete$/))) return await customerDelete(m[1]);
       if (method === 'POST' && path === '/admin/stores') return await adminStoreCreate(b);
       if (method === 'PUT' && (m = path.match(/^\/admin\/stores\/(\d+)$/))) return await adminStoreUpdate(m[1], b);
       if (method === 'GET' && path === '/admin/users') return await adminUsers();

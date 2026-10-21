@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { api, qs } from '../api.js';
-import { useT, useToast } from '../ui.jsx';
+import { useApp, useT, useToast } from '../ui.jsx';
 
 export default function Customers() {
-  const t = useT(); const [q, setQ] = useState(''); const [rows, setRows] = useState([]); const [f, setF] = useState({ name: '', phone: '' }); const [err, setErr] = useState(''); const [toast, show] = useToast();
+  const t = useT(); const { me } = useApp(); const [q, setQ] = useState(''); const [rows, setRows] = useState([]); const [f, setF] = useState({ name: '', phone: '' }); const [err, setErr] = useState(''); const [toast, show] = useToast();
   const load = () => api.get(`/customers${qs({ q })}`).then(setRows);
   useEffect(() => { const h = setTimeout(load, 200); return () => clearTimeout(h); }, [q]);
   return (
@@ -15,7 +15,7 @@ export default function Customers() {
         {err && <div className="error">{err}</div>}
       </div>
       <input placeholder="Search name or phone" value={q} onChange={(e) => setQ(e.target.value)} />
-      <div className="card" style={{ marginTop: 12 }}><table><thead><tr><th>Name</th><th>Phone</th></tr></thead><tbody>{rows.map((r) => <tr key={r.id}><td>{r.name}</td><td>{r.phone}</td></tr>)}</tbody></table></div>
+      <div className="card" style={{ marginTop: 12 }}><table><thead><tr><th>Name</th><th>Phone</th><th></th></tr></thead><tbody>{rows.map((r) => <tr key={r.id}><td>{r.name}</td><td>{r.phone}</td><td>{me.perms.includes('settings.manage') && <button className="btn" onClick={async () => { if (!window.confirm(`Delete ${r.name}?`)) return; try { await api.post(`/customers/${r.id}/delete`); load(); } catch (e) { window.alert(e.message); } }}>Delete</button>}</td></tr>)}</tbody></table></div>
       {toast}
     </div>
   );

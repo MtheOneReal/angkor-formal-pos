@@ -199,3 +199,26 @@ test('attendance and payroll: late clock-in costs $5 a day unless excused; payro
   await fails(api.post('/payroll/record', { month: '2026-10' }), 'NOTHING_TO_RECORD');
   const ex = await api.get('/expenses?store_id=1&month=2026-10'); assert.ok(ex.total_cents >= 30000);
 });
+
+test('deleting a store, product or customer works only when there is no history', async () => {
+  const { api, d } = await setup();
+  // a second design with no stock can be deleted; the first, once stocked, cannot
+  const d2 = await api.post('/designs', { brand_id: 1, type_code: 'T', name_en: 'Oops trousers', price_usd: 50, cost_usd: 20, colours: ['BLK'], sizes: ['32'] });
+  const before = (await api.get('/designs')).length;
+  const id2 = (await api.get('/designs')).find((x) => x.name_en === 'Oops trousers').id;
+  await api.post(`/designs/${id2}/delete`);
+  assert.equal((await api.get('/designs')).length, before - 1);
+  assert.equal(d2.skus.length, 1);
+  const id1 = (await api.get('/designs')).find((x) => x.name_en === 'Navy suit').id;
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 2 }] });
+  await fails(api.post(`/designs/${id1}/delete`), 'HAS_HISTORY');
+  // customers
+  const c = await api.post('/customers', { name: 'Test Customer', phone: '012' });
+  await api.post(`/customers/${c.id}/delete`);
+  assert.equal((await api.get('/customers')).some((x) => x.id === c.id), false);
+  // stores: store 4 is empty and has no staff -> deletable; store 1 has stock and a staff -> blocked
+  await api.post('/admin/stores/4/delete');
+  assert.equal((await api.get('/public/stores')).some((s) => s.id === 4), true === false);
+  await fails(api.post('/admin/stores/1/delete'), 'HAS_HISTORY');
+});

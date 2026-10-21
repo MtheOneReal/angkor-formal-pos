@@ -174,7 +174,7 @@ service cloud.firestore {
     match /customers/{id} {
       allow read, create: if active();
       allow update: if active();
-      allow delete: if false;
+      allow delete: if isOwner();
     }
 
     // ---------- transfers between stores ----------
