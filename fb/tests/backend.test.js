@@ -146,8 +146,8 @@ test('expenses: add, list, categories, delete; cashier cannot', async () => {
   const cats = await api.get('/expense-categories'); assert.ok(cats.some((c) => c.name === 'Electricity'));
   await api.post('/expense-categories', { name: 'Cleaning' });
   assert.ok((await api.get('/expense-categories')).some((c) => c.name === 'Cleaning'));
-  const e1 = await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Rent', amount: 500, currency: 'USD', note: 'Oct' });
-  await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Electricity', amount: 400000, currency: 'KHR' });
+  const e1 = await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Rent', amount: 500, currency: 'USD', note: 'Oct', photo: 'data:image/jpeg;base64,AAAA' });
+  await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Electricity', amount: 400000, currency: 'KHR', photo: 'data:image/jpeg;base64,AAAA' });
   let r = await api.get('/expenses?store_id=1&month=2026-10');
   assert.equal(r.total_cents, 50000 + 10000); assert.equal(r.rows.length, 2);
   await api.post(`/expenses/${e1.id}/delete`);
@@ -221,4 +221,18 @@ test('deleting a store, product or customer works only when there is no history'
   await api.post('/admin/stores/4/delete');
   assert.equal((await api.get('/public/stores')).some((s) => s.id === 4), true === false);
   await fails(api.post('/admin/stores/1/delete'), 'HAS_HISTORY');
+});
+
+test('expense receipt photo is required above the limit and can be viewed', async () => {
+  const { api } = await setup();
+  const photo = 'data:image/jpeg;base64,AAAA';
+  await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Water', amount: 10, currency: 'USD' }); // under $50
+  await fails(api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Rent', amount: 500, currency: 'USD' }), 'PHOTO_REQUIRED');
+  const e = await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Rent', amount: 500, currency: 'USD', photo });
+  assert.equal((await api.get(`/expenses/${e.id}/photo`)).photo, photo);
+  assert.equal((await api.get('/expenses?store_id=1&month=2026-10')).rows.find((r) => r.id === e.id).has_photo, true);
+  await api.post('/expense-settings', { photo_required_usd: 1000 });
+  await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Rent', amount: 500, currency: 'USD' });
+  await api.post(`/expenses/${e.id}/delete`);
+  await fails(api.get(`/expenses/${e.id}/photo`), 'NOT_FOUND');
 });

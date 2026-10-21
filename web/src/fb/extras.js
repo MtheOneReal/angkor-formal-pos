@@ -41,7 +41,7 @@ export function createExtras(B) {
   }
 
   // ---------- expenses ----------
-  const expView = (e) => ({ id: e.id, store_id: e.storeId, date: e.date, category: e.category, amount_cents: e.amountCents, input_currency: e.inputCurrency, input_amount: e.inputAmount, note: e.note || '', created_by_name: e.createdByName, created_ts: e.createdTs });
+  const expView = (e) => ({ id: e.id, store_id: e.storeId, date: e.date, category: e.category, amount_cents: e.amountCents, input_currency: e.inputCurrency, input_amount: e.inputAmount, note: e.note || '', has_photo: !!e.hasPhoto, created_by_name: e.createdByName, created_ts: e.createdTs });
   async function storesInScope(sel) {
     if (String(sel) === 'all') { if (!can('dashboard.all_stores')) return S().stores; return (await B.loadStores()).filter((s) => s.active !== false).map((s) => s.id); }
     return [assertStore(sel)];
@@ -54,11 +54,20 @@ export function createExtras(B) {
     }
     return out;
   }
+  const photoThreshold = async () => (await read('settings', 'expenses'))?.photoRequiredCents ?? 5000;
+  async function expenseSettings(b) {
+    need('settings.manage'); const c = Math.round(Number(b.photo_required_usd) * 100); if (!(c >= 0 && c <= 10000000)) throw bad('BAD_INPUT', 'Enter an amount in dollars (0 means never required).');
+    await setDoc(ref('settings', 'expenses'), { photoRequiredCents: c, ts: now(), setBy: S().uid }); await audit(null, 'expense.settings', 'settings', 'expenses', { cents: c }); return { ok: true };
+  }
+  async function expensePhoto(id) {
+    need('expenses.manage'); const e = await read('expenses', id); if (!e) throw notFound('Expense not found.'); assertStore(e.storeId);
+    const p = await read('expensePhotos', id); if (!p) throw notFound('No photo for this expense.'); return { photo: p.photo };
+  }
   async function expensesList(q) {
     need('expenses.manage'); const ids = await storesInScope(q.store_id || S().storeId); const month = monthOk(q.month);
     const rows = (await expensesFor(ids, `${month}-01`, `${month}-31`)).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdTs - a.createdTs));
     const byCat = {}; let total = 0; for (const r of rows) { byCat[r.category] = (byCat[r.category] || 0) + r.amountCents; total += r.amountCents; }
-    return { month, total_cents: total, by_category: Object.entries(byCat).map(([category, cents]) => ({ category, cents })).sort((a, b) => b.cents - a.cents), rows: rows.map(expView) };
+    return { month, photo_required_cents: await photoThreshold(), total_cents: total, by_category: Object.entries(byCat).map(([category, cents]) => ({ category, cents })).sort((a, b) => b.cents - a.cents), rows: rows.map(expView) };
   }
   async function expenseAdd(b) {
     need('expenses.manage'); const storeId = assertStore(b.store_id); const date = dateOk(b.date); if (!date) throw bad('BAD_INPUT', 'Choose a date.');
@@ -67,14 +76,18 @@ export function createExtras(B) {
     if (!(amount > 0)) throw bad('BAD_INPUT', 'Enter an amount more than zero.');
     const rate = await B.currentRate(); const cents = currency === 'USD' ? Math.round(amount * 100) : khrToUsdCents(Math.round(amount), rate);
     if (!(cents > 0)) throw bad('BAD_INPUT', 'That amount is too small.');
+    const photo = typeof b.photo === 'string' && b.photo.startsWith('data:image/') ? b.photo : null;
+    if (photo && photo.length > 260000) throw bad('PHOTO_TOO_BIG', 'The photo is too large. Try a smaller picture.');
+    const need$ = await photoThreshold(); if (need$ > 0 && cents >= need$ && !photo) throw bad('PHOTO_REQUIRED', `Expenses of $${(need$ / 100).toFixed(2)} or more need a photo of the receipt or invoice.`);
     const wb = writeBatch(db); const r = doc(collection(db, 'expenses'));
-    wb.set(r, { storeId, date, month: date.slice(0, 7), category, amountCents: cents, inputCurrency: currency, inputAmount: currency === 'USD' ? Math.round(amount * 100) / 100 : Math.round(amount), rate, note: txt(b.note, 200), createdBy: S().uid, createdByName: S().user.name, createdTs: now() });
+    if (photo) wb.set(ref('expensePhotos', r.id), { storeId, photo });
+    wb.set(r, { hasPhoto: !!photo, storeId, date, month: date.slice(0, 7), category, amountCents: cents, inputCurrency: currency, inputAmount: currency === 'USD' ? Math.round(amount * 100) / 100 : Math.round(amount), rate, note: txt(b.note, 200), createdBy: S().uid, createdByName: S().user.name, createdTs: now() });
     auditIn(wb, storeId, 'expense.add', 'expense', r.id, { category, cents, date }); await wb.commit().catch(wrap('Could not save the expense'));
     return { id: r.id };
   }
   async function expenseDelete(id) {
     need('expenses.manage'); const e = await read('expenses', id); if (!e) throw notFound('Expense not found.'); assertStore(e.storeId);
-    const wb = writeBatch(db); wb.delete(ref('expenses', id)); auditIn(wb, e.storeId, 'expense.delete', 'expense', id, { category: e.category, cents: e.amountCents, date: e.date, note: e.note });
+    const wb = writeBatch(db); wb.delete(ref('expenses', id)); if (e.hasPhoto) wb.delete(ref('expensePhotos', id)); auditIn(wb, e.storeId, 'expense.delete', 'expense', id, { category: e.category, cents: e.amountCents, date: e.date, note: e.note });
     await wb.commit().catch(wrap('Could not delete')); return { ok: true };
   }
 
@@ -172,6 +185,9 @@ export function createExtras(B) {
     if (method === 'POST' && path === '/expense-categories') return addCategory(b);
     if (method === 'POST' && (m = path.match(/^\/expense-categories\/([^/]+)\/delete$/))) return deleteCategory(m[1]);
     if (method === 'GET' && path === '/expenses') return expensesList(q);
+    if (method === 'GET' && path === '/expense-settings') { need('expenses.manage'); return { photo_required_cents: await photoThreshold() }; }
+    if (method === 'POST' && path === '/expense-settings') return expenseSettings(b);
+    if (method === 'GET' && (m = path.match(/^\/expenses\/([^/]+)\/photo$/))) return expensePhoto(m[1]);
     if (method === 'POST' && path === '/expenses') return expenseAdd(b);
     if (method === 'POST' && (m = path.match(/^\/expenses\/([^/]+)\/delete$/))) return expenseDelete(m[1]);
     if (method === 'GET' && path === '/attendance/me') return attMine(q);

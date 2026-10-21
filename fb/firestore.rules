@@ -220,6 +220,14 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // Receipt photos live apart from the expense list so the list stays light.
+    match /expensePhotos/{id} {
+      allow read: if active() && isLead() && (resource == null || inStore(resource.data.storeId));
+      allow create: if leadOf(request.resource.data.storeId);
+      allow delete: if leadOf(resource.data.storeId);
+      allow update: if false;
+    }
+
     // ---------- attendance ----------
     // Clocking in or out must happen "now" (within 5 minutes of the server clock), so a time cannot be made up.
     // Managers can add or correct records for others in their own store, but not for themselves.

@@ -121,12 +121,14 @@ function UserForm({ u, stores, onClose, onSaved }) {
 }
 
 function Categories() {
-  const [rows, setRows] = useState([]); const [name, setName] = useState(''); const [err, setErr] = useState('');
-  const load = () => api.get('/expense-categories').then(setRows);
+  const [rows, setRows] = useState([]); const [name, setName] = useState(''); const [err, setErr] = useState(''); const [req, setReq] = useState('50');
+  const load = () => { api.get('/expense-categories').then(setRows); api.get('/expense-settings').then((d) => setReq(String(d.photo_required_cents / 100))).catch(() => {}); };
   useEffect(() => { load(); }, []);
   const run = async (fn) => { setErr(''); try { await fn(); load(); } catch (e) { setErr(e.message); } };
   return (
     <div className="card" style={{ maxWidth: 520 }}>
+      <h3>Receipt photo rule</h3><p className="muted small">Expenses at or above this amount must have a receipt photo (0 = never required).</p>
+      <div className="row" style={{ margin: '8px 0 18px' }}><span>$</span><input type="number" min="0" value={req} onChange={(e) => setReq(e.target.value)} style={{ width: 120 }} /><button className="btn" onClick={() => run(() => api.post('/expense-settings', { photo_required_usd: Number(req) }))}>Save</button></div>
       <h3>Expense categories</h3><p className="muted small">These appear in the Expenses screen. “Salary” is needed by payroll and stays.</p>
       <div className="row wrap" style={{ margin: '10px 0' }}>{rows.map((c) => <span key={c.id} className="chip">{c.name}{c.name !== 'Salary' && <button className="btn" style={{ marginLeft: 8, padding: '0 8px', minHeight: 0 }} onClick={() => window.confirm(`Delete category “${c.name}”? Old expenses keep their label.`) && run(() => api.post(`/expense-categories/${c.id}/delete`))}>✕</button>}</span>)}</div>
       <div className="row"><input placeholder="New category" value={name} onChange={(e) => setName(e.target.value)} className="grow" /><button className="btn primary" onClick={() => run(async () => { await api.post('/expense-categories', { name }); setName(''); })}>Add</button></div>
