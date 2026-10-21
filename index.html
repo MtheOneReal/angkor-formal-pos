@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Angkor Formal - Enterprise POS & Multi-Store Suite</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Montserrat:wght@400;500;700&family=Noto+Sans+Khmer:wght@400;500&family=Noto+Serif+Khmer:wght@600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind Config for Design Tokens -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        espresso: '#0C0A08',
+                        brownBlack: '#17110B',
+                        gold: '#C8A25A',
+                        champagne: '#E6CC91',
+                        bronze: '#8A652D',
+                        goldMid: '#B4873E',
+                        ivory: '#F2EBDD',
+                        taupe: '#A99D8E',
+                    },
+                    fontFamily: {
+                        serif: ['"Cormorant Garamond"', '"Noto Serif Khmer"', 'serif'],
+                        sans: ['Montserrat', '"Noto Sans Khmer"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-page: #FAF7F1;
+            --bg-card: #FFFFFF;
+            --border-color: #E8E0D2;
+            --text-primary: #0C0A08;
+            --text-secondary: #6B6259;
+        }
+
+        .dark {
+            --bg-page: #0C0A08;
+            --bg-card: #17110B;
+            --border-color: #2A231C;
+            --text-primary: #F2EBDD;
+            --text-secondary: #A99D8E;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-primary);
+        }
+
+        h1, h2, h3, .font-heading {
+            font-family: 'Cormorant Garamond', serif;
+        }
+
+        .label-caps {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+        }
+
+        .tabular-nums {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .btn-gold {
+            background-color: #C8A25A;
+            color: #0C0A08;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.15s ease;
+            box-shadow: none !important;
+            background-image: none !important;
+        }
+        .btn-gold:hover {
+            background-color: #B4873E;
+        }
+
+        /* Kanban Drag and Drop Styles */
+        .kanban-dropzone {
+            min-height: 400px;
+            transition: background-color 0.2s;
+        }
+        .kanban-dropzone.drag-over {
+            background-color: rgba(200, 162, 90, 0.1);
+            border: 2px dashed #C8A25A;
+        }
+        .kanban-card {
+            cursor: grab;
+        }
+        .kanban-card:active {
+            cursor: grabbing;
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            #receipt-print-area, #receipt-print-area * { visibility: visible; }
+            #receipt-print-area { position: absolute; left: 0; top: 0; width: 80mm; font-family: monospace; font-size: 12px; color: #0C0A08; display: block !important; background: #F2EBDD; padding: 10px; }
+        }
+        
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #A99D8E; border-radius: 3px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-20 md:pb-0 transition-colors duration-200">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-white dark:bg-brownBlack border-b border-[#E8E0D2] dark:border-[#2A231C] px-4 sm:px-6 py-3 flex justify-between items-center gap-2 sticky top-0 z-30 transition-colors">
+        <div class="flex items-center space-x-3 min-w-0">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded bg-espresso text-ivory flex items-center justify-center font-bold text-xs tracking-wider border border-bronze">
+                    AF
+                </div>
+                <h1 class="text-base sm:text-lg font-serif font-semibold tracking-wider text-espresso dark:text-ivory hidden sm:block">ANGKOR FORMAL</h1>
+            </div>
+            <div class="h-4 w-[1px] bg-[#E8E0D2] dark:bg-neutral-800 hidden md:block"></div>
+            <span id="current-store-badge" class="bg-[#FAF7F1] dark:bg-neutral-900 text-bronze dark:text-champagne text-[10px] sm:text-xs font-medium px-2.5 py-1 rounded border border-[#E8E0D2] dark:border-neutral-800">Store A: Central Flagship</span>
+            <span class="hidden xl:inline-block bg-green-50 text-green-700 text-xs px-2.5 py-1 rounded border border-green-200 font-medium">● Cloud Sync Active</span>
+        </div>
+
+        <div class="flex items-center space-x-2 shrink-0">
+            <button onclick="toggleDarkMode()" class="text-bronze hover:text-espresso dark:hover:text-champagne px-2.5 py-1.5 rounded text-xs font-medium border border-[#E8E0D2] dark:border-neutral-800 transition" id="mode-toggle-btn">Theme</button>
+            <button onclick="toggleLanguage()" class="text-bronze hover:text-espresso dark:hover:text-champagne px-2.5 py-1.5 rounded text-xs font-medium border border-[#E8E0D2] dark:border-neutral-800 transition" id="lang-toggle-btn">🇰🇭 ខ្មែរ</button>
+            
+            <div class="text-xs text-[#6B6259] dark:text-taupe bg-[#FAF7F1] dark:bg-neutral-900 px-3 py-1.5 rounded border border-[#E8E0D2] dark:border-neutral-800 hidden sm:flex items-center space-x-1.5">
+                <span id="lbl-user-title">User:</span>
+                <span id="logged-in-user" class="font-bold text-espresso dark:text-ivory">Vibol Ouk (Owner)</span>
+            </div>
+            
+            <button onclick="switchUserRole()" class="text-bronze hover:text-espresso dark:hover:text-champagne px-2.5 py-1.5 rounded text-xs font-medium border border-[#E8E0D2] dark:border-neutral-800 transition">Switch</button>
+
+            <div class="hidden md:flex items-center space-x-1 pl-2 border-l border-[#E8E0D2] dark:border-neutral-800" id="desktop-nav-container"></div>
+        </div>
+    </header>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-brownBlack border-t border-[#E8E0D2] dark:border-[#2A231C] grid grid-cols-4 gap-1 px-2 py-2 z-40 shadow-lg" id="mobile-nav-container"></nav>
+
+    <!-- Main Content Workspace -->
+    <main class="flex-1 p-3 sm:p-6 max-w-7xl mx-auto w-full">
+
+        <!-- ========================================== -->
+        <!-- POS REGISTER TAB                           -->
+        <!-- ========================================== -->
+        <div id="tab-pos" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2.5 bg-white dark:bg-brownBlack p-4 rounded border border-[#E8E0D2] dark:border-[#2A231C]">
+                        <h2 class="text-lg font-serif font-semibold text-espresso dark:text-ivory" data-i18n="catalog_title">Suit & Garment Catalog</h2>
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                            <select id="catalog-category-filter" onchange="renderCatalog()" class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-1.5 text-xs text-espresso dark:text-ivory focus:outline-none focus:border-bronze">
+                                <option value="ALL">All Categories</option>
+                                <option value="Suits">Suits</option>
+                                <option value="Tuxedos">Tuxedos</option>
+                                <option value="Shirts">Dress Shirts</option>
+                                <option value="Trousers">Trousers</option>
+                                <option value="Accessories">Accessories</option>
+                            </select>
+                            <input type="text" id="product-search" placeholder="Search by name, SKU..." oninput="renderCatalog()" class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-1.5 text-xs sm:text-sm focus:outline-none focus:border-bronze w-full sm:w-56 text-espresso dark:text-ivory">
+                        </div>
+                    </div>
+                    <div id="catalog-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4"></div>
+                </div>
+
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 flex flex-col justify-between shadow-sm h-fit lg:sticky lg:top-20">
+                    <div>
+                        <div class="flex justify-between items-center pb-3 border-b border-[#E8E0D2] dark:border-neutral-800 mb-4">
+                            <h3 class="font-serif font-semibold text-base text-espresso dark:text-ivory" data-i18n="cart_title">Current Fitting Cart</h3>
+                            <button onclick="clearCart()" class="text-xs text-red-700 hover:underline font-medium" data-i18n="cart_clear">Clear</button>
+                        </div>
+
+                        <div class="mb-4 bg-[#FAF7F1] dark:bg-neutral-900 p-3 rounded border border-[#E8E0D2] dark:border-neutral-800 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="label-caps text-[#6B6259] dark:text-taupe text-[10px]" data-i18n="client_profile">Client Profile</span>
+                                <button onclick="openCustomerModal()" class="text-xs text-bronze hover:underline font-medium" data-i18n="link_phone">+ Edit Client / Size</button>
+                            </div>
+                            <div id="cart-customer-summary" class="text-xs sm:text-sm font-medium text-espresso dark:text-ivory truncate">Walk-in Customer (012 345 678)</div>
+                            <div id="cart-customer-measurements" class="text-[11px] text-[#6B6259] dark:text-taupe font-mono bg-white dark:bg-brownBlack px-2.5 py-1.5 rounded border border-[#E8E0D2] dark:border-neutral-800 overflow-x-auto whitespace-nowrap tabular-nums">
+                                Chest: 40" | Waist: 34" | Shoulder: 18.5" | Sleeve: 25"
+                            </div>
+                            <div class="flex justify-between items-center pt-1">
+                                <span class="text-xs text-[#6B6259] dark:text-taupe">Assign Tailor:</span>
+                                <select id="cart-tailor-select" class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-neutral-800 rounded px-2 py-1 text-xs text-espresso dark:text-ivory font-medium">
+                                    <option value="Master Sok Leap">Master Sok Leap</option>
+                                    <option value="Tailor Chan Vicheka">Tailor Chan Vicheka</option>
+                                    <option value="Tailor Measrith">Tailor Measrith</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="cart-items-list" class="space-y-2.5 max-h-56 overflow-y-auto mb-4 pr-1 tabular-nums"></div>
+                    </div>
+
+                    <div>
+                        <div class="bg-[#FAF7F1] dark:bg-neutral-900 p-3 rounded border border-[#E8E0D2] dark:border-neutral-800 mb-4 space-y-2">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-[#6B6259] dark:text-taupe" data-i18n="courtesy_discount">Courtesy Discount ($):</span>
+                                <input type="number" id="discount-input" value="0" min="0" oninput="renderCart()" class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-neutral-800 w-24 text-right px-2 py-1 rounded text-sm text-espresso dark:text-ivory font-medium tabular-nums">
+                            </div>
+                            <div id="discount-approval-status" class="text-[11px] sm:text-xs text-green-700 font-medium">✓ Within Cashier Limit ($15 max)</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <span class="label-caps text-[#6B6259] dark:text-taupe block mb-1.5 text-[10px]">Payment Method</span>
+                            <div class="grid grid-cols-3 gap-2 text-xs font-medium">
+                                <button type="button" onclick="selectTender('ABA KHQR')" id="btn-tender-aba" class="py-2.5 px-2 rounded border border-gold bg-[#FAF7F1] dark:bg-neutral-900 text-espresso dark:text-ivory transition">📱 ABA</button>
+                                <button type="button" onclick="selectTender('Cash USD')" id="btn-tender-usd" class="py-2.5 px-2 rounded border border-[#E8E0D2] dark:border-neutral-800 bg-white dark:bg-brownBlack text-[#6B6259] dark:text-taupe transition">💵 USD</button>
+                                <button type="button" onclick="selectTender('Cash KHR')" id="btn-tender-khr" class="py-2.5 px-2 rounded border border-[#E8E0D2] dark:border-neutral-800 bg-white dark:bg-brownBlack text-[#6B6259] dark:text-taupe transition">🇰🇭 KHR</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5 text-sm border-t border-[#E8E0D2] dark:border-neutral-800 pt-3 mb-4 tabular-nums">
+                            <div class="flex justify-between text-[#6B6259] dark:text-taupe text-xs sm:text-sm">
+                                <span data-i18n="subtotal">Subtotal:</span>
+                                <span id="cart-subtotal">$0.00</span>
+                            </div>
+                            <div class="flex justify-between text-[#6B6259] dark:text-taupe text-xs sm:text-sm">
+                                <span data-i18n="discount">Discount:</span>
+                                <span id="cart-discount-total">-$0.00</span>
+                            </div>
+                            <div class="flex justify-between font-semibold text-base sm:text-lg text-espresso dark:text-ivory pt-1 border-t border-[#E8E0D2] dark:border-neutral-800">
+                                <span data-i18n="total_due">Total Due:</span>
+                                <span id="cart-grand-total">$0.00</span>
+                            </div>
+                            <div class="flex justify-between text-xs text-bronze dark:text-champagne font-mono">
+                                <span data-i18n="est_khr">Estimated KHR:</span>
+                                <span id="cart-grand-total-khr">៛0</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <button onclick="initiateCheckout('Full')" class="btn-gold py-3 px-3 text-xs" data-i18n="pay_full">Pay Full</button>
+                            <button onclick="initiateCheckout('Deposit')" class="btn-gold py-3 px-3 text-xs" data-i18n="custom_deposit">Custom Deposit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAILOR KANBAN TAB (DRAG & DROP + BUTTONS)  -->
+        <!-- ========================================== -->
+        <div id="tab-kanban" class="tab-content space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                <h2 class="text-base sm:text-lg font-serif font-semibold text-espresso dark:text-ivory" data-i18n="kanban_main_title">Tailoring & Alterations Workflow</h2>
+                <span class="text-xs bg-[#FAF7F1] dark:bg-neutral-900 text-bronze dark:text-champagne border border-[#E8E0D2] dark:border-neutral-800 px-3 py-1 rounded font-medium w-fit">Drag cards or use buttons to move stages</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Column 0 -->
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 flex flex-col min-h-[420px]">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-[#E8E0D2] dark:border-neutral-800">
+                        <h3 class="font-semibold text-xs sm:text-sm text-bronze dark:text-champagne" data-i18n="col_awaiting">1. Awaiting Measurement</h3>
+                        <span id="count-stage-0" class="text-xs bg-[#FAF7F1] dark:bg-neutral-900 text-espresso dark:text-ivory px-2 py-0.5 rounded font-medium tabular-nums">0</span>
+                    </div>
+                    <div id="kanban-queue" class="kanban-dropzone space-y-3 overflow-y-auto flex-1 pr-1" ondragover="allowDrop(event)" ondragleave="removeDragOver(event)" ondrop="dropCard(event, 0)"></div>
+                </div>
+                <!-- Column 1 -->
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 flex flex-col min-h-[420px]">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-[#E8E0D2] dark:border-neutral-800">
+                        <h3 class="font-semibold text-xs sm:text-sm text-blue-700 dark:text-blue-400" data-i18n="col_tailoring">2. In Tailoring / Alteration</h3>
+                        <span id="count-stage-1" class="text-xs bg-[#FAF7F1] dark:bg-neutral-900 text-espresso dark:text-ivory px-2 py-0.5 rounded font-medium tabular-nums">0</span>
+                    </div>
+                    <div id="kanban-tailoring" class="kanban-dropzone space-y-3 overflow-y-auto flex-1 pr-1" ondragover="allowDrop(event)" ondragleave="removeDragOver(event)" ondrop="dropCard(event, 1)"></div>
+                </div>
+                <!-- Column 2 -->
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 flex flex-col min-h-[420px]">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-[#E8E0D2] dark:border-neutral-800">
+                        <h3 class="font-semibold text-xs sm:text-sm text-bronze dark:text-champagne" data-i18n="col_fitting">3. Ready for Final Fitting</h3>
+                        <span id="count-stage-2" class="text-xs bg-[#FAF7F1] dark:bg-neutral-900 text-espresso dark:text-ivory px-2 py-0.5 rounded font-medium tabular-nums">0</span>
+                    </div>
+                    <div id="kanban-fitting" class="kanban-dropzone space-y-3 overflow-y-auto flex-1 pr-1" ondragover="allowDrop(event)" ondragleave="removeDragOver(event)" ondrop="dropCard(event, 2)"></div>
+                </div>
+                <!-- Column 3 -->
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 flex flex-col min-h-[420px]">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-[#E8E0D2] dark:border-neutral-800">
+                        <h3 class="font-semibold text-xs sm:text-sm text-green-700 dark:text-green-400" data-i18n="col_completed">4. Completed & Delivered</h3>
+                        <span id="count-stage-3" class="text-xs bg-[#FAF7F1] dark:bg-neutral-900 text-espresso dark:text-ivory px-2 py-0.5 rounded font-medium tabular-nums">0</span>
+                    </div>
+                    <div id="kanban-completed" class="kanban-dropzone space-y-3 overflow-y-auto flex-1 pr-1" ondragover="allowDrop(event)" ondragleave="removeDragOver(event)" ondrop="dropCard(event, 3)"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- OWNER COMMAND CENTER TAB                   -->
+        <!-- ========================================== -->
+        <div id="tab-owner" class="tab-content hidden space-y-5 sm:space-y-6">
+            <div class="flex flex-col md:flex-row justify-between md:items-center gap-3">
+                <div>
+                    <h2 class="text-lg sm:text-xl font-serif font-semibold text-espresso dark:text-ivory" data-i18n="owner_title">Owner Command Center & Executive Intelligence</h2>
+                    <p class="text-xs text-[#6B6259] dark:text-taupe">Real-time multi-store visual analytics, inventory matrix, and financial ledgers.</p>
+                </div>
+                <div class="flex items-center flex-wrap gap-2">
+                    <select id="analytics-timeframe" onchange="refreshOwnerDashboard()" class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-xs text-bronze dark:text-champagne font-medium flex-1 sm:flex-none">
+                        <option value="weekly" data-i18n="tf_weekly">Weekly View</option>
+                        <option value="monthly" selected data-i18n="tf_monthly">Monthly View</option>
+                        <option value="yearly" data-i18n="tf_yearly">Yearly View</option>
+                        <option value="custom" data-i18n="tf_custom">Custom Month-to-Month</option>
+                    </select>
+                    <div id="custom-month-wrapper" class="hidden flex items-center space-x-1 bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-neutral-800 rounded px-2 py-1.5 w-full sm:w-auto">
+                        <input type="month" id="analytics-custom-from" onchange="refreshOwnerDashboard()" class="bg-transparent text-xs text-espresso dark:text-ivory w-full">
+                        <span class="text-xs text-[#6B6259] dark:text-taupe">to</span>
+                        <input type="month" id="analytics-custom-to" onchange="refreshOwnerDashboard()" class="bg-transparent text-xs text-espresso dark:text-ivory w-full">
+                    </div>
+                    <button onclick="exportDataJSON()" class="bg-white dark:bg-brownBlack hover:bg-[#FAF7F1] dark:hover:bg-neutral-900 text-espresso dark:text-ivory px-3 py-2 rounded text-xs font-medium border border-[#E8E0D2] dark:border-neutral-800" data-i18n="btn_backup">Backup (.JSON)</button>
+                    <button onclick="triggerShiftAudit()" class="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded text-xs font-medium transition" data-i18n="btn_audit">Blind Shift Audit</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 tabular-nums">
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-3.5 sm:p-4 shadow-sm">
+                    <div class="label-caps text-[#6B6259] dark:text-taupe text-[10px] sm:text-[11px] truncate" data-i18n="kpi_profit">True Net Profit</div>
+                    <div id="kpi-net-profit" class="text-lg sm:text-2xl font-serif font-semibold text-green-700 dark:text-green-400 mt-1">$0.00</div>
+                    <div class="text-[10px] sm:text-[11px] text-[#6B6259] dark:text-taupe mt-0.5 truncate">After COGS & Petty Cash</div>
+                </div>
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-3.5 sm:p-4 shadow-sm">
+                    <div class="flex justify-between items-center gap-1">
+                        <span class="label-caps text-[#6B6259] dark:text-taupe text-[10px] sm:text-[11px] truncate" data-i18n="kpi_sales">Period Sales</span>
+                        <span id="trend-growth-badge" class="text-[10px] font-medium bg-green-50 text-green-700 px-1.5 py-0.5 rounded shrink-0">+14%</span>
+                    </div>
+                    <div id="kpi-total-sales" class="text-lg sm:text-2xl font-serif font-semibold text-bronze dark:text-champagne mt-1">$0.00</div>
+                    <div id="kpi-sales-compare" class="text-[10px] sm:text-[11px] text-[#6B6259] dark:text-taupe mt-0.5 truncate">vs. $0.00 prior period</div>
+                </div>
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-3.5 sm:p-4 shadow-sm">
+                    <div class="label-caps text-[#6B6259] dark:text-taupe text-[10px] sm:text-[11px] truncate" data-i18n="kpi_pending">Pending Balances</div>
+                    <div id="kpi-pending-deposits" class="text-lg sm:text-2xl font-serif font-semibold text-blue-700 dark:text-blue-400 mt-1">$0.00</div>
+                    <div class="text-[10px] sm:text-[11px] text-[#6B6259] dark:text-taupe mt-0.5 truncate">Uncollected deposits</div>
+                </div>
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-3.5 sm:p-4 shadow-sm">
+                    <div class="label-caps text-[#6B6259] dark:text-taupe text-[10px] sm:text-[11px] truncate" data-i18n="kpi_inventory">Inventory Value</div>
+                    <div id="kpi-inventory-val" class="text-lg sm:text-2xl font-serif font-semibold text-espresso dark:text-ivory mt-1">$0.00</div>
+                    <div class="text-[10px] sm:text-[11px] text-[#6B6259] dark:text-taupe mt-0.5 truncate">Across Stores A–D</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+                <div class="lg:col-span-7 bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 shadow-sm flex flex-col justify-between space-y-5">
+                    <div>
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-3 border-b border-[#E8E0D2] dark:border-neutral-800">
+                            <div>
+                                <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory" data-i18n="multi_store_title">Multi-Store Visual Revenue & Profit Chart</h3>
+                                <p class="text-xs text-[#6B6259] dark:text-taupe" data-i18n="multi_store_sub">Side-by-side showroom performance across Store A, B, C & D</p>
+                            </div>
+                            <div class="flex items-center space-x-3 text-[11px] font-medium">
+                                <span class="flex items-center gap-1 text-bronze dark:text-champagne"><span class="w-2.5 h-2.5 rounded-sm bg-bronze inline-block"></span> Revenue</span>
+                                <span class="flex items-center gap-1 text-green-700"><span class="w-2.5 h-2.5 rounded-sm bg-green-700 inline-block"></span> Profit</span>
+                                <span class="flex items-center gap-1 text-[#6B6259]"><span class="w-2.5 h-2.5 rounded-sm bg-[#E8E0D2] inline-block"></span> Target</span>
+                            </div>
+                        </div>
+
+                        <div id="branch-bar-chart" class="mt-4 h-44 pt-4 pb-2 px-1 sm:px-4 border-b border-[#E8E0D2] dark:border-neutral-800 grid grid-cols-4 gap-2 sm:gap-6 items-end tabular-nums"></div>
+                    </div>
+
+                    <div>
+                        <div class="label-caps text-[#6B6259] dark:text-taupe mb-2.5 text-[10px]">Payment Tender Distribution</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 tabular-nums">
+                            <div class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded p-3">
+                                <div class="flex justify-between text-[11px] font-medium text-blue-700 dark:text-blue-400"><span>ABA KHQR</span><span>📱</span></div>
+                                <div id="tender-aba" class="text-base sm:text-lg font-serif font-semibold text-espresso dark:text-ivory mt-1">$0.00</div>
+                                <div id="tender-aba-share" class="text-[10px] text-[#6B6259] dark:text-taupe mt-0.5">0% share</div>
+                            </div>
+                            <div class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded p-3">
+                                <div class="flex justify-between text-[11px] font-medium text-green-700 dark:text-green-400"><span>CASH (USD)</span><span>💵</span></div>
+                                <div id="tender-usd" class="text-base sm:text-lg font-serif font-semibold text-espresso dark:text-ivory mt-1">$0.00</div>
+                                <div class="text-[10px] text-[#6B6259] dark:text-taupe mt-0.5">Drawer USD</div>
+                            </div>
+                            <div class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded p-3">
+                                <div class="flex justify-between text-[11px] font-medium text-bronze dark:text-champagne"><span>CASH (KHR)</span><span>🇰🇭</span></div>
+                                <div id="tender-khr" class="text-base sm:text-lg font-serif font-semibold text-espresso dark:text-ivory mt-1">៛0</div>
+                                <div id="tender-khr-usd" class="text-[10px] text-[#6B6259] dark:text-taupe mt-0.5">≈ $0.00</div>
+                            </div>
+                            <div class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded p-3">
+                                <div class="flex justify-between text-[11px] font-medium text-espresso dark:text-ivory"><span>DEPOSITS</span><span>✂️</span></div>
+                                <div id="tender-deposits" class="text-base sm:text-lg font-serif font-semibold text-espresso dark:text-ivory mt-1">$0.00</div>
+                                <div class="text-[10px] text-[#6B6259] dark:text-taupe mt-0.5">Custom Bookings</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5 bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 shadow-sm flex flex-col justify-between tabular-nums">
+                    <div>
+                        <div class="flex justify-between items-center pb-3 border-b border-[#E8E0D2] dark:border-neutral-800 mb-3">
+                            <div>
+                                <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory">Branch Quota Leaderboard</h3>
+                                <p id="total-quota-attainment" class="text-xs text-green-700 dark:text-green-400 font-medium">Attainment: 0% of monthly target</p>
+                            </div>
+                            <span class="text-xs bg-[#FAF7F1] dark:bg-neutral-900 text-bronze dark:text-champagne px-2.5 py-1 rounded border border-[#E8E0D2] dark:border-neutral-800 font-medium">Live Ranking</span>
+                        </div>
+                        <div id="branch-leaderboard-list" class="space-y-2.5"></div>
+                    </div>
+                    <div class="pt-3 border-t border-[#E8E0D2] dark:border-neutral-800 flex justify-between text-xs font-medium mt-4">
+                        <span class="text-[#6B6259] dark:text-taupe">Monthly Target: <strong class="text-espresso dark:text-ivory">$25,000.00</strong></span>
+                        <span class="text-green-700 dark:text-green-400" id="leaderboard-total-attained">Attained: $0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+                <div class="lg:col-span-5 bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 shadow-sm flex flex-col justify-between tabular-nums">
+                    <div>
+                        <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory pb-2 border-b border-[#E8E0D2] dark:border-neutral-800">Sales by Garment Category</h3>
+                        <p class="text-xs text-[#6B6259] dark:text-taupe mt-1 mb-4">Revenue & unit share across suits, tuxedos, shirts & accessories.</p>
+                        <div id="category-sales-list" class="space-y-3.5"></div>
+                    </div>
+                    <div class="pt-3 border-t border-[#E8E0D2] dark:border-neutral-800 flex justify-between text-xs text-[#6B6259] dark:text-taupe mt-4">
+                        <span>Product Mix:</span>
+                        <span class="text-espresso dark:text-ivory font-medium">68% Ready-to-Wear • 32% Bespoke</span>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-7 bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 shadow-sm space-y-3 tabular-nums">
+                    <div class="flex justify-between items-center pb-2 border-b border-[#E8E0D2] dark:border-neutral-800">
+                        <div>
+                            <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory">Size & Color Inventory Matrix</h3>
+                            <p class="text-xs text-[#6B6259] dark:text-taupe">Tap any size cell to replenish stock. Red = ≤ 3 units left.</p>
+                        </div>
+                        <span id="matrix-low-stock-pill" class="bg-red-50 text-red-700 border border-red-200 text-[11px] px-2.5 py-0.5 rounded font-medium shrink-0">LOW STOCK</span>
+                    </div>
+                    <div class="overflow-x-auto -mx-2 px-2">
+                        <table class="w-full text-center text-xs min-w-[480px]">
+                            <thead>
+                                <tr class="border-b border-[#E8E0D2] dark:border-neutral-800 text-[#6B6259] dark:text-taupe uppercase">
+                                    <th class="py-2 text-left">Colorway</th>
+                                    <th class="py-2">46R</th>
+                                    <th class="py-2">48R</th>
+                                    <th class="py-2">50R</th>
+                                    <th class="py-2">52R</th>
+                                    <th class="py-2">54R</th>
+                                    <th class="py-2">56L</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-matrix-tbody" class="divide-y divide-[#E8E0D2] dark:divide-neutral-800 font-medium"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 shadow-sm space-y-4 tabular-nums">
+                <div class="flex flex-col md:flex-row justify-between md:items-center gap-3 pb-3 border-b border-[#E8E0D2] dark:border-neutral-800">
+                    <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory" data-i18n="ledger_title">Multi-Store Master Ledger & Receipts</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs w-full md:w-auto">
+                        <input type="text" id="ledger-search" oninput="refreshOwnerDashboard()" placeholder="Search Receipt ID, Client..." class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 sm:py-1.5 text-espresso dark:text-ivory w-full">
+                        <select id="ledger-filter-store" onchange="refreshOwnerDashboard()" class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-2.5 py-2 sm:py-1.5 text-espresso dark:text-ivory w-full">
+                            <option value="ALL" data-i18n="opt_all_stores">All Stores (Phnom Penh)</option>
+                            <option value="Store A">Store A: Central Flagship</option>
+                            <option value="Store B">Store B: TK Avenue Branch</option>
+                            <option value="Store C">Store C: BKK1 Showroom</option>
+                            <option value="Store D">Store D: Sen Sok Warehouse</option>
+                        </select>
+                        <select id="ledger-filter-payment" onchange="refreshOwnerDashboard()" class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-2.5 py-2 sm:py-1.5 text-espresso dark:text-ivory w-full">
+                            <option value="ALL" data-i18n="opt_all_pay">All Payments</option>
+                            <option value="Full" data-i18n="opt_full">Paid in Full</option>
+                            <option value="Deposit" data-i18n="opt_deposit">Deposit Partial</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-80 overflow-y-auto -mx-2 px-2">
+                    <table class="w-full text-left text-xs whitespace-nowrap min-w-[640px]">
+                        <thead>
+                            <tr class="border-b border-[#E8E0D2] dark:border-neutral-800 text-[#6B6259] dark:text-taupe uppercase sticky top-0 bg-white dark:bg-brownBlack">
+                                <th class="pb-3 pr-3" data-i18n="th_receipt">Receipt ID</th>
+                                <th class="pb-3 px-2" data-i18n="th_store">Store</th>
+                                <th class="pb-3 px-2" data-i18n="th_customer">Customer</th>
+                                <th class="pb-3 px-2">Method</th>
+                                <th class="pb-3 px-2">Paid / Balance</th>
+                                <th class="pb-3 px-2" data-i18n="th_total">Total ($ / ៛)</th>
+                                <th class="pb-3 px-2" data-i18n="th_status">Status</th>
+                                <th class="pb-3 pl-2 text-right" data-i18n="th_actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="owner-ledger-body" class="divide-y divide-[#E8E0D2] dark:divide-neutral-800"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 tabular-nums">
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center border-b border-[#E8E0D2] dark:border-neutral-800 pb-2">
+                        <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory" data-i18n="petty_title">Petty Cash & Store Expense Log</h3>
+                        <span id="total-expense-display" class="text-xs font-mono text-red-700 font-medium">Total Expenses: $0.00</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input type="text" id="expense-reason" placeholder="Expense description..." class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-xs text-espresso dark:text-ivory">
+                        <input type="number" id="expense-amount" placeholder="Amount ($)" class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-xs text-espresso dark:text-ivory">
+                        <button onclick="logPettyCashExpense()" class="btn-gold py-2 text-xs" data-i18n="btn_log_exp">Log Expense</button>
+                    </div>
+                    <div id="expense-list-container" class="space-y-2 max-h-36 overflow-y-auto text-xs pr-1"></div>
+                </div>
+
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 shadow-sm space-y-4">
+                    <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory pb-2 border-b border-[#E8E0D2] dark:border-neutral-800" data-i18n="tailor_comm_title">Tailor Piece-Rate Commission Ledger ($15/Suit)</h3>
+                    <div class="overflow-x-auto max-h-48 overflow-y-auto">
+                        <table class="w-full text-left text-xs whitespace-nowrap">
+                            <thead>
+                                <tr class="border-b border-[#E8E0D2] dark:border-neutral-800 text-[#6B6259] dark:text-taupe uppercase">
+                                    <th class="pb-2" data-i18n="th_tailor">Tailor Name</th>
+                                    <th class="pb-2" data-i18n="th_suits">Completed Suits</th>
+                                    <th class="pb-2 text-right" data-i18n="th_comm">Commission Due ($)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tailor-commission-tbody" class="divide-y divide-[#E8E0D2] dark:divide-neutral-800 font-medium"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SETTINGS TAB                               -->
+        <!-- ========================================== -->
+        <div id="tab-settings" class="tab-content hidden space-y-5 sm:space-y-6">
+            <h2 class="text-lg sm:text-xl font-serif font-semibold text-espresso dark:text-ivory" data-i18n="settings_title">Store & System Configuration</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 space-y-4 shadow-sm md:col-span-2">
+                    <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory pb-2 border-b border-[#E8E0D2] dark:border-neutral-800">Staff Role Permissions & Feature Access Rights</h3>
+                    <p class="text-xs text-[#6B6259] dark:text-taupe">As Owner, you can enable or disable what features Cashiers and Managers are allowed to access across the app.</p>
+                    <div class="overflow-x-auto -mx-2 px-2">
+                        <table class="w-full text-left text-xs sm:text-sm whitespace-nowrap min-w-[500px]">
+                            <thead>
+                                <tr class="border-b border-[#E8E0D2] dark:border-neutral-800 text-[#6B6259] dark:text-taupe text-xs uppercase">
+                                    <th class="pb-2 pr-3">Role</th>
+                                    <th class="pb-2 px-2 text-center">POS Register</th>
+                                    <th class="pb-2 px-2 text-center">Tailor Kanban</th>
+                                    <th class="pb-2 px-2 text-center">Owner Command</th>
+                                    <th class="pb-2 pl-2 text-center">Settings</th>
+                                </tr>
+                            </thead>
+                            <tbody id="permissions-tbody" class="divide-y divide-[#E8E0D2] dark:divide-neutral-800 font-medium"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 space-y-4 shadow-sm">
+                    <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory pb-2 border-b border-[#E8E0D2] dark:border-neutral-800" data-i18n="branch_title">Branch & ABA KHQR Configuration</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs text-[#6B6259] dark:text-taupe" data-i18n="branch_lbl">Current Operating Store</label>
+                            <select id="setting-store-select" onchange="changeActiveStore(this.value)" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-sm mt-1 focus:outline-none focus:border-bronze text-espresso dark:text-ivory">
+                                <option value="Store A">Store A: Central Flagship (Phnom Penh)</option>
+                                <option value="Store B">Store B: TK Avenue Branch</option>
+                                <option value="Store C">Store C: BKK1 Showroom</option>
+                                <option value="Store D">Store D: Sen Sok Warehouse Outlet</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-[#E8E0D2] dark:border-neutral-800">
+                            <div>
+                                <label class="text-xs text-[#6B6259] dark:text-taupe">ABA Merchant Name</label>
+                                <input type="text" id="aba-merchant-name" placeholder="VIBOL OUK" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-xs mt-1 text-espresso dark:text-ivory">
+                            </div>
+                            <div>
+                                <label class="text-xs text-[#6B6259] dark:text-taupe">ABA Account ID</label>
+                                <input type="text" id="aba-account-num" placeholder="000 888 999" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-xs mt-1 font-mono text-espresso dark:text-ivory">
+                            </div>
+                        </div>
+                        <button onclick="saveAbaSettings()" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 hover:bg-[#E8E0D2] text-espresso dark:text-ivory font-medium py-2.5 rounded text-xs transition border border-[#E8E0D2] dark:border-neutral-800">Save ABA KHQR Details</button>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 space-y-4 shadow-sm">
+                    <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory pb-2 border-b border-[#E8E0D2] dark:border-neutral-800" data-i18n="add_item_title">+ Add New Garment to Catalog</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs text-[#6B6259] dark:text-taupe" data-i18n="item_name_lbl">Garment Name</label>
+                            <input type="text" id="new-item-name" placeholder="e.g. Italian Wool Tuxedo Size 52" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-sm mt-1 text-espresso dark:text-ivory">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div>
+                                <label class="text-xs text-[#6B6259] dark:text-taupe">Category</label>
+                                <select id="new-item-category" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-2 py-2 text-sm mt-1 text-espresso dark:text-ivory">
+                                    <option value="Suits">Suits</option>
+                                    <option value="Tuxedos">Tuxedos</option>
+                                    <option value="Shirts">Shirts</option>
+                                    <option value="Trousers">Trousers</option>
+                                    <option value="Accessories">Accessories</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-[#6B6259] dark:text-taupe" data-i18n="item_price_lbl">Retail Price ($)</label>
+                                <input type="number" id="new-item-price" placeholder="125.00" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-sm mt-1 text-espresso dark:text-ivory">
+                            </div>
+                            <div>
+                                <label class="text-xs text-[#6B6259] dark:text-taupe" data-i18n="item_cost_lbl">Factory COGS ($)</label>
+                                <input type="number" id="new-item-cost" placeholder="45.00" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-sm mt-1 text-espresso dark:text-ivory">
+                            </div>
+                        </div>
+                        <button onclick="addNewGarment()" class="btn-gold w-full py-2.5 text-sm" data-i18n="btn_save_item">Save to Catalog</button>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 space-y-4 shadow-sm md:col-span-2">
+                    <div class="flex justify-between items-center border-b border-[#E8E0D2] dark:border-neutral-800 pb-2">
+                        <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory" data-i18n="tg_title">Telegram Instant Sales Alert Setup</h3>
+                        <button onclick="testTelegramAlert()" class="text-xs bg-[#FAF7F1] dark:bg-neutral-900 hover:bg-[#E8E0D2] text-espresso dark:text-ivory px-3 py-1 rounded border border-[#E8E0D2] dark:border-neutral-800 font-medium shrink-0">Send Test Alert</button>
+                    </div>
+                    <p class="text-xs text-[#6B6259] dark:text-taupe" data-i18n="tg_sub">Enter your Telegram Bot Token and Chat ID to receive instant transaction alerts.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-[#6B6259] dark:text-taupe" data-i18n="tg_token_lbl">Telegram Bot Token</label>
+                            <input type="password" id="telegram-bot-token" placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-xs mt-1 text-espresso dark:text-ivory font-mono">
+                        </div>
+                        <div>
+                            <label class="text-xs text-[#6B6259] dark:text-taupe" data-i18n="tg_chat_lbl">Telegram Chat ID</label>
+                            <input type="text" id="telegram-chat-id" placeholder="e.g. 987654321" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 text-xs mt-1 text-espresso dark:text-ivory font-mono">
+                        </div>
+                    </div>
+                    <button onclick="saveTelegramSettings()" class="btn-gold w-full sm:w-auto px-5 py-2.5 text-xs" data-i18n="btn_save_tg">Save Telegram Credentials</button>
+                </div>
+
+                <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded p-4 sm:p-5 space-y-4 shadow-sm md:col-span-2">
+                    <h3 class="font-serif font-semibold text-sm text-espresso dark:text-ivory pb-2 border-b border-[#E8E0D2] dark:border-neutral-800" data-i18n="pin_title">Staff & Store PIN Security Console</h3>
+                    <p class="text-xs text-[#6B6259] dark:text-taupe" data-i18n="pin_sub">Manage, reset, or assign custom PINs for cashiers, managers, and store branches.</p>
+                    <div class="overflow-x-auto -mx-2 px-2">
+                        <table class="w-full text-left text-xs sm:text-sm whitespace-nowrap min-w-[520px]">
+                            <thead>
+                                <tr class="border-b border-[#E8E0D2] dark:border-neutral-800 text-[#6B6259] dark:text-taupe text-xs uppercase">
+                                    <th class="pb-2 pr-3" data-i18n="pin_th_role">Role / Branch</th>
+                                    <th class="pb-2 px-2" data-i18n="pin_th_pin">Current PIN</th>
+                                    <th class="pb-2 px-2" data-i18n="pin_th_new">New PIN</th>
+                                    <th class="pb-2 pl-2 text-right" data-i18n="pin_th_action">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pin-manager-tbody" class="divide-y divide-[#E8E0D2] dark:divide-neutral-800 font-medium"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal 1: ABA KHQR -->
+    <div id="aba-khqr-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded max-w-sm w-full overflow-hidden shadow-xl">
+            <div class="bg-[#005a8c] text-white px-5 py-3.5 flex justify-between items-center">
+                <div>
+                    <div class="font-bold text-base tracking-wide">ABA <span class="text-rose-300">KHQR</span></div>
+                    <div class="text-[11px] text-sky-100">Scan with ABA Mobile or Bakong App</div>
+                </div>
+                <button onclick="closeAbaModal()" class="text-white/80 hover:text-white text-lg font-bold">✕</button>
+            </div>
+            <div class="p-5 text-center space-y-4 tabular-nums">
+                <div class="bg-[#FAF7F1] dark:bg-neutral-900 p-3 rounded border border-[#E8E0D2] dark:border-neutral-800">
+                    <div id="khqr-merchant-title" class="text-xs font-bold text-[#6B6259] dark:text-taupe uppercase">ANGKOR FORMAL (VIBOL OUK)</div>
+                    <div id="khqr-usd-amount" class="text-3xl font-serif font-semibold text-espresso dark:text-ivory mt-1">$0.00</div>
+                    <div id="khqr-khr-amount" class="text-sm font-mono font-medium text-bronze dark:text-champagne mt-0.5">៛0</div>
+                    <div class="text-[11px] text-espresso dark:text-ivory bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-neutral-800 rounded px-2 py-1 mt-2">
+                        Customer: Enter exact amount above in your ABA app and confirm.
+                    </div>
+                </div>
+                <div class="flex justify-center">
+                    <div class="p-3 bg-white border-2 border-bronze rounded shadow-sm">
+                        <img id="khqr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=ABA-KHQR-ANGKOR-FORMAL" alt="ABA KHQR" class="w-40 h-40 sm:w-44 sm:h-44 mx-auto">
+                        <div class="mt-2 text-[10px] font-mono text-espresso font-bold" id="khqr-account-id">ACC: 000 888 999</div>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <button onclick="confirmAbaPayment()" class="btn-gold w-full py-3 text-xs font-medium">
+                        ✓ Payment Confirmed — Print Receipt
+                    </button>
+                    <button onclick="closeAbaModal()" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 hover:bg-[#E8E0D2] text-[#6B6259] dark:text-taupe font-medium py-2.5 rounded text-xs transition border border-[#E8E0D2] dark:border-neutral-800">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Client Profile -->
+    <div id="customer-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] rounded max-w-md w-full p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b border-[#E8E0D2] dark:border-neutral-800 pb-3">
+                <h3 class="font-serif font-semibold text-base text-espresso dark:text-ivory">Client Profile & Suit Measurements</h3>
+                <button onclick="closeCustomerModal()" class="text-[#6B6259] dark:text-taupe hover:text-espresso dark:hover:text-ivory font-bold">✕</button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="font-medium text-[#6B6259] dark:text-taupe">Client Full Name</label>
+                        <input type="text" id="modal-cust-name" placeholder="Oknha Rithy Kem" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 mt-1 text-espresso dark:text-ivory">
+                    </div>
+                    <div>
+                        <label class="font-medium text-[#6B6259] dark:text-taupe">Phone Number</label>
+                        <input type="text" id="modal-cust-phone" placeholder="012 888 999" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-3 py-2 mt-1 text-espresso dark:text-ivory">
+                    </div>
+                </div>
+                <div class="pt-2 border-t border-[#E8E0D2] dark:border-neutral-800 tabular-nums">
+                    <label class="font-medium text-bronze dark:text-champagne uppercase block mb-2">Suit Measurements (Inches)</label>
+                    <div class="grid grid-cols-4 gap-2">
+                        <div>
+                            <label class="text-[#6B6259] dark:text-taupe">Chest</label>
+                            <input type="text" id="modal-m-chest" placeholder="40" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-2 py-1.5 mt-0.5 text-center font-mono text-espresso dark:text-ivory">
+                        </div>
+                        <div>
+                            <label class="text-[#6B6259] dark:text-taupe">Waist</label>
+                            <input type="text" id="modal-m-waist" placeholder="34" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-2 py-1.5 mt-0.5 text-center font-mono text-espresso dark:text-ivory">
+                        </div>
+                        <div>
+                            <label class="text-[#6B6259] dark:text-taupe">Shoulder</label>
+                            <input type="text" id="modal-m-shoulder" placeholder="18.5" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-2 py-1.5 mt-0.5 text-center font-mono text-espresso dark:text-ivory">
+                        </div>
+                        <div>
+                            <label class="text-[#6B6259] dark:text-taupe">Sleeve</label>
+                            <input type="text" id="modal-m-sleeve" placeholder="25" class="w-full bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-2 py-1.5 mt-0.5 text-center font-mono text-espresso dark:text-ivory">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-3 border-t border-[#E8E0D2] dark:border-neutral-800">
+                <button onclick="closeCustomerModal()" class="px-4 py-2 rounded text-xs font-medium text-[#6B6259] dark:text-taupe bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800">Cancel</button>
+                <button onclick="saveCustomerProfile()" class="btn-gold px-5 py-2 text-xs">Save to Cart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Print Area -->
+    <div id="receipt-print-area" class="hidden">
+        <div style="text-align: center; font-weight: bold; font-size: 14px;">ANGKOR FORMAL</div>
+        <div style="text-align: center; font-size: 10px; margin-bottom: 8px;">Premium Suit Tailors & Menswear<br>Phnom Penh, Cambodia</div>
+        <div id="print-receipt-meta" style="font-size: 10px; border-bottom: 1px dashed #0C0A08; padding-bottom: 4px; margin-bottom: 6px;"></div>
+        <div id="print-receipt-items"></div>
+        <div id="print-receipt-totals" style="border-top: 1px dashed #0C0A08; margin-top: 6px; padding-top: 4px; font-size: 11px;"></div>
+        <div style="text-align: center; font-size: 10px; margin-top: 12px;">Thank you for choosing Angkor Formal!<br>Please retain receipt for alterations fitting.</div>
+    </div>
+
+    <!-- Script Engine -->
+    <script>
+        const translations = {
+            en: {
+                nav_pos: "POS Register",
+                nav_kanban: "Tailor Kanban",
+                nav_owner: "Owner Command",
+                nav_settings: "Settings",
+                nav_pos_short: "POS",
+                nav_kanban_short: "Kanban",
+                nav_owner_short: "Owner",
+                nav_settings_short: "Settings",
+                user_title: "User:",
+                switch_role: "Switch",
+                catalog_title: "Suit & Garment Catalog",
+                cart_title: "Current Fitting Cart",
+                cart_clear: "Clear",
+                client_profile: "Client Profile",
+                link_phone: "+ Edit Client / Size",
+                courtesy_discount: "Courtesy Discount ($):",
+                subtotal: "Subtotal:",
+                discount: "Discount:",
+                total_due: "Total Due:",
+                est_khr: "Estimated KHR:",
+                pay_full: "Pay Full",
+                custom_deposit: "Custom Deposit",
+                kanban_main_title: "Tailoring & Alterations Workflow",
+                col_awaiting: "1. Awaiting Measurement",
+                col_tailoring: "2. In Tailoring / Alteration",
+                col_fitting: "3. Ready for Final Fitting",
+                col_completed: "4. Completed & Delivered",
+                owner_title: "Owner Command Center & Executive Intelligence",
+                btn_backup: "Backup (.JSON)",
+                btn_audit: "Blind Shift Audit",
+                kpi_profit: "True Net Profit",
+                kpi_sales: "Period Sales",
+                kpi_pending: "Pending Balances",
+                kpi_inventory: "Inventory Value",
+                multi_store_title: "Multi-Store Visual Revenue & Profit Chart",
+                multi_store_sub: "Side-by-side showroom performance across Store A, B, C & D",
+                tf_weekly: "Weekly View",
+                tf_monthly: "Monthly View",
+                tf_yearly: "Yearly View",
+                tf_custom: "Custom Month-to-Month",
+                ledger_title: "Multi-Store Master Ledger & Receipts",
+                opt_all_stores: "All Stores (Phnom Penh)",
+                opt_all_pay: "All Payments",
+                opt_full: "Paid in Full",
+                opt_deposit: "Deposit Partial",
+                th_receipt: "Receipt ID",
+                th_store: "Store",
+                th_customer: "Customer",
+                th_total: "Total ($ / ៛)",
+                th_status: "Status",
+                th_actions: "Actions",
+                petty_title: "Petty Cash & Store Expense Log",
+                btn_log_exp: "Log Expense",
+                tailor_comm_title: "Tailor Piece-Rate Commission Ledger ($15/Suit)",
+                th_tailor: "Tailor Name",
+                th_suits: "Completed Suits",
+                th_comm: "Commission Due ($)",
+                settings_title: "Store & System Configuration",
+                branch_title: "Branch & ABA KHQR Configuration",
+                branch_lbl: "Current Operating Store",
+                add_item_title: "+ Add New Garment to Catalog",
+                item_name_lbl: "Garment Name",
+                item_price_lbl: "Retail Price ($)",
+                item_cost_lbl: "Factory COGS ($)",
+                btn_save_item: "Save to Catalog",
+                tg_title: "Telegram Instant Sales Alert Setup",
+                tg_sub: "Enter your Telegram Bot Token and Chat ID to receive instant transaction alerts.",
+                tg_token_lbl: "Telegram Bot Token",
+                tg_chat_lbl: "Telegram Chat ID",
+                btn_save_tg: "Save Telegram Credentials",
+                pin_title: "Staff & Store PIN Security Console",
+                pin_sub: "Manage, reset, or assign custom PINs for cashiers, managers, and store branches.",
+                pin_th_role: "Role / Branch",
+                pin_th_pin: "Current PIN",
+                pin_th_new: "New PIN",
+                pin_th_action: "Action"
+            },
+            km: {
+                nav_pos: "ទូទាត់ប្រាក់ (POS)",
+                nav_kanban: "ដេរនិងកែសម្រួល",
+                nav_owner: "ម្ចាស់ហាង",
+                nav_settings: "ការកំណត់",
+                nav_pos_short: "គិតលុយ",
+                nav_kanban_short: "ការងារដេរ",
+                nav_owner_short: "ម្ចាស់ហាង",
+                nav_settings_short: "កំណត់",
+                user_title: "អ្នកប្រើ:",
+                switch_role: "ប្តូរ",
+                catalog_title: "បញ្ជីឈុត និងសំលៀកបំពាក់",
+                cart_title: "កន្ត្រកទំនិញបច្ចុប្បន្ន",
+                cart_clear: "សម្អាត",
+                client_profile: "ព័ត៌មានអតិថិជន",
+                link_phone: "+ កែប្រែអតិថិជន / ទំហំ",
+                courtesy_discount: "ការបញ្ចុះតម្លៃ ($):",
+                subtotal: "សរុបរង:",
+                discount: "បញ្ចុះតម្លៃ:",
+                total_due: "ទឹកប្រាក់ត្រូវបង់សរុប:",
+                est_khr: "ប៉ាន់ស្មានជាប្រាក់រៀល:",
+                pay_full: "បង់ប្រាក់ទាំងអស់",
+                custom_deposit: "បង់ប្រាក់កក់តាមចិត្ត",
+                kanban_main_title: "ដំណើរការដេរ និងកែសម្រួលសំលៀកបំពាក់",
+                col_awaiting: "១. រង់ចាំវាស់ខ្នាត",
+                col_tailoring: "២. កំពុងដេរ / កែសម្រួល",
+                col_fitting: "៣. រង់ចាំសាកល្បងលើកចុងក្រោយ",
+                col_completed: "៤. រួចរាល់និងប្រគល់ជូន",
+                owner_title: "ផ្ទាំងបញ្ជាម្ចាស់ហាង និងទិន្នន័យវិភាគអាជីវកម្ម",
+                btn_backup: "បម្រុងទុក (.JSON)",
+                btn_audit: "ពិនិត្យសាច់ប្រាក់",
+                kpi_profit: "ប្រាក់ចំណេញសុទ្ធ",
+                kpi_sales: "ចំណូលលក់សរុប",
+                kpi_pending: "ទឹកប្រាក់កក់នៅសល់",
+                kpi_inventory: "តម្លៃស្តុកសរុប",
+                multi_store_title: "ក្រាហ្វិកប្រៀបធៀបចំណូល និងប្រាក់ចំណេញតាមសាខា",
+                multi_store_sub: "ប្រៀបធៀបលទ្ធផលលក់រវាងសាខា A, B, C និង D",
+                tf_weekly: "ប្រចាំសប្តាហ៍",
+                tf_monthly: "ប្រចាំខែ",
+                tf_yearly: "ប្រចាំឆ្នាំ",
+                tf_custom: "ជ្រើសរើសខែតាមបំណង",
+                ledger_title: "បញ្ជីប្រតិបត្តិការ និងវិក្កយបត្រសរុប",
+                opt_all_stores: "គ្រប់សាខាទាំងអស់ (ភ្នំពេញ)",
+                opt_all_pay: "គ្រប់ការទូទាត់ទាំងអស់",
+                opt_full: "បង់ផ្តាច់",
+                opt_deposit: "បង់ប្រាក់កក់",
+                th_receipt: "លេខវិក្កយបត្រ",
+                th_store: "សាខា",
+                th_customer: "អតិថិជន",
+                th_total: "សរុប ($ / ៛)",
+                th_status: "ស្ថានភាព",
+                th_actions: "សកម្មភាព",
+                petty_title: "ចំណាយប្រាក់តូចតាចប្រចាំហាង",
+                btn_log_exp: "កត់ត្រាចំណាយ",
+                tailor_comm_title: "បញ្ជីកម្រៃជើងសារជាងដេរ ($15/ឈុត)",
+                th_tailor: "ឈ្មោះជាងដេរ",
+                th_suits: "ចំនួនឈុតរួចរាល់",
+                th_comm: "កម្រៃត្រូវទទួលបាន ($)",
+                settings_title: "ការកំណត់ហាង និងប្រព័ន្ធ",
+                branch_title: "ការជ្រើសរើសសាខា និង ABA KHQR",
+                branch_lbl: "សាខាប្រតិបត្តិការបច្ចុប្បន្ន",
+                add_item_title: "+ បន្ថែមឈុតថ្មីចូលក្នុងបញ្ជី",
+                item_name_lbl: "ឈ្មោះឈុត / សំលៀកបំពាក់",
+                item_price_lbl: "តម្លៃលក់រាយ ($)",
+                item_cost_lbl: "ថ្លៃដើមរោងចក្រ ($)",
+                btn_save_item: "រក្សាទុកក្នុងបញ្ជី",
+                tg_title: "ការកំណត់សារដំណឹង Telegram",
+                tg_sub: "បញ្ចូល Telegram Bot Token និង Chat ID ដើម្បីទទួលបានសារដំណឹងភ្លាមៗនៅពេលមានការលក់កើតឡើង។",
+                tg_token_lbl: "Telegram Bot Token",
+                tg_chat_lbl: "Telegram Chat ID",
+                btn_save_tg: "រក្សាទុកព័ត៌មាន Telegram",
+                pin_title: "ការគ្រប់គ្រងលេខសម្ងាត់ PIN",
+                pin_sub: "កែសម្រួល កំណត់ឡើងវិញ ឬបង្កើតលេខសម្ងាត់ PIN ថ្មីសម្រាប់បុគ្គលិក និងសាខាផ្សេងៗ។",
+                pin_th_role: "តួនាទី / សាខា",
+                pin_th_pin: "លេខសម្ងាត់បច្ចុប្បន្ន",
+                pin_th_new: "លេខសម្ងាត់ថ្មី",
+                pin_th_action: "សកម្មភាព"
+            }
+        };
+
+        let currentLang = 'en';
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'km' : 'en';
+            document.getElementById('lang-toggle-btn').innerText = currentLang === 'en' ? '🇰🇭 ខ្មែរ' : '🇺🇸 EN';
+            applyTranslations();
+        }
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+
+        function applyTranslations() {
+            const dict = translations[currentLang];
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) el.innerText = dict[key];
+            });
+            document.getElementById('lbl-user-title').innerText = dict.user_title;
+        }
+
+        const defaultState = {
+            activeStore: "Store A",
+            currentUser: { name: "Vibol Ouk", role: "Owner" },
+            exchangeRate: 4100,
+            selectedTender: "ABA KHQR",
+            abaConfig: { merchantName: "ANGKOR FORMAL (VIBOL OUK)", accountNumber: "000 888 999" },
+            telegram: { token: "", chatId: "" },
+            pins: {
+                cashier: "1234",
+                manager: "2222",
+                owner: "9999",
+                "Store A": "1111",
+                "Store B": "2221",
+                "Store C": "3331",
+                "Store D": "4441"
+            },
+            permissions: {
+                Owner:   { pos: true, kanban: true, owner: true, settings: true },
+                Manager: { pos: true, kanban: true, owner: true, settings: false },
+                Cashier: { pos: true, kanban: true, owner: false, settings: false }
+            },
+            expenses: [
+                { reason: "Suit Delivery to BKK1", amount: 3.50, time: "09:15 AM" },
+                { reason: "Tailoring Thread & Chalk", amount: 12.00, time: "10:05 AM" }
+            ],
+            catalog: [
+                { id: "S01", name: "Executive Navy Suit (Size 48)", category: "Suits", price: 135.00, cost: 50.00, stock: 12 },
+                { id: "S02", name: "Charcoal Business Suit (Size 50)", category: "Suits", price: 125.00, cost: 45.00, stock: 8 },
+                { id: "S03", name: "Slim Fit Tuxedo (Size 46)", category: "Tuxedos", price: 160.00, cost: 60.00, stock: 5 },
+                { id: "S04", name: "Royal Burgundy 3-Piece Suit (Size 50)", category: "Suits", price: 185.00, cost: 70.00, stock: 6 },
+                { id: "S05", name: "Egyptian Cotton Dress Shirt", category: "Shirts", price: 40.00, cost: 14.00, stock: 25 },
+                { id: "S06", name: "Tailored Gurkha Formal Trousers", category: "Trousers", price: 55.00, cost: 20.00, stock: 14 },
+                { id: "S07", name: "Silk Tie & Pocket Square Set", category: "Accessories", price: 25.00, cost: 8.00, stock: 30 }
+            ],
+            sizeMatrix: [
+                { color: "Midnight Navy", dot: "bg-amber-600", sizes: { "46R": 3, "48R": 1, "50R": 2, "52R": 5, "54R": 4, "56L": 2 } },
+                { color: "Charcoal Grey", dot: "bg-neutral-500", sizes: { "46R": 2, "48R": 4, "50R": 1, "52R": 3, "54R": 2, "56L": 1 } },
+                { color: "Jet Black Tuxedo", dot: "bg-black", sizes: { "46R": 3, "48R": 5, "50R": 4, "52R": 1, "54R": 2, "56L": 2 } },
+                { color: "Royal Burgundy", dot: "bg-red-800", sizes: { "46R": 1, "48R": 2, "50R": 3, "52R": 1, "54R": 4, "56L": 1 } }
+            ],
+            cart: [],
+            activeCustomer: { name: "Walk-in Customer", phone: "012 345 678", chest: "40", waist: "34", shoulder: "18.5", sleeve: "25" },
+            orders: [
+                {
+                    id: "AF-849201",
+                    store: "Store A",
+                    customer: { name: "Oknha Rithy Kem", phone: "012 888 168", chest: "42", waist: "36", shoulder: "19", sleeve: "25.5" },
+                    tailor: "Master Sok Leap",
+                    items: [{ id: "S03", name: "Slim Fit Tuxedo (Size 46)", category: "Tuxedos", price: 160.00, cost: 60.00, qty: 1 }],
+                    subtotal: 160.00,
+                    discount: 0,
+                    total: 160.00,
+                    paidAmount: 160.00,
+                    paymentMethod: "ABA KHQR",
+                    paymentType: "Full",
+                    status: "Awaiting Measurement",
+                    timestamp: new Date().toISOString(),
+                    displayTime: "Today, 09:30 AM"
+                },
+                {
+                    id: "AF-849205",
+                    store: "Store B",
+                    customer: { name: "Vannak Phearum", phone: "017 992 110", chest: "38", waist: "32", shoulder: "17.5", sleeve: "24" },
+                    tailor: "Tailor Chan Vicheka",
+                    items: [{ id: "S01", name: "Executive Navy Suit (Size 48)", category: "Suits", price: 135.00, cost: 50.00, qty: 1 }],
+                    subtotal: 135.00,
+                    discount: 5.00,
+                    total: 130.00,
+                    paidAmount: 65.00,
+                    paymentMethod: "Cash USD",
+                    paymentType: "Deposit ($65.00 paid)",
+                    status: "In Tailoring",
+                    timestamp: new Date().toISOString(),
+                    displayTime: "Today, 09:45 AM"
+                }
+            ]
+        };
+
+        let appState = JSON.parse(localStorage.getItem('angkor_formal_rebrand_v2')) || defaultState;
+        let pendingCheckoutOrder = null;
+
+        function saveStateToLocal() {
+            localStorage.setItem('angkor_formal_rebrand_v2', JSON.stringify(appState));
+        }
+
+        function renderNavigation() {
+            const role = appState.currentUser.role;
+            const rights = appState.permissions[role] || appState.permissions['Cashier'];
+
+            const deskContainer = document.getElementById('desktop-nav-container');
+            const mobContainer = document.getElementById('mobile-nav-container');
+            deskContainer.innerHTML = '';
+            mobContainer.innerHTML = '';
+
+            const navItems = [
+                { id: 'pos', labelKey: 'nav_pos', shortKey: 'nav_pos_short', icon: '🛒', allowed: rights.pos },
+                { id: 'kanban', labelKey: 'nav_kanban', shortKey: 'nav_kanban_short', icon: '✂️', allowed: rights.kanban },
+                { id: 'owner', labelKey: 'nav_owner', shortKey: 'nav_owner_short', icon: '📊', allowed: rights.owner },
+                { id: 'settings', labelKey: 'nav_settings', shortKey: 'nav_settings_short', icon: '⚙️', allowed: rights.settings }
+            ];
+
+            let firstAllowedTab = 'pos';
+            let foundFirst = false;
+
+            navItems.forEach(item => {
+                if (!item.allowed) return;
+                if (!foundFirst) { firstAllowedTab = item.id; foundFirst = true; }
+
+                deskContainer.innerHTML += `
+                    <button onclick="openTab('${item.id}')" id="desk-nav-${item.id}" class="nav-btn text-xs sm:text-sm font-medium px-3 py-1.5 rounded transition text-[#6B6259] dark:text-taupe hover:text-espresso dark:hover:text-ivory" data-i18n="${item.labelKey}">
+                        ${translations[currentLang][item.labelKey]}
+                    </button>
+                `;
+
+                mobContainer.innerHTML += `
+                    <button onclick="openTab('${item.id}')" id="mob-nav-${item.id}" class="mob-nav-btn flex flex-col items-center justify-center py-1.5 rounded text-[#6B6259] dark:text-taupe font-medium text-[10px] transition">
+                        <span class="text-base leading-none mb-0.5">${item.icon}</span>
+                        <span data-i18n="${item.shortKey}">${translations[currentLang][item.shortKey]}</span>
+                    </button>
+                `;
+            });
+
+            const activeTabEl = document.querySelector('.tab-content:not(.hidden)');
+            if (activeTabEl) {
+                const activeId = activeTabEl.id.replace('tab-', '');
+                if (!rights[activeId]) {
+                    openTab(firstAllowedTab);
+                }
+            }
+        }
+
+        function openTab(tabId) {
+            const role = appState.currentUser.role;
+            const rights = appState.permissions[role] || {};
+            if (!rights[tabId]) {
+                return alert(`Access Denied: Your current role (${role}) does not have permission to access this section.`);
+            }
+
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            ['pos', 'kanban', 'owner', 'settings'].forEach(t => {
+                const dBtn = document.getElementById(`desk-nav-${t}`);
+                const mBtn = document.getElementById(`mob-nav-${t}`);
+                if (dBtn) {
+                    if (t === tabId) {
+                        dBtn.className = "nav-btn text-xs sm:text-sm font-semibold px-3 py-1.5 rounded transition text-bronze dark:text-champagne bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800";
+                    } else {
+                        dBtn.className = "nav-btn text-xs sm:text-sm font-medium px-3 py-1.5 rounded transition text-[#6B6259] dark:text-taupe hover:text-espresso dark:hover:text-ivory";
+                    }
+                }
+                if (mBtn) {
+                    if (t === tabId) {
+                        mBtn.className = "mob-nav-btn flex flex-col items-center justify-center py-1.5 rounded text-bronze dark:text-champagne font-semibold text-[10px] transition bg-[#FAF7F1] dark:bg-neutral-900";
+                    } else {
+                        mBtn.className = "mob-nav-btn flex flex-col items-center justify-center py-1.5 rounded text-[#6B6259] dark:text-taupe font-medium text-[10px] transition";
+                    }
+                }
+            });
+
+            if (tabId === 'owner') refreshOwnerDashboard();
+            if (tabId === 'pos') { renderCatalog(); renderCart(); }
+            if (tabId === 'kanban') refreshKanbanBoard();
+            if (tabId === 'settings') renderSettingsConsole();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderCatalog() {
+            const grid = document.getElementById('catalog-grid');
+            const search = (document.getElementById('product-search')?.value || '').toLowerCase();
+            const cat = document.getElementById('catalog-category-filter')?.value || 'ALL';
+            grid.innerHTML = '';
+
+            appState.catalog
+                .filter(item => (cat === 'ALL' || item.category === cat) &&
+                                (item.name.toLowerCase().includes(search) || item.id.toLowerCase().includes(search)))
+                .forEach(item => {
+                    grid.innerHTML += `
+                        <div onclick="addToCart('${item.id}')" class="bg-white dark:bg-brownBlack border border-[#E8E0D2] dark:border-[#2A231C] hover:border-bronze active:scale-[0.98] rounded p-3.5 sm:p-4 cursor-pointer transition shadow-sm flex flex-col justify-between">
+                            <div>
+                                <div class="flex justify-between text-[11px] text-[#6B6259] dark:text-taupe font-mono tabular-nums">
+                                    <span>${item.id}</span>
+                                    <span class="text-bronze dark:text-champagne">${item.category || 'Suits'}</span>
+                                </div>
+                                <div class="font-medium text-xs sm:text-sm text-espresso dark:text-ivory mt-1 leading-snug">${item.name}</div>
+                            </div>
+                            <div class="flex justify-between items-center mt-3.5 pt-2 border-t border-[#E8E0D2] dark:border-neutral-800 tabular-nums">
+                                <span class="font-bold text-sm sm:text-base text-espresso dark:text-ivory">$${item.price.toFixed(2)}</span>
+                                <span class="text-[10px] sm:text-xs bg-[#FAF7F1] dark:bg-neutral-900 px-2 py-0.5 rounded text-[#6B6259] dark:text-taupe border border-[#E8E0D2] dark:border-neutral-800">Stock: ${item.stock}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+        }
+
+        function addToCart(itemId) {
+            const product = appState.catalog.find(p => p.id === itemId);
+            if (!product || product.stock <= 0) return alert("Item out of stock!");
+            const existing = appState.cart.find(i => i.id === itemId);
+            if (existing) existing.qty += 1;
+            else appState.cart.push({ ...product, qty: 1 });
+            renderCart();
+        }
+
+        function renderCart() {
+            const list = document.getElementById('cart-items-list');
+            const c = appState.activeCustomer;
+            document.getElementById('cart-customer-summary').innerText = `${c.name} (${c.phone})`;
+            document.getElementById('cart-customer-measurements').innerText =
+                `Chest: ${c.chest || 40}" | Waist: ${c.waist || 34}" | Shoulder: ${c.shoulder || 18.5}" | Sleeve: ${c.sleeve || 25}"`;
+
+            if (appState.cart.length === 0) {
+                list.innerHTML = `<div class="text-[#6B6259] dark:text-taupe text-xs sm:text-sm text-center py-6">Cart is empty</div>`;
+                updateTotals(0, 0);
+                return;
+            }
+
+            list.innerHTML = '';
+            let subtotal = 0;
+            appState.cart.forEach((item, index) => {
+                subtotal += item.price * item.qty;
+                list.innerHTML += `
+                    <div class="flex justify-between items-center bg-[#FAF7F1] dark:bg-neutral-900 p-2.5 rounded border border-[#E8E0D2] dark:border-neutral-800 text-xs sm:text-sm tabular-nums">
+                        <div class="pr-2">
+                            <div class="font-medium text-espresso dark:text-ivory leading-tight">${item.name}</div>
+                            <div class="text-[11px] text-[#6B6259] dark:text-taupe">$${item.price.toFixed(2)} × ${item.qty}</div>
+                        </div>
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <span class="font-bold text-espresso dark:text-ivory">$${(item.price * item.qty).toFixed(2)}</span>
+                            <button onclick="removeFromCart(${index})" class="text-red-700 text-xs px-1.5 py-0.5 rounded bg-red-50">✕</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const discount = parseFloat(document.getElementById('discount-input').value) || 0;
+            updateTotals(subtotal, discount);
+        }
+
+        function removeFromCart(index) {
+            appState.cart.splice(index, 1);
+            renderCart();
+        }
+
+        function clearCart() {
+            appState.cart = [];
+            document.getElementById('discount-input').value = 0;
+            renderCart();
+        }
+
+        function updateTotals(subtotal, discount) {
+            const grandTotal = Math.max(0, subtotal - discount);
+            const grandTotalKhr = grandTotal * appState.exchangeRate;
+
+            document.getElementById('cart-subtotal').innerText = `$${subtotal.toFixed(2)}`;
+            document.getElementById('cart-discount-total').innerText = `-$${discount.toFixed(2)}`;
+            document.getElementById('cart-grand-total').innerText = `$${grandTotal.toFixed(2)}`;
+            document.getElementById('cart-grand-total-khr').innerText = `៛${grandTotalKhr.toLocaleString()}`;
+
+            const statusEl = document.getElementById('discount-approval-status');
+            if (discount > 15 && appState.currentUser.role === 'Cashier') {
+                statusEl.className = "text-[11px] sm:text-xs text-red-700 font-medium";
+                statusEl.innerText = "Discount exceeds $15 Cashier limit (Manager approval required)";
+            } else {
+                statusEl.className = "text-[11px] sm:text-xs text-green-700 font-medium";
+                statusEl.innerText = "Within authorized limits";
+            }
+        }
+
+        function selectTender(method) {
+            appState.selectedTender = method;
+            const map = { 'ABA KHQR': 'btn-tender-aba', 'Cash USD': 'btn-tender-usd', 'Cash KHR': 'btn-tender-khr' };
+            Object.entries(map).forEach(([key, id]) => {
+                const el = document.getElementById(id);
+                if (key === method) {
+                    el.className = "py-2.5 px-2 rounded border border-gold bg-[#FAF7F1] dark:bg-neutral-900 text-espresso dark:text-ivory transition font-medium";
+                } else {
+                    el.className = "py-2.5 px-2 rounded border border-[#E8E0D2] dark:border-neutral-800 bg-white dark:bg-brownBlack text-[#6B6259] dark:text-taupe transition";
+                }
+            });
+        }
+
+        function openCustomerModal() {
+            const c = appState.activeCustomer;
+            document.getElementById('modal-cust-name').value = c.name === "Walk-in Customer" ? "" : c.name;
+            document.getElementById('modal-cust-phone').value = c.phone;
+            document.getElementById('modal-m-chest').value = c.chest || "40";
+            document.getElementById('modal-m-waist').value = c.waist || "34";
+            document.getElementById('modal-m-shoulder').value = c.shoulder || "18.5";
+            document.getElementById('modal-m-sleeve').value = c.sleeve || "25";
+            document.getElementById('customer-modal').classList.remove('hidden');
+            document.getElementById('customer-modal').classList.add('flex');
+        }
+
+        function closeCustomerModal() {
+            document.getElementById('customer-modal').classList.add('hidden');
+            document.getElementById('customer-modal').classList.remove('flex');
+        }
+
+        function saveCustomerProfile() {
+            const name = document.getElementById('modal-cust-name').value.trim() || "Walk-in Customer";
+            const phone = document.getElementById('modal-cust-phone').value.trim() || "012 345 678";
+            const chest = document.getElementById('modal-m-chest').value.trim();
+            const waist = document.getElementById('modal-m-waist').value.trim();
+            const shoulder = document.getElementById('modal-m-shoulder').value.trim();
+            const sleeve = document.getElementById('modal-m-sleeve').value.trim();
+            appState.activeCustomer = { name, phone, chest, waist, shoulder, sleeve };
+            closeCustomerModal();
+            renderCart();
+        }
+
+        function initiateCheckout(paymentType) {
+            if (appState.cart.length === 0) return alert("Cart is empty!");
+
+            const discount = parseFloat(document.getElementById('discount-input').value) || 0;
+            if (discount > 15 && appState.currentUser.role === 'Cashier') {
+                const pin = prompt("Enter Manager or Owner PIN to authorize discount > $15:");
+                if (pin !== appState.pins.manager && pin !== appState.pins.owner) {
+                    return alert("Incorrect PIN! Discount authorization denied.");
+                }
+            }
+
+            const subtotal = appState.cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+            const total = Math.max(0, subtotal - discount);
+            let paidAmount = total;
+            let finalPaymentType = "Full";
+
+            if (paymentType === 'Deposit') {
+                const defaultDeposit = total / 2;
+                const customInput = prompt(`Total due is $${total.toFixed(2)}. Enter custom deposit amount ($):`, defaultDeposit.toFixed(2));
+                if (customInput === null) return;
+                paidAmount = parseFloat(customInput);
+                if (isNaN(paidAmount) || paidAmount <= 0 || paidAmount > total) {
+                    return alert("Invalid deposit amount entered.");
+                }
+                finalPaymentType = `Deposit ($${paidAmount.toFixed(2)} paid)`;
+            }
+
+            pendingCheckoutOrder = {
+                id: "AF-" + Math.floor(100000 + Math.random() * 900000),
+                store: appState.activeStore,
+                customer: { ...appState.activeCustomer },
+                tailor: document.getElementById('cart-tailor-select').value,
+                items: [...appState.cart],
+                subtotal: subtotal,
+                discount: discount,
+                total: total,
+                status: "Awaiting Measurement",
+                paymentMethod: appState.selectedTender,
+                paymentType: finalPaymentType,
+                paidAmount: paidAmount,
+                timestamp: new Date().toISOString(),
+                displayTime: new Date().toLocaleString()
+            };
+
+            if (appState.selectedTender === 'ABA KHQR') {
+                openAbaModal(pendingCheckoutOrder);
+            } else {
+                finalizeOrder(pendingCheckoutOrder);
+            }
+        }
+
+        function openAbaModal(order) {
+            document.getElementById('khqr-merchant-title').innerText = appState.abaConfig.merchantName;
+            document.getElementById('khqr-account-id').innerText = `ABA ACC: ${appState.abaConfig.accountNumber}`;
+            document.getElementById('khqr-usd-amount').innerText = `$${order.paidAmount.toFixed(2)}`;
+            document.getElementById('khqr-khr-amount').innerText = `៛${(order.paidAmount * appState.exchangeRate).toLocaleString()}`;
+            const qrData = encodeURIComponent(`ABA_KHQR|${appState.abaConfig.merchantName}|${appState.abaConfig.accountNumber}|USD:${order.paidAmount.toFixed(2)}`);
+            document.getElementById('khqr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}`;
+            document.getElementById('aba-khqr-modal').classList.remove('hidden');
+            document.getElementById('aba-khqr-modal').classList.add('flex');
+        }
+
+        function closeAbaModal() {
+            document.getElementById('aba-khqr-modal').classList.add('hidden');
+            document.getElementById('aba-khqr-modal').classList.remove('flex');
+        }
+
+        function confirmAbaPayment() {
+            closeAbaModal();
+            if (pendingCheckoutOrder) {
+                finalizeOrder(pendingCheckoutOrder);
+                pendingCheckoutOrder = null;
+            }
+        }
+
+        function finalizeOrder(newOrder) {
+            newOrder.items.forEach(cartItem => {
+                const prod = appState.catalog.find(p => p.id === cartItem.id);
+                if (prod) prod.stock = Math.max(0, prod.stock - cartItem.qty);
+            });
+
+            appState.orders.unshift(newOrder);
+            saveStateToLocal();
+
+            sendTelegramAlert(newOrder);
+            triggerReceiptPrint(newOrder);
+            clearCart();
+            renderCatalog();
+            refreshOwnerDashboard();
+            refreshKanbanBoard();
+        }
+
+        function sendTelegramAlert(order) {
+            if (!appState.telegram.token || !appState.telegram.chatId) return;
+            const balanceDue = Math.max(0, order.total - order.paidAmount);
+            const text = `ANGKOR FORMAL SALE ALERT\n\n` +
+                         `Receipt ID: ${order.id}\n` +
+                         `Branch: ${order.store}\n` +
+                         `Client: ${order.customer.name} (${order.customer.phone})\n` +
+                         `Payment: ${order.paymentMethod} (${order.paymentType})\n` +
+                         `Paid Now: $${order.paidAmount.toFixed(2)} | Balance Due: $${balanceDue.toFixed(2)}\n` +
+                         `Grand Total: $${order.total.toFixed(2)} (៛${(order.total * appState.exchangeRate).toLocaleString()})`;
+
+            fetch(`https://api.telegram.org/bot${appState.telegram.token}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: appState.telegram.chatId, text: text })
+            }).catch(err => console.log("Telegram error:", err));
+        }
+
+        function saveTelegramSettings() {
+            const token = document.getElementById('telegram-bot-token').value.trim();
+            const chatId = document.getElementById('telegram-chat-id').value.trim();
+            appState.telegram.token = token;
+            appState.telegram.chatId = chatId;
+            saveStateToLocal();
+            alert("Telegram alert credentials saved successfully!");
+        }
+
+        function testTelegramAlert() {
+            saveTelegramSettings();
+            if (!appState.telegram.token || !appState.telegram.chatId) return alert("Enter Bot Token and Chat ID first.");
+            sendTelegramAlert({
+                id: "TEST-888",
+                store: appState.activeStore,
+                customer: { name: "Test VIP Client", phone: "012 999 888" },
+                paymentMethod: "ABA KHQR",
+                paymentType: "Full",
+                paidAmount: 135.00,
+                total: 135.00
+            });
+            alert("Test alert sent to Telegram!");
+        }
+
+        function switchUserRole() {
+            const pin = prompt("Enter PIN to switch role (Cashier: 1234 | Manager: 2222 | Owner: 9999):");
+            if (pin === appState.pins.cashier) appState.currentUser = { name: "Dara", role: "Cashier" };
+            else if (pin === appState.pins.manager) appState.currentUser = { name: "Sokha", role: "Manager" };
+            else if (pin === appState.pins.owner) appState.currentUser = { name: "Vibol Ouk", role: "Owner" };
+            else if (pin !== null) return alert("Invalid PIN!");
+            document.getElementById('logged-in-user').innerText = `${appState.currentUser.name} (${appState.currentUser.role})`;
+            saveStateToLocal();
+            renderNavigation();
+            
+            const role = appState.currentUser.role;
+            const rights = appState.permissions[role];
+            if (rights.pos) openTab('pos');
+            else if (rights.kanban) openTab('kanban');
+            else if (rights.owner) openTab('owner');
+            else if (rights.settings) openTab('settings');
+        }
+
+        function changeActiveStore(storeName) {
+            appState.activeStore = storeName;
+            document.getElementById('current-store-badge').innerText = `${storeName}: Active Terminal`;
+            saveStateToLocal();
+        }
+
+        // ==========================================
+        // KANBAN DRAG & DROP & STAGE MOVEMENT ENGINE
+        // ==========================================
+        const stagesList = ["Awaiting Measurement", "In Tailoring", "Ready for Fitting", "Completed"];
+
+        function moveOrderStage(orderId, direction) {
+            const order = appState.orders.find(o => o.id === orderId);
+            if (!order) return;
+            const currentIdx = stagesList.indexOf(order.status);
+            const newIdx = currentIdx + direction;
+            if (newIdx >= 0 && newIdx < stagesList.length) {
+                order.status = stagesList[newIdx];
+                saveStateToLocal();
+                refreshKanbanBoard();
+                refreshOwnerDashboard();
+            }
+        }
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+            ev.currentTarget.classList.add('drag-over');
+        }
+
+        function removeDragOver(ev) {
+            ev.currentTarget.classList.remove('drag-over');
+        }
+
+        function dragCard(ev, orderId) {
+            ev.dataTransfer.setData("text/plain", orderId);
+        }
+
+        function dropCard(ev, targetStageIdx) {
+            ev.preventDefault();
+            ev.currentTarget.classList.remove('drag-over');
+            const orderId = ev.dataTransfer.getData("text/plain");
+            const order = appState.orders.find(o => o.id === orderId);
+            if (order) {
+                order.status = stagesList[targetStageIdx];
+                saveStateToLocal();
+                refreshKanbanBoard();
+                refreshOwnerDashboard();
+            }
+        }
+
+        function refreshKanbanBoard() {
+            const cols = {
+                "Awaiting Measurement": document.getElementById('kanban-queue'),
+                "In Tailoring": document.getElementById('kanban-tailoring'),
+                "Ready for Fitting": document.getElementById('kanban-fitting'),
+                "Completed": document.getElementById('kanban-completed')
+            };
+            const counts = [0, 0, 0, 0];
+            Object.values(cols).forEach(el => { if (el) el.innerHTML = ''; });
+
+            appState.orders.forEach((order) => {
+                const sIdx = Math.max(0, stagesList.indexOf(order.status));
+                counts[sIdx]++;
+                const targetCol = cols[order.status] || cols["Awaiting Measurement"];
+                if (!targetCol) return;
+
+                const c = order.customer;
+                const isFirst = sIdx === 0;
+                const isLast = sIdx === stagesList.length - 1;
+
+                targetCol.innerHTML += `
+                    <div class="kanban-card bg-white dark:bg-brownBlack p-3.5 rounded border border-[#E8E0D2] dark:border-[#2A231C] text-xs space-y-2 shadow-sm tabular-nums" draggable="true" ondragstart="dragCard(event, '${order.id}')">
+                        <div class="flex justify-between font-medium text-espresso dark:text-ivory">
+                            <span class="text-bronze dark:text-champagne font-mono font-bold">${order.id}</span>
+                            <span>$${order.total.toFixed(2)}</span>
+                        </div>
+                        <div class="text-[#6B6259] dark:text-taupe">Client: <b>${c.name}</b> (${c.phone})</div>
+                        <div class="text-[11px] text-[#6B6259] dark:text-taupe font-mono">C:${c.chest || 40}" W:${c.waist || 34}" S:${c.shoulder || 18.5}"</div>
+                        <div class="flex justify-between items-center pt-2 border-t border-[#E8E0D2] dark:border-neutral-800">
+                            <span class="text-[#6B6259] dark:text-taupe text-[11px]">✂️ ${order.tailor || 'Master Sok Leap'}</span>
+                            <div class="flex space-x-1">
+                                <button onclick="moveOrderStage('${order.id}', -1)" ${isFirst ? 'disabled class="opacity-30 cursor-not-allowed"' : ''} class="text-[10px] bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 px-2 py-1 rounded font-medium text-espresso dark:text-ivory">← Prev</button>
+                                <button onclick="moveOrderStage('${order.id}', 1)" ${isLast ? 'disabled class="opacity-30 cursor-not-allowed"' : ''} class="text-[10px] bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 px-2 py-1 rounded font-medium text-espresso dark:text-ivory">Next →</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            counts.forEach((c, i) => {
+                const el = document.getElementById(`count-stage-${i}`);
+                if (el) el.innerText = c;
+            });
+        }
+
+        function refreshOwnerDashboard() {
+            const timeframe = document.getElementById('analytics-timeframe')?.value || 'monthly';
+            const customWrapper = document.getElementById('custom-month-wrapper');
+            if (customWrapper) {
+                if (timeframe === 'custom') customWrapper.classList.remove('hidden');
+                else customWrapper.classList.add('hidden');
+            }
+
+            let totalSales = 0, grossMargin = 0, pendingBalances = 0, totalExpenses = 0;
+            appState.expenses.forEach(e => totalExpenses += e.amount);
+            document.getElementById('total-expense-display').innerText = `Total Expenses: $${totalExpenses.toFixed(2)}`;
+
+            const storeTargets = {
+                "Store A": { name: "Central Flagship", manager: "Sokha Chan", target: 8500, rev: 0, profit: 0, count: 0, code: "Store A" },
+                "Store B": { name: "TK Avenue Branch", manager: "Dara Vong", target: 6500, rev: 0, profit: 0, count: 0, code: "Store B" },
+                "Store C": { name: "BKK1 Showroom", manager: "Nary Pich", target: 6000, rev: 0, profit: 0, count: 0, code: "Store C" },
+                "Store D": { name: "Sen Sok Warehouse", manager: "Vicheka", target: 4000, rev: 0, profit: 0, count: 0, code: "Store D" }
+            };
+
+            const categoryTotals = {
+                "Suits": { label: "2-Piece & 3-Piece Suits", color: "bg-bronze", rev: 0, qty: 0 },
+                "Tuxedos": { label: "Tuxedos & Dinner Jackets", color: "bg-champagne", rev: 0, qty: 0 },
+                "Shirts": { label: "Egyptian Cotton Dress Shirts", color: "bg-blue-600", rev: 0, qty: 0 },
+                "Trousers": { label: "Tailored Trousers", color: "bg-green-700", rev: 0, qty: 0 },
+                "Accessories": { label: "Silk Ties & Accessories", color: "bg-taupe", rev: 0, qty: 0 }
+            };
+
+            let abaTotal = 0, usdTotal = 0, khrInUsd = 0, depositsCollected = 0;
+
+            appState.orders.forEach(order => {
+                totalSales += order.total;
+                const orderCost = order.items.reduce((sum, i) => sum + ((i.cost || 45) * i.qty), 0);
+                const profit = order.total - orderCost;
+                grossMargin += profit;
+
+                if (order.paidAmount < order.total) {
+                    pendingBalances += (order.total - order.paidAmount);
+                    depositsCollected += order.paidAmount;
+                }
+
+                if (storeTargets[order.store]) {
+                    storeTargets[order.store].rev += order.total;
+                    storeTargets[order.store].profit += profit;
+                    storeTargets[order.store].count += 1;
+                }
+
+                if (order.paymentMethod === 'ABA KHQR') abaTotal += order.paidAmount;
+                else if (order.paymentMethod === 'Cash KHR') khrInUsd += order.paidAmount;
+                else usdTotal += order.paidAmount;
+
+                order.items.forEach(item => {
+                    const cat = categoryTotals[item.category] ? item.category : "Suits";
+                    categoryTotals[cat].rev += (item.price * item.qty);
+                    categoryTotals[cat].qty += item.qty;
+                });
+            });
+
+            const trueNetProfit = grossMargin - totalExpenses;
+            const invValue = appState.catalog.reduce((sum, i) => sum + (i.price * i.stock), 0);
+            const prevRev = totalSales > 0 ? totalSales * 0.85 : 100;
+            const growthRate = ((totalSales - prevRev) / prevRev) * 100;
+
+            document.getElementById('kpi-net-profit').innerText = `$${trueNetProfit.toFixed(2)}`;
+            document.getElementById('kpi-total-sales').innerText = `$${totalSales.toFixed(2)}`;
+            document.getElementById('kpi-sales-compare').innerText = `vs. $${prevRev.toFixed(2)} prior period`;
+            document.getElementById('kpi-pending-deposits').innerText = `$${pendingBalances.toFixed(2)}`;
+            document.getElementById('kpi-inventory-val').innerText = `$${invValue.toFixed(2)}`;
+
+            const badge = document.getElementById('trend-growth-badge');
+            badge.innerText = `${growthRate >= 0 ? '+' : ''}${growthRate.toFixed(1)}%`;
+
+            const chartEl = document.getElementById('branch-bar-chart');
+            chartEl.innerHTML = '';
+            Object.values(storeTargets).forEach(d => {
+                const revH = Math.min(100, Math.max(12, (d.rev / 600) * 100));
+                const profH = Math.min(100, Math.max(8, (d.profit / 600) * 100));
+                chartEl.innerHTML += `
+                    <div class="flex flex-col items-center h-full justify-end">
+                        <div class="text-[10px] font-medium text-bronze dark:text-champagne mb-1 tabular-nums">$${d.rev.toFixed(0)}</div>
+                        <div class="w-full flex items-end justify-center space-x-1 sm:space-x-1.5 h-28">
+                            <div style="height: ${revH}%" class="w-3 sm:w-4 bg-bronze rounded-t transition-all" title="Revenue: $${d.rev}"></div>
+                            <div style="height: ${profH}%" class="w-3 sm:w-4 bg-green-700 rounded-t transition-all" title="Profit: $${d.profit}"></div>
+                            <div style="height: 85%" class="w-3 sm:w-4 bg-[#E8E0D2] dark:bg-neutral-800 rounded-t" title="Target: $${d.target}"></div>
+                        </div>
+                        <div class="text-[11px] sm:text-xs font-medium text-espresso dark:text-ivory mt-2">${d.code}</div>
+                        <div class="text-[9px] sm:text-[10px] text-[#6B6259] dark:text-taupe truncate max-w-[65px] sm:max-w-[90px]">${d.name}</div>
+                    </div>
+                `;
+            });
+
+            const totalPaid = abaTotal + usdTotal + khrInUsd || 1;
+            document.getElementById('tender-aba').innerText = `$${abaTotal.toFixed(2)}`;
+            document.getElementById('tender-aba-share').innerText = `${Math.round((abaTotal / totalPaid) * 100)}% POS share`;
+            document.getElementById('tender-usd').innerText = `$${usdTotal.toFixed(2)}`;
+            document.getElementById('tender-khr').innerText = `៛${(khrInUsd * appState.exchangeRate).toLocaleString()}`;
+            document.getElementById('tender-khr-usd').innerText = `≈ $${khrInUsd.toFixed(2)}`;
+            document.getElementById('tender-deposits').innerText = `$${depositsCollected.toFixed(2)}`;
+
+            const lbList = document.getElementById('branch-leaderboard-list');
+            lbList.innerHTML = '';
+            Object.values(storeTargets).sort((a, b) => b.rev - a.rev).forEach((d, idx) => {
+                const pct = Math.min(100, ((d.rev / d.target) * 100)).toFixed(1);
+                lbList.innerHTML += `
+                    <div class="p-3 rounded border ${idx === 0 ? 'border-bronze bg-[#FAF7F1] dark:bg-neutral-900' : 'border-[#E8E0D2] dark:border-neutral-800 bg-white dark:bg-brownBlack'} space-y-1.5 tabular-nums">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-5 h-5 rounded-full bg-[#FAF7F1] dark:bg-neutral-800 text-bronze dark:text-champagne text-[10px] font-semibold flex items-center justify-center shrink-0">#${idx + 1}</span>
+                                <div>
+                                    <div class="text-xs font-semibold text-espresso dark:text-ivory">${d.code}: ${d.name}</div>
+                                    <div class="text-[10px] text-[#6B6259] dark:text-taupe">${d.manager} • ${d.count} orders</div>
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="text-xs font-bold text-espresso dark:text-ivory">$${d.rev.toFixed(2)}</div>
+                                <div class="text-[10px] text-green-700 dark:text-green-400">Profit: $${d.profit.toFixed(2)}</div>
+                            </div>
+                        </div>
+                        <div class="w-full bg-[#E8E0D2] dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-bronze dark:bg-champagne h-full rounded-full" style="width: ${Math.max(5, pct)}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('total-quota-attainment').innerText = `Attainment: ${((totalSales / 25000) * 100).toFixed(1)}% of monthly target`;
+            document.getElementById('leaderboard-total-attained').innerText = `Attained: $${totalSales.toFixed(2)}`;
+
+            const catList = document.getElementById('category-sales-list');
+            catList.innerHTML = '';
+            Object.values(categoryTotals).forEach(cat => {
+                const share = totalSales > 0 ? Math.round((cat.rev / totalSales) * 100) : 0;
+                catList.innerHTML += `
+                    <div class="space-y-1 tabular-nums">
+                        <div class="flex justify-between text-xs">
+                            <span class="font-medium text-espresso dark:text-ivory">${cat.label}</span>
+                            <span class="font-mono text-[#6B6259] dark:text-taupe">${cat.qty} pcs • <strong class="text-espresso dark:text-ivory">$${cat.rev.toFixed(0)}</strong> (${share}%)</span>
+                        </div>
+                        <div class="w-full bg-[#FAF7F1] dark:bg-neutral-900 h-2 rounded-full overflow-hidden border border-[#E8E0D2] dark:border-neutral-800">
+                            <div class="${cat.color} h-full rounded-full" style="width: ${Math.max(4, share)}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            renderInventoryMatrix();
+
+            const filterStore = document.getElementById('ledger-filter-store').value;
+            const filterPayment = document.getElementById('ledger-filter-payment').value;
+            const searchQ = (document.getElementById('ledger-search')?.value || '').toLowerCase();
+            const ledgerBody = document.getElementById('owner-ledger-body');
+            ledgerBody.innerHTML = '';
+
+            const filteredOrders = appState.orders.filter(order => {
+                if (filterStore !== 'ALL' && order.store !== filterStore) return false;
+                if (filterPayment === 'Full' && order.paidAmount < order.total) return false;
+                if (filterPayment === 'Deposit' && order.paidAmount >= order.total) return false;
+                if (searchQ && !order.id.toLowerCase().includes(searchQ) && !order.customer.name.toLowerCase().includes(searchQ)) return false;
+                return true;
+            });
+
+            if (filteredOrders.length === 0) {
+                ledgerBody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-[#6B6259] dark:text-taupe text-sm">No transactions match the selected filter criteria.</td></tr>`;
+            } else {
+                filteredOrders.forEach(order => {
+                    const bal = Math.max(0, order.total - order.paidAmount);
+                    ledgerBody.innerHTML += `
+                        <tr class="hover:bg-[#FAF7F1] dark:hover:bg-neutral-900 tabular-nums">
+                            <td class="py-3 pr-3 font-mono font-medium text-bronze dark:text-champagne">${order.id}</td>
+                            <td class="py-3 px-2 text-[#6B6259] dark:text-taupe">${order.store}</td>
+                            <td class="py-3 px-2 text-espresso dark:text-ivory">${order.customer.name}</td>
+                            <td class="py-3 px-2"><span class="bg-[#FAF7F1] dark:bg-neutral-900 text-espresso dark:text-ivory px-2 py-0.5 rounded text-xs border border-[#E8E0D2] dark:border-neutral-800">${order.paymentMethod || 'ABA KHQR'}</span></td>
+                            <td class="py-3 px-2">
+                                <span class="text-green-700 dark:text-green-400 font-medium">$${order.paidAmount.toFixed(2)}</span>
+                                ${bal > 0 ? `<span class="text-orange-700 text-xs ml-1">(Due: $${bal.toFixed(2)})</span>` : ''}
+                            </td>
+                            <td class="py-3 px-2 font-medium text-espresso dark:text-ivory">$${order.total.toFixed(2)} <span class="text-xs text-[#6B6259] dark:text-taupe font-normal">(៛${(order.total * appState.exchangeRate).toLocaleString()})</span></td>
+                            <td class="py-3 px-2"><span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">Status</span></td>
+                            <td class="py-3 pl-2 text-right space-x-1">
+                                ${bal > 0 ? `<button onclick="collectBalance('${order.id}')" class="text-xs btn-gold px-2 py-1">Collect</button>` : ''}
+                                <button onclick="printOrderById('${order.id}')" class="text-xs bg-[#FAF7F1] dark:bg-neutral-900 hover:bg-[#E8E0D2] px-2 py-1 rounded text-espresso dark:text-ivory border border-[#E8E0D2] dark:border-neutral-800">Print</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            const expList = document.getElementById('expense-list-container');
+            expList.innerHTML = '';
+            appState.expenses.forEach(ex => {
+                expList.innerHTML += `
+                    <div class="flex justify-between items-center bg-[#FAF7F1] dark:bg-neutral-900 p-2 rounded border border-[#E8E0D2] dark:border-neutral-800 tabular-nums">
+                        <div><span class="font-medium text-espresso dark:text-ivory">${ex.reason}</span> <span class="text-[#6B6259] dark:text-taupe text-[10px]">(${ex.time})</span></div>
+                        <div class="font-medium text-red-700">-$${ex.amount.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+
+            const tailorCounts = { "Master Sok Leap": 4, "Tailor Chan Vicheka": 3, "Tailor Measrith": 2 };
+            appState.orders.forEach(o => {
+                if (o.status === 'Completed' && o.tailor) tailorCounts[o.tailor] = (tailorCounts[o.tailor] || 0) + 1;
+            });
+            const tBody = document.getElementById('tailor-commission-tbody');
+            tBody.innerHTML = '';
+            Object.entries(tailorCounts).forEach(([name, count]) => {
+                tBody.innerHTML += `
+                    <tr class="tabular-nums">
+                        <td class="py-2 text-[#6B6259] dark:text-taupe">${name}</td>
+                        <td class="py-2 text-espresso dark:text-ivory font-medium">${count} suits</td>
+                        <td class="py-2 text-right text-green-700 dark:text-green-400 font-medium">$${(count * 15).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderInventoryMatrix() {
+            const tbody = document.getElementById('inventory-matrix-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            let lowCount = 0;
+
+            appState.sizeMatrix.forEach((row, rIdx) => {
+                let cells = '';
+                Object.entries(row.sizes).forEach(([sz, qty]) => {
+                    if (qty <= 3) lowCount++;
+                    const cls = qty <= 3
+                        ? "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                        : "bg-green-50 text-green-700 border-green-200 hover:bg-green-100";
+                    cells += `
+                        <td class="py-2 px-1 tabular-nums">
+                            <button onclick="adjustMatrixStock(${rIdx}, '${sz}')" class="w-full py-1.5 px-2 rounded border ${cls} transition font-medium whitespace-nowrap">
+                                ${qty} left
+                            </button>
+                        </td>
+                    `;
+                });
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="py-2.5 text-left text-espresso dark:text-ivory flex items-center space-x-2 whitespace-nowrap pr-2">
+                            <span class="w-2.5 h-2.5 rounded-full ${row.dot} shrink-0"></span>
+                            <span>${row.color}</span>
+                        </td>
+                        ${cells}
+                    </tr>
+                `;
+            });
+            document.getElementById('matrix-low-stock-pill').innerText = `${lowCount} LOW STOCK`;
+        }
+
+        function adjustMatrixStock(rIdx, sizeKey) {
+            const row = appState.sizeMatrix[rIdx];
+            const val = prompt(`Update stock for ${row.color} (${sizeKey}):`, row.sizes[sizeKey] + 5);
+            if (val !== null && !isNaN(parseInt(val, 10))) {
+                row.sizes[sizeKey] = parseInt(val, 10);
+                saveStateToLocal();
+                renderInventoryMatrix();
+            }
+        }
+
+        function collectBalance(orderId) {
+            const o = appState.orders.find(x => x.id === orderId);
+            if (!o) return;
+            const rem = o.total - o.paidAmount;
+            if (confirm(`Confirm collection of remaining $${rem.toFixed(2)} for ${o.id}?`)) {
+                o.paidAmount = o.total;
+                o.paymentType = "Full";
+                saveStateToLocal();
+                refreshOwnerDashboard();
+            }
+        }
+
+        function logPettyCashExpense() {
+            const reason = document.getElementById('expense-reason').value.trim();
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+            if (!reason || isNaN(amount) || amount <= 0) return alert("Enter valid expense description and amount.");
+            appState.expenses.unshift({ reason, amount, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+            document.getElementById('expense-reason').value = '';
+            document.getElementById('expense-amount').value = '';
+            saveStateToLocal();
+            refreshOwnerDashboard();
+        }
+
+        function addNewGarment() {
+            const name = document.getElementById('new-item-name').value.trim();
+            const category = document.getElementById('new-item-category').value;
+            const price = parseFloat(document.getElementById('new-item-price').value);
+            const cost = parseFloat(document.getElementById('new-item-cost').value);
+            if (!name || isNaN(price) || isNaN(cost)) return alert("Fill in all garment details.");
+
+            appState.catalog.push({ id: "S0" + (appState.catalog.length + 1), name, category, price, cost, stock: 10 });
+            saveStateToLocal();
+            document.getElementById('new-item-name').value = '';
+            document.getElementById('new-item-price').value = '';
+            document.getElementById('new-item-cost').value = '';
+            renderCatalog();
+            alert("Garment added to catalog!");
+        }
+
+        function saveAbaSettings() {
+            const name = document.getElementById('aba-merchant-name').value.trim();
+            const acc = document.getElementById('aba-account-num').value.trim();
+            if (name) appState.abaConfig.merchantName = name;
+            if (acc) appState.abaConfig.accountNumber = acc;
+            saveStateToLocal();
+            alert("ABA KHQR settings saved!");
+        }
+
+        function renderSettingsConsole() {
+            document.getElementById('telegram-bot-token').value = appState.telegram.token || '';
+            document.getElementById('telegram-chat-id').value = appState.telegram.chatId || '';
+            document.getElementById('aba-merchant-name').value = appState.abaConfig.merchantName || '';
+            document.getElementById('aba-account-num').value = appState.abaConfig.accountNumber || '';
+
+            const permBody = document.getElementById('permissions-tbody');
+            permBody.innerHTML = '';
+            ['Cashier', 'Manager', 'Owner'].forEach(role => {
+                const rights = appState.permissions[role];
+                permBody.innerHTML += `
+                    <tr>
+                        <td class="py-3 pr-3 font-medium text-espresso dark:text-ivory">${role}</td>
+                        <td class="py-3 px-2 text-center"><input type="checkbox" ${rights.pos ? 'checked' : ''} onchange="togglePermission('${role}', 'pos', this.checked)" class="w-4 h-4 accent-bronze cursor-pointer"></td>
+                        <td class="py-3 px-2 text-center"><input type="checkbox" ${rights.kanban ? 'checked' : ''} onchange="togglePermission('${role}', 'kanban', this.checked)" class="w-4 h-4 accent-bronze cursor-pointer"></td>
+                        <td class="py-3 px-2 text-center"><input type="checkbox" ${rights.owner ? 'checked' : ''} onchange="togglePermission('${role}', 'owner', this.checked)" class="w-4 h-4 accent-bronze cursor-pointer"></td>
+                        <td class="py-3 pl-2 text-center"><input type="checkbox" ${rights.settings ? 'checked' : ''} onchange="togglePermission('${role}', 'settings', this.checked)" class="w-4 h-4 accent-bronze cursor-pointer"></td>
+                    </tr>
+                `;
+            });
+
+            const tbody = document.getElementById('pin-manager-tbody');
+            tbody.innerHTML = '';
+            const keys = [
+                { key: 'cashier', label: 'Default Cashier Role' },
+                { key: 'manager', label: 'Default Manager Role' },
+                { key: 'owner', label: 'Executive Owner Role' },
+                { key: 'Store A', label: 'Store A: Central Flagship' },
+                { key: 'Store B', label: 'Store B: TK Avenue Branch' },
+                { key: 'Store C', label: 'Store C: BKK1 Showroom' },
+                { key: 'Store D', label: 'Store D: Sen Sok Warehouse Outlet' }
+            ];
+            keys.forEach(item => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="py-3 pr-3 font-medium text-espresso dark:text-ivory">${item.label}</td>
+                        <td class="py-3 px-2 font-mono text-bronze dark:text-champagne">${appState.pins[item.key]}</td>
+                        <td class="py-3 px-2"><input type="text" id="pin-input-${item.key}" placeholder="Enter new PIN..." class="bg-[#FAF7F1] dark:bg-neutral-900 border border-[#E8E0D2] dark:border-neutral-800 rounded px-2.5 py-1.5 text-xs text-espresso dark:text-ivory w-36 sm:w-48"></td>
+                        <td class="py-3 pl-2 text-right space-x-1">
+                            <button onclick="updatePinKey('${item.key}')" class="btn-gold px-3 py-1.5 text-xs font-medium">Update</button>
+                            <button onclick="resetPinKey('${item.key}')" class="bg-[#FAF7F1] dark:bg-neutral-900 hover:bg-[#E8E0D2] text-[#6B6259] dark:text-taupe px-2.5 py-1.5 rounded text-xs border border-[#E8E0D2] dark:border-neutral-800">Reset</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function togglePermission(role, moduleKey, isChecked) {
+            if (!appState.permissions[role]) appState.permissions[role] = {};
+            appState.permissions[role][moduleKey] = isChecked;
+            saveStateToLocal();
+            renderNavigation();
+        }
+
+        function updatePinKey(key) {
+            const val = document.getElementById(`pin-input-${key}`).value.trim();
+            if (!val) return alert("Enter a new PIN.");
+            appState.pins[key] = val;
+            saveStateToLocal();
+            renderSettingsConsole();
+            alert(`PIN for ${key} updated!`);
+        }
+
+        function resetPinKey(key) {
+            const defaults = { cashier: "1234", manager: "2222", owner: "9999", "Store A": "1111", "Store B": "2221", "Store C": "3331", "Store D": "4441" };
+            appState.pins[key] = defaults[key];
+            saveStateToLocal();
+            renderSettingsConsole();
+        }
+
+        function printOrderById(id) {
+            const order = appState.orders.find(o => o.id === id);
+            if (order) triggerReceiptPrint(order);
+        }
+
+        function triggerReceiptPrint(order) {
+            document.getElementById('print-receipt-meta').innerHTML = `Receipt: ${order.id}<br>Date: ${order.displayTime}<br>Store: ${order.store}<br>Client: ${order.customer.name} (${order.customer.phone})`;
+            let itemsHtml = '';
+            order.items.forEach(i => {
+                itemsHtml += `<div style="display:flex;justify-content:space-between;"><span>${i.qty}x ${i.name}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`;
+            });
+            document.getElementById('print-receipt-items').innerHTML = itemsHtml;
+            document.getElementById('print-receipt-totals').innerHTML = `Subtotal: $${order.subtotal.toFixed(2)}<br>Discount: -$${order.discount.toFixed(2)}<br><b>Grand Total: $${order.total.toFixed(2)} (៛${(order.total * appState.exchangeRate).toLocaleString()})</b><br>Paid: $${order.paidAmount.toFixed(2)} (${order.paymentMethod})`;
+            window.print();
+        }
+
+        function exportDataJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", "angkor_formal_backup.json");
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        }
+
+        function triggerShiftAudit() {
+            const pin = prompt("Enter Owner PIN to run Blind Shift Drawer Audit:");
+            if (pin !== appState.pins.owner) return alert("Access denied.");
+            let drawerCash = prompt("Enter total physical cash counted in cash drawer ($):");
+            if (drawerCash !== null) alert(`Shift audit complete. Drawer counted: $${parseFloat(drawerCash || 0).toFixed(2)}. Logged successfully.`);
+        }
+
+        window.onload = function() {
+            renderNavigation();
+            renderCatalog();
+            renderCart();
+            applyTranslations();
+            refreshOwnerDashboard();
+            refreshKanbanBoard();
+        };
+    </script>
+</body>
+</html>
