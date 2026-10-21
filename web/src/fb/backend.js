@@ -140,7 +140,7 @@ export function createBackend(deps) {
     try { u = await read('users', cu.uid); } catch { u = null; }
     if (!u || u.active !== true) { await auth.signOut(); S = null; throw new ApiErr(401, 'LOGIN_REQUIRED', 'This account is not active.'); }
     const stores = await loadStores(true);
-    const ids = u.role === 'owner' ? stores.filter((s) => s.active !== false).map((s) => s.id) : (u.storeIds || []).map(Number);
+    const ids = u.role === 'owner' ? stores.filter((s) => s.active !== false).map((s) => s.id) : (u.storeIds || []).map(Number).filter((id) => stores.find((s) => s.id === id)?.active !== false);
     let storeId = Number(localStorageGet('af_store')) || null;
     if (!ids.includes(storeId)) storeId = ids[0] ?? null;
     S = { uid: cu.uid, user: u, perms: permsFor(u), stores: ids, storeId };
@@ -158,7 +158,7 @@ export function createBackend(deps) {
 
   async function publicUser() {
     if (!S) await startSession();
-    const stores = (await loadStores()).filter((s) => S.stores.includes(s.id));
+    const stores = (await loadStores()).filter((s) => S.stores.includes(s.id) && s.active !== false);
     const brands = (await loadCatalog()).brandsList;
     const sw = {}; for (const s of stores) sw[s.id] = s.switches;
     return {

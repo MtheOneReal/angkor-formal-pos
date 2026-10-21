@@ -47,7 +47,7 @@ function Stores() {
   useEffect(() => { load(); }, []);
   if (!data) return null;
   const s = data.stores.find((x) => x.id === sid);
-  const save = async (patch) => { await api.put(`/admin/stores/${s.id}`, patch); show('Saved'); load(); };
+  const save = async (patch) => { await api.put(`/admin/stores/${s.id}`, patch); show('Saved'); load(); window.dispatchEvent(new Event('af-reload-me')); };
   return (
     <div>
       <select value={sid} onChange={(e) => setSid(Number(e.target.value))} style={{ width: 'auto', minWidth: 260 }}>{data.stores.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>

@@ -667,7 +667,7 @@ export function createApi(B, extra = {}) {
     wb.update(ref('stores', id), { name: nm, receiptFooter: txt(b.receipt_footer ?? s.receiptFooter ?? '', 200), active: act, switches: sw });
     wb.set(ref('publicStores', id), { id: Number(id), code: s.code, name: nm, active: act, brandCode: (await B.loadCatalog()).brandsList.find((x) => String(x.id) === String(s.brandId))?.code || null });
     await wb.commit();
-    await audit(Number(id), 'store.update', 'store', id, { name: b.name, switches: changed }); await B.loadStores(true); return { ok: true };
+    await audit(Number(id), 'store.update', 'store', id, { name: b.name, switches: changed }); await B.loadStores(true); await B.startSession(); return { ok: true };
   }
   const userView = (u) => ({ id: u.id, name: u.name, email: u.email || null, role: u.role, active: u.active === true, lang: u.lang || 'en', demo: !!u.demo, perms: u.perms || {}, store_ids: (u.storeIds || []).map(Number), has_pin: !!u.hasPin, has_password: !!u.email });
   async function adminUsers() { need('users.manage'); const rows = await list('users'); return { users: rows.sort((a, b) => (a.active === b.active ? 0 : a.active ? -1 : 1) || a.role.localeCompare(b.role) || a.name.localeCompare(b.name)).map(userView), all_perms: Object.keys(ROLE_PERMS).length ? [...new Set(Object.values(ROLE_PERMS).flat())] : [], role_perms: ROLE_PERMS }; }
