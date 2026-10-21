@@ -61,7 +61,8 @@ export function createFake() {
     await w.commit();
     return result;
   };
-  const fs = { doc, collection, getDoc, getDocs, setDoc, updateDoc, query, where, writeBatch, runTransaction, increment };
+  const deleteDoc = async (r) => { data.delete(r.path); };
+  const fs = { deleteDoc, doc, collection, getDoc, getDocs, setDoc, updateDoc, query, where, writeBatch, runTransaction, increment };
   return { fs, db: dbObj, data };
 }
 

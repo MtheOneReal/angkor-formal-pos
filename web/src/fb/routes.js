@@ -1,4 +1,5 @@
 // Maps the screens' API calls (same URLs as the Node server) onto Firestore.
+import { createExtras } from './extras.js';
 import { ApiErr, SWITCH_DEFAULTS, ROLE_PERMS, khrToUsdCents, usdCentsToKhr, khrTolerance, level, dateOf } from './backend.js';
 
 export function createApi(B, extra = {}) {
@@ -6,6 +7,7 @@ export function createApi(B, extra = {}) {
   const { doc, collection, getDoc, getDocs, setDoc, updateDoc, query, where, writeBatch, runTransaction, increment } = fs;
   const { bad, forbidden, notFound, approval, need, can, assertStore, read, list, audit, auditIn, wrap, now } = B;
   const S = () => B.S();
+  const X = createExtras(B);
   const sid = (n) => String(n);
   const txt = (v, n) => String(v ?? '').slice(0, n);
   const ts = () => now();
@@ -669,7 +671,7 @@ export function createApi(B, extra = {}) {
     await wb.commit();
     await audit(Number(id), 'store.update', 'store', id, { name: b.name, switches: changed }); await B.loadStores(true); await B.startSession(); return { ok: true };
   }
-  const userView = (u) => ({ id: u.id, name: u.name, email: u.email || null, role: u.role, active: u.active === true, lang: u.lang || 'en', demo: !!u.demo, perms: u.perms || {}, store_ids: (u.storeIds || []).map(Number), has_pin: !!u.hasPin, has_password: !!u.email });
+  const userView = (u) => ({ id: u.id, name: u.name, email: u.email || null, role: u.role, active: u.active === true, lang: u.lang || 'en', demo: !!u.demo, perms: u.perms || {}, store_ids: (u.storeIds || []).map(Number), has_pin: !!u.hasPin, has_password: !!u.email, salary_usd: (u.salaryCents || 0) / 100 });
   async function adminUsers() { need('users.manage'); const rows = await list('users'); return { users: rows.sort((a, b) => (a.active === b.active ? 0 : a.active ? -1 : 1) || a.role.localeCompare(b.role) || a.name.localeCompare(b.name)).map(userView), all_perms: Object.keys(ROLE_PERMS).length ? [...new Set(Object.values(ROLE_PERMS).flat())] : [], role_perms: ROLE_PERMS }; }
   const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12) || 'staff';
   async function adminUserCreate(b) {
@@ -687,7 +689,7 @@ export function createApi(B, extra = {}) {
     else { email = String(b.email).trim().toLowerCase(); password = b.password; }
     let uid;
     try { uid = await secondary.createUser(email, password); } catch (e) { throw bad('DUPLICATE', 'This email is already used.'); }
-    const row = { name: txt(b.name, 80).trim(), email: b.role === 'cashier' ? null : email, role: b.role, storeIds: b.role === 'owner' ? [] : storeIds, active: true, lang: b.lang === 'km' ? 'km' : 'en', perms: b.perms || {}, createdAt: ts(), hasPin: !!b.pin };
+    const row = { name: txt(b.name, 80).trim(), email: b.role === 'cashier' ? null : email, role: b.role, storeIds: b.role === 'owner' ? [] : storeIds, active: true, lang: b.lang === 'km' ? 'km' : 'en', perms: b.perms || {}, createdAt: ts(), hasPin: !!b.pin, salaryCents: Math.max(0, Math.round(Number(b.salary_usd || 0) * 100)) };
     const batch = writeBatch(db);
     batch.set(ref('users', uid), row);
     batch.set(ref('staffDirectory', uid), { name: row.name, role: row.role, storeIds: row.storeIds, active: true, authEmail: b.role === 'cashier' ? email : null });
@@ -701,7 +703,7 @@ export function createApi(B, extra = {}) {
     if (b.password || b.pin) throw bad('USE_RESET', 'Changing a password or PIN is done by the person under My account, or by deleting and re-adding the account.');
     const storeIds = b.store_ids ? b.store_ids.map(Number) : (u.storeIds || []);
     const batch = writeBatch(db);
-    batch.update(ref('users', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, perms: b.perms ?? u.perms ?? {}, lang: b.lang ?? u.lang ?? 'en', storeIds: role === 'owner' ? [] : storeIds });
+    batch.update(ref('users', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, perms: b.perms ?? u.perms ?? {}, lang: b.lang ?? u.lang ?? 'en', storeIds: role === 'owner' ? [] : storeIds, salaryCents: b.salary_usd == null ? (u.salaryCents || 0) : Math.max(0, Math.round(Number(b.salary_usd) * 100)) });
     const dir = await read('staffDirectory', id);
     if (dir) batch.update(ref('staffDirectory', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, storeIds: role === 'owner' ? [] : storeIds });
     auditIn(batch, null, 'user.update', 'user', id, { role, active }); await batch.commit(); return { ok: true };
@@ -748,6 +750,7 @@ export function createApi(B, extra = {}) {
     if (useMonths) { for (let m = Number(pr.from.slice(5, 7)); m <= Number(pr.to.slice(5, 7)); m++) for (const id of ids) keys.push(['monthStats', `${id}_${pr.from.slice(0, 4)}-${String(m).padStart(2, '0')}`]); }
     else { for (let d = pr.from; d <= pr.to; d = dstr(d, 1)) for (const id of ids) keys.push(['dailyStats', `${id}_${d}`]); }
     const docs = (await Promise.all(keys.map(([c, k]) => read(c, k).catch(() => null)))).filter(Boolean);
+    const expRows = can('expenses.manage') ? await X.expensesFor(ids, pr.from, pr.to) : null;
     const stockRows = await B.stockOfAll();
     const by = ids.map((id) => {
       const st = stores.find((s) => s.id === id); const mine = docs.filter((d) => Number(d.storeId) === id);
@@ -759,12 +762,14 @@ export function createApi(B, extra = {}) {
       const val = stk.reduce((a, r) => { const it = cat.items.find((i) => i.id === Number(r.itemId)); return a + (r.onHand || 0) * (costs.get(String(it?.designId)) ?? 0); }, 0);
       const low = stk.filter((r) => { const it = cat.items.find((i) => i.id === Number(r.itemId)); return it && it.active !== false && (r.onHand || 0) <= (it.lowStock ?? 2); });
       const o = { store_id: id, name: st.name, code: st.code, sales_cents: sum('salesCents'), orders: sum('orders'), units: sum('units'), discount_cents: sum('discountCents'), low_stock: low.length, pieces, _items: items, _low: low };
-      if (seeCost) { o.gross_profit_cents = o.sales_cents - cogs; o.stock_value_cents = val; }
+      if (expRows) o.expenses_cents = expRows.filter((e) => Number(e.storeId) === id).reduce((a, e) => a + e.amountCents, 0);
+      if (seeCost) { o.gross_profit_cents = o.sales_cents - cogs; o.stock_value_cents = val; if (expRows) o.net_profit_cents = o.gross_profit_cents - o.expenses_cents; }
       return o;
     });
     const total = (k) => by.reduce((a, s) => a + (s[k] || 0), 0); const orders = total('orders');
     const cards = { sales_cents: total('sales_cents'), orders, avg_basket_cents: orders ? Math.round(total('sales_cents') / orders) : 0, units: total('units'), discount_cents: total('discount_cents'), low_stock: total('low_stock'), pieces: total('pieces') };
-    if (seeCost) { cards.gross_profit_cents = total('gross_profit_cents'); cards.stock_value_cents = total('stock_value_cents'); }
+    if (expRows) cards.expenses_cents = total('expenses_cents');
+    if (seeCost) { cards.gross_profit_cents = total('gross_profit_cents'); cards.stock_value_cents = total('stock_value_cents'); if (expRows) cards.net_profit_cents = total('net_profit_cents'); }
     const trendMap = new Map(); for (const d of docs) { const k = d.date; const v = trendMap.get(k) || { day: k, cents: 0, n: 0 }; v.cents += d.salesCents || 0; v.n += d.orders || 0; trendMap.set(k, v); }
     const trend = [...trendMap.values()].sort((a, b) => a.day.localeCompare(b.day)).map((t) => ({ ...t, day: t.day.length === 7 ? `${t.day}-01` : t.day }));
     const topMap = new Map(); for (const s of by) for (const [iid, v] of Object.entries(s._items)) { const x = topMap.get(iid) || { qty: 0, cents: 0 }; x.qty += v.qty; x.cents += v.cents; topMap.set(iid, x); }
@@ -776,7 +781,7 @@ export function createApi(B, extra = {}) {
     for (const t of trs) { if (t.status === 'discrepancy') alerts.push({ kind: 'transfer_discrepancy', store_id: Number(t.toStoreId), text: t.code, ref: t.id }); if (['requested', 'awaiting_owner'].includes(t.status) && t.requestedTs < ts() - 86400000) alerts.push({ kind: 'transfer_waiting', store_id: Number(t.fromStoreId), text: t.code, ref: t.id }); }
     for (const s of by) for (const r of s._low.slice(0, 8)) { const it = cat.items.find((i) => i.id === Number(r.itemId)); alerts.push({ kind: 'low_stock', store_id: s.store_id, text: `${it?.sku}: ${Math.max(0, r.onHand || 0)}` }); }
     const trc = {}; for (const t of trs) if (['requested', 'awaiting_owner', 'approved', 'in_transit', 'discrepancy'].includes(t.status)) trc[t.status] = (trc[t.status] || 0) + 1;
-    return { scope: { store_ids: ids, all: sel === 'all', stores: ids.map((id) => { const s = stores.find((x) => x.id === id); return { id, name: s.name, code: s.code }; }) }, period: pr, cards, by_store: by.map(({ _items, _low, ...o }) => o), trend, top_items, methods, alerts, transfers: trc, note: 'Profit shown is gross profit (sales minus cost of goods at today\'s cost). Expenses and payroll are not built yet.' };
+    return { scope: { store_ids: ids, all: sel === 'all', stores: ids.map((id) => { const s = stores.find((x) => x.id === id); return { id, name: s.name, code: s.code }; }) }, period: pr, cards, by_store: by.map(({ _items, _low, ...o }) => o), trend, top_items, methods, alerts, transfers: trc, note: 'Gross profit is sales minus cost of goods at today\'s cost. Net profit also subtracts the expenses you recorded (including salaries once you press Record in Payroll).' };
   }
 
   // ---------- first-time setup ----------
@@ -885,6 +890,7 @@ export function createApi(B, extra = {}) {
       if (method === 'PUT' && (m = path.match(/^\/admin\/users\/([^/]+)$/))) return await adminUserUpdate(m[1], b);
       if (method === 'POST' && (m = path.match(/^\/admin\/users\/([^/]+)\/delete$/))) return await adminUserDelete(m[1]);
       if (method === 'GET' && path === '/admin/audit') return await auditList(q);
+      { const r = await X.route(method, path, q, b); if (r !== undefined) return r; }
       if (extra.route) { const r = await extra.route(method, path, q, b); if (r !== undefined) return r; }
       throw notFound('Not found.');
     } catch (e) { return wrap('Something went wrong')(e); }

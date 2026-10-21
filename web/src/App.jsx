@@ -11,12 +11,15 @@ import Sales from './screens/Sales.jsx';
 import Customers from './screens/Customers.jsx';
 import Dashboard from './screens/Dashboard.jsx';
 import Settings from './screens/Settings.jsx';
+import Expenses from './screens/Expenses.jsx';
+import Attendance from './screens/Attendance.jsx';
+import Payroll from './screens/Payroll.jsx';
 
 const NAV = [
   ['register', 'pos.sell', '🧾'], ['lookup', 'stock.view', '🔎'], ['stock', 'stock.in', '📦'], ['transfers', 'transfer.request', '🔁'],
-  ['catalogue', 'catalog.edit', '👔'], ['sales', 'sales.view', '📄'], ['customers', 'customers.manage', '👥'], ['dashboard', 'dashboard.view', '📊'], ['settings', 'users.manage', '⚙️'],
+  ['catalogue', 'catalog.edit', '👔'], ['sales', 'sales.view', '📄'], ['customers', 'customers.manage', '👥'], ['expenses', 'expenses.manage', '💸'], ['attendance', 'attendance.use', '🕘'], ['payroll', 'payroll.view', '💰'], ['dashboard', 'dashboard.view', '📊'], ['settings', 'users.manage', '⚙️'],
 ];
-const SCREENS = { register: Register, lookup: Lookup, stock: StockScreen, transfers: Transfers, catalogue: Catalogue, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings };
+const SCREENS = { register: Register, lookup: Lookup, stock: StockScreen, transfers: Transfers, catalogue: Catalogue, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
 
 function Login({ onDone }) {
   const [mode, setMode] = useState('till');

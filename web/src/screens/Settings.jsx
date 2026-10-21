@@ -17,9 +17,9 @@ export default function Settings() {
     <div>
       <h1>{t('settings')}</h1>
       <div className="tabs" style={{ margin: '12px 0' }}>
-        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['audit', 'Activity log']].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
+        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['categories', 'Expense categories'], ['audit', 'Activity log']].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>
-      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'audit' && <Audit />}
+      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'categories' && owner && <Categories />}{tab === 'audit' && <Audit />}
     </div>
   );
 }
@@ -58,6 +58,8 @@ function Stores() {
           <span><b>This store is in use</b><span className="muted small"> — untick to remove it from the lists (history is kept)</span></span></label>
         <label>Receipt footer</label><input defaultValue={s.receipt_footer} key={`f${s.id}`} onBlur={(e) => e.target.value !== s.receipt_footer && save({ receipt_footer: e.target.value })} />
         <label>Auto-lock after (minutes, 0 = off)</label><input type="number" min="0" defaultValue={s.switches.autolock_minutes} key={`a${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { autolock_minutes: Number(e.target.value) } })} />
+        <label>Work starts at (staff arriving later are marked late)</label><input type="time" defaultValue={`${String(Math.floor((s.switches.work_start_minutes ?? 540) / 60)).padStart(2, '0')}:${String((s.switches.work_start_minutes ?? 540) % 60).padStart(2, '0')}`} key={`w${s.id}`} style={{ width: 140 }} onBlur={(e) => { const [h, m] = e.target.value.split(':').map(Number); if (!Number.isNaN(h)) save({ switches: { work_start_minutes: h * 60 + (m || 0) } }); }} />
+        <label>Minutes allowed after start before it counts as late</label><input type="number" min="0" defaultValue={s.switches.late_grace_minutes ?? 0} key={`g${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { late_grace_minutes: Number(e.target.value) } })} />
         <label>Cashier discount limit (%) — placeholder, confirm with owners</label><input type="number" min="0" max="100" defaultValue={s.switches.cashier_discount_limit_percent} key={`d${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { cashier_discount_limit_percent: Number(e.target.value) } })} />
       </div>
       <div className="card" style={{ marginTop: 12 }}>
@@ -94,7 +96,7 @@ function UserForm({ u, stores, onClose, onSaved }) {
   const [f, setF] = useState(u); const [err, setErr] = useState(''); const isNew = !u.id;
   const save = async () => {
     try {
-      const body = { name: f.name, role: f.role, store_ids: f.store_ids, email: f.email || null, lang: f.lang };
+      const body = { name: f.name, role: f.role, store_ids: f.store_ids, email: f.email || null, lang: f.lang, salary_usd: f.salary_usd === '' || f.salary_usd == null ? 0 : Number(f.salary_usd) };
       if (f.password) body.password = f.password; if (f.pin) body.pin = f.pin;
       if (isNew) await api.post('/admin/users', body); else await api.put(`/admin/users/${u.id}`, { ...body, active: f.active });
       onSaved();
@@ -107,12 +109,28 @@ function UserForm({ u, stores, onClose, onSaved }) {
       {f.role !== 'owner' && <><label>Stores</label><div className="row wrap">{stores.map((s) => <button key={s.id} className={`chip ${f.store_ids.includes(s.id) ? 'on' : ''}`} onClick={() => setF({ ...f, store_ids: f.store_ids.includes(s.id) ? f.store_ids.filter((x) => x !== s.id) : [...f.store_ids, s.id] })}>{s.code}</button>)}</div></>}
       {isNew && f.role !== 'cashier' && <><label>Email</label><input value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} /><label>Password (8+ characters)</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></>}
       {isNew && f.role === 'cashier' && <><label>PIN (4–6 digits, 6 is safer)</label><input inputMode="numeric" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value })} /></>}
+      <label>Monthly salary (USD)</label><input type="number" min="0" step="1" value={f.salary_usd ?? ''} onChange={(e) => setF({ ...f, salary_usd: e.target.value })} style={{ width: 160 }} />
       {!isNew && <p className="muted small">Password and PIN cannot be changed here. To replace them, turn this person off and add a new account.</p>}
       {!isNew && <label style={{ textTransform: 'none', fontSize: 15, color: 'var(--text)' }}><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} style={{ width: 20, height: 20, minHeight: 0, marginRight: 8 }} />Active</label>}
       {err && <div className="error">{err}</div>}
       <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={save}>Save</button>
       {!isNew && u.id !== me.id && <button className="btn" style={{ width: '100%', marginTop: 8, color: '#c0392b' }} onClick={remove}>Delete this person (only if they have no history)</button>}
     </Modal>
+  );
+}
+
+function Categories() {
+  const [rows, setRows] = useState([]); const [name, setName] = useState(''); const [err, setErr] = useState('');
+  const load = () => api.get('/expense-categories').then(setRows);
+  useEffect(() => { load(); }, []);
+  const run = async (fn) => { setErr(''); try { await fn(); load(); } catch (e) { setErr(e.message); } };
+  return (
+    <div className="card" style={{ maxWidth: 520 }}>
+      <h3>Expense categories</h3><p className="muted small">These appear in the Expenses screen. “Salary” is needed by payroll and stays.</p>
+      <div className="row wrap" style={{ margin: '10px 0' }}>{rows.map((c) => <span key={c.id} className="chip">{c.name}{c.name !== 'Salary' && <button className="btn" style={{ marginLeft: 8, padding: '0 8px', minHeight: 0 }} onClick={() => window.confirm(`Delete category “${c.name}”? Old expenses keep their label.`) && run(() => api.post(`/expense-categories/${c.id}/delete`))}>✕</button>}</span>)}</div>
+      <div className="row"><input placeholder="New category" value={name} onChange={(e) => setName(e.target.value)} className="grow" /><button className="btn primary" onClick={() => run(async () => { await api.post('/expense-categories', { name }); setName(''); })}>Add</button></div>
+      {err && <div className="error">{err}</div>}
+    </div>
   );
 }
 

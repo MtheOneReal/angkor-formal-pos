@@ -43,6 +43,8 @@ export default function Dashboard() {
         <div className="grid g4">
           <Kpi l={t('sales_total')} v={usd(d.cards.sales_cents)} /><Kpi l={t('orders')} v={d.cards.orders} /><Kpi l={t('avg_basket')} v={usd(d.cards.avg_basket_cents)} />
           <Kpi l={t('profit')} v={usd(d.cards.gross_profit_cents)} sub="Sales minus cost of goods" />
+          {d.cards.expenses_cents != null && <Kpi l="Expenses" v={usd(d.cards.expenses_cents)} sub="Rent, utilities, salaries…" />}
+          {d.cards.net_profit_cents != null && <Kpi l="Net profit" v={usd(d.cards.net_profit_cents)} sub="Gross profit minus expenses" />}
           <Kpi l="Units sold" v={d.cards.units} /><Kpi l={t('pieces')} v={d.cards.pieces} sub={me.perms.includes('cost.view') ? `At cost ${usdShort(d.cards.stock_value_cents)}` : ''} />
           <Kpi l="Discounts given" v={usd(d.cards.discount_cents)} /><Kpi l={t('low_stock')} v={d.cards.low_stock} />
         </div>

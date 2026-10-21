@@ -162,3 +162,26 @@ test('an owner can delete another person but never themselves; others cannot del
   await assertFails(deleteDoc(doc(as('owner'), 'users', 'owner')));
   await assertFails(deleteDoc(doc(as('mgr1'), 'users', 'cash1')));
 });
+
+test('expenses: managers add for their own store only; cashiers cannot read or add', async () => {
+  const e = { storeId: 1, date: '2026-10-21', month: '2026-10', category: 'Rent', amountCents: 5000, createdBy: 'mgr1' };
+  await assertSucceeds(setDoc(doc(as('mgr1'), 'expenses', 'e1'), e));
+  await assertFails(setDoc(doc(as('mgr1'), 'expenses', 'e2'), { ...e, storeId: 2 }));
+  await assertFails(setDoc(doc(as('cash1'), 'expenses', 'e3'), { ...e, createdBy: 'cash1' }));
+  await assertFails(getDoc(doc(as('cash1'), 'expenses', 'e1')));
+  await assertSucceeds(getDoc(doc(as('mgr1'), 'expenses', 'e1')));
+  await assertFails(getDoc(doc(as('mgr2'), 'expenses', 'e1')));
+});
+test('attendance: clock in only for yourself and only "now"; managers cannot edit their own; cashiers cannot edit others', async () => {
+  const now = Date.now();
+  const rec = (uid, inTs) => ({ storeId: 1, userId: uid, userName: uid, date: '2026-10-21', month: '2026-10', inTs, outTs: null, manual: false, excused: false });
+  await assertSucceeds(setDoc(doc(as('cash1'), 'attendance', '1_cash1_2026-10-21'), rec('cash1', now)));
+  await assertFails(setDoc(doc(as('cash1'), 'attendance', '1_cash1_2026-10-20'), rec('cash1', now - 3600000)));
+  await assertFails(setDoc(doc(as('cash1'), 'attendance', '1_mgr1_2026-10-21'), rec('mgr1', now)));
+  await assertSucceeds(updateDoc(doc(as('cash1'), 'attendance', '1_cash1_2026-10-21'), { outTs: now }));
+  await assertFails(updateDoc(doc(as('cash1'), 'attendance', '1_cash1_2026-10-21'), { excused: true }));
+  await assertSucceeds(updateDoc(doc(as('mgr1'), 'attendance', '1_cash1_2026-10-21'), { excused: true }));
+  await assertSucceeds(setDoc(doc(as('mgr1'), 'attendance', '1_cash1_2026-10-19'), { ...rec('cash1', now - 86400000 * 2), manual: true }));
+  await assertFails(setDoc(doc(as('mgr1'), 'attendance', '1_mgr1_2026-10-19'), { ...rec('mgr1', now - 86400000 * 2), manual: true }));
+  await assertFails(setDoc(doc(as('mgr2'), 'attendance', '1_cash1_2026-10-18'), { ...rec('cash1', now - 86400000 * 3), manual: true }));
+});

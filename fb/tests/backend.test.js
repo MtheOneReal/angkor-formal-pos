@@ -140,3 +140,62 @@ test('a person with no history can be deleted; one with sales cannot', async () 
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
   await fails(api.post(`/admin/users/${cas.id}/delete`), 'HAS_HISTORY');
 });
+
+test('expenses: add, list, categories, delete; cashier cannot', async () => {
+  const { api } = await setup();
+  const cats = await api.get('/expense-categories'); assert.ok(cats.some((c) => c.name === 'Electricity'));
+  await api.post('/expense-categories', { name: 'Cleaning' });
+  assert.ok((await api.get('/expense-categories')).some((c) => c.name === 'Cleaning'));
+  const e1 = await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Rent', amount: 500, currency: 'USD', note: 'Oct' });
+  await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Electricity', amount: 400000, currency: 'KHR' });
+  let r = await api.get('/expenses?store_id=1&month=2026-10');
+  assert.equal(r.total_cents, 50000 + 10000); assert.equal(r.rows.length, 2);
+  await api.post(`/expenses/${e1.id}/delete`);
+  assert.equal((await api.get('/expenses?store_id=1&month=2026-10')).total_cents, 10000);
+  await api.post('/expense-categories/cleaning/delete');
+  await fails(api.post('/expense-categories/salary/delete'), 'PROTECTED');
+  // manager may add for own store only
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'mgr@x.com', password: 'Mgr-pass-123' });
+  await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Water', amount: 10, currency: 'USD' });
+  await fails(api.post('/expenses', { store_id: 2, date: '2026-10-21', category: 'Water', amount: 10, currency: 'USD' }), 'FORBIDDEN');
+  await fails(api.post('/expense-categories', { name: 'X1' }), 'FORBIDDEN');
+  await api.post('/auth/logout');
+  const staff = await api.get('/public/stores/1/staff');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  await fails(api.get('/expenses?store_id=1'), 'FORBIDDEN');
+});
+
+test('attendance and payroll: late clock-in costs $5 a day unless excused; payroll recorded as expense; net profit', async () => {
+  const { api, cas, mgr } = await setup();
+  await api.put(`/admin/users/${cas.id}`, { salary_usd: 300 });
+  await api.put(`/admin/users/${mgr.id}`, { salary_usd: 600 });
+  const staff = await api.get('/public/stores/1/staff'); await api.post('/auth/logout');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  const me0 = await api.get('/attendance/me?store_id=1'); assert.equal(me0.record, null);
+  const inn = await api.post('/attendance/clock-in', { store_id: 1 }); assert.equal(inn.record.late, true); // test clock is 10:00 local, work starts 09:00
+  await fails(api.post('/attendance/clock-in', { store_id: 1 }), 'ALREADY_IN');
+  await api.post('/attendance/clock-out', { store_id: 1 });
+  await fails(api.get('/attendance?store_id=1'), 'FORBIDDEN');
+  await fails(api.get('/payroll'), 'FORBIDDEN');
+  // manager sees it and can excuse others but not self
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'mgr@x.com', password: 'Mgr-pass-123' });
+  const list = await api.get('/attendance?store_id=1&month=2026-10');
+  assert.equal(list.rows.length, 1); assert.equal(list.summary[0].late_days, 1);
+  await api.post('/attendance/clock-in', { store_id: 1 });
+  const mine = list.rows[0];
+  await fails(api.post('/attendance/manual', { store_id: 1, user_id: mgr.id, date: '2026-10-20', in_time: '08:00' }), 'FORBIDDEN');
+  await api.post('/attendance/manual', { store_id: 1, user_id: mine.user_id, date: '2026-10-20', in_time: '08:55', out_time: '18:00' });
+  // owner payroll
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
+  let p = await api.get('/payroll?month=2026-10');
+  let c = p.rows.find((r) => r.name === 'Cashier');
+  assert.equal(c.base_cents, 30000); assert.equal(c.late_days, 1); assert.equal(c.deduction_cents, 500); assert.equal(c.net_cents, 29500);
+  const m = p.rows.find((r) => r.name === 'Mgr'); assert.equal(m.late_days, 1);
+  await api.post(`/attendance/${mine.id}/excuse`, { excused: true });
+  p = await api.get('/payroll?month=2026-10'); c = p.rows.find((r) => r.name === 'Cashier'); assert.equal(c.late_days, 0); assert.equal(c.net_cents, 30000); assert.equal(c.excused_days, 1);
+  await api.post('/payroll/settings', { late_deduction_usd: 10 });
+  assert.equal((await api.get('/payroll?month=2026-10')).late_deduction_cents, 1000);
+  const rec = await api.post('/payroll/record', { month: '2026-10' }); assert.equal(rec.recorded, 2);
+  await fails(api.post('/payroll/record', { month: '2026-10' }), 'NOTHING_TO_RECORD');
+  const ex = await api.get('/expenses?store_id=1&month=2026-10'); assert.ok(ex.total_cents >= 30000);
+});

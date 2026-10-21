@@ -13,20 +13,21 @@ const approval = (message) => new ApiErr(403, 'APPROVAL_REQUIRED', message);
 export const ALL_PERMS = [
   'pos.sell', 'pos.discount', 'pos.approve', 'shift.use', 'shift.review', 'catalog.view', 'catalog.edit', 'cost.view',
   'stock.view', 'stock.view_other', 'stock.in', 'stock.adjust', 'transfer.request', 'transfer.approve', 'transfer.send', 'transfer.receive', 'transfer.resolve',
-  'customers.manage', 'sales.view', 'sales.void', 'sales.return', 'users.manage', 'settings.manage', 'rates.set', 'audit.view', 'dashboard.view', 'dashboard.all_stores',
+  'customers.manage', 'expenses.manage', 'attendance.use', 'attendance.manage', 'payroll.view', 'sales.view', 'sales.void', 'sales.return', 'users.manage', 'settings.manage', 'rates.set', 'audit.view', 'dashboard.view', 'dashboard.all_stores',
 ];
 export const ROLE_PERMS = {
   owner: ALL_PERMS,
   manager: ['pos.sell', 'pos.discount', 'pos.approve', 'shift.use', 'shift.review', 'catalog.view', 'cost.view', 'stock.view', 'stock.view_other', 'stock.in', 'stock.adjust',
-    'transfer.request', 'transfer.approve', 'transfer.send', 'transfer.receive', 'customers.manage', 'sales.view', 'sales.void', 'sales.return', 'rates.set', 'audit.view', 'dashboard.view'],
-  cashier: ['pos.sell', 'pos.discount', 'shift.use', 'catalog.view', 'stock.view', 'stock.view_other', 'transfer.request', 'customers.manage', 'sales.view'],
+    'transfer.request', 'transfer.approve', 'transfer.send', 'transfer.receive', 'customers.manage', 'expenses.manage', 'attendance.use', 'attendance.manage', 'sales.view', 'sales.void', 'sales.return', 'rates.set', 'audit.view', 'dashboard.view'],
+  cashier: ['pos.sell', 'pos.discount', 'shift.use', 'catalog.view', 'stock.view', 'stock.view_other', 'transfer.request', 'customers.manage', 'attendance.use', 'sales.view'],
 };
 export const SWITCH_DEFAULTS = {
   require_scan_to_sell: false, blind_counts: false, registered_devices_only: false, pin_every_discount: false, pin_every_return: true, receipt_required: false,
   customer_required: false, autolock_minutes: 2, telegram_summary: false, cashier_see_other_stock: true, show_exact_other_qty: true,
   owner_approval_large_transfer: false, large_transfer_pieces: 20, cashier_discount_limit_percent: 10,
+  work_start_minutes: 540, late_grace_minutes: 0,
 };
-const OWNER_ONLY = ['users.manage', 'settings.manage', 'transfer.resolve', 'dashboard.all_stores'];
+const OWNER_ONLY = ['users.manage', 'settings.manage', 'transfer.resolve', 'dashboard.all_stores', 'payroll.view'];
 
 export const khrToUsdCents = (khr, rate) => Math.round((khr * 100) / rate);
 export const usdCentsToKhr = (cents, rate) => Math.round((cents * rate) / 100 / 100) * 100;

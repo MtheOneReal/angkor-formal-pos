@@ -211,6 +211,32 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- expenses ----------
+    match /expenseCategories/{id} { allow read: if active(); allow write: if isOwner(); }
+    match /expenses/{id} {
+      allow read: if active() && isLead() && (resource == null || inStore(resource.data.storeId));
+      allow create: if leadOf(request.resource.data.storeId) && request.resource.data.createdBy == request.auth.uid;
+      allow delete: if leadOf(resource.data.storeId);
+      allow update: if false;
+    }
+
+    // ---------- attendance ----------
+    // Clocking in or out must happen "now" (within 5 minutes of the server clock), so a time cannot be made up.
+    // Managers can add or correct records for others in their own store, but not for themselves.
+    match /attendance/{id} {
+      allow read: if active() && (resource == null || resource.data.userId == request.auth.uid || (isLead() && inStore(resource.data.storeId)));
+      allow create: if active() && (
+        (request.resource.data.userId == request.auth.uid && inStore(request.resource.data.storeId)
+          && request.resource.data.manual == false && request.resource.data.excused == false
+          && request.resource.data.inTs >= request.time.toMillis() - 300000 && request.resource.data.inTs <= request.time.toMillis() + 300000)
+        || (leadOf(request.resource.data.storeId) && (isOwner() || request.resource.data.userId != request.auth.uid)));
+      allow update: if active() && (
+        (resource.data.userId == request.auth.uid && onlyChanges(['outTs']) && resource.data.outTs == null
+          && request.resource.data.outTs >= request.time.toMillis() - 300000 && request.resource.data.outTs <= request.time.toMillis() + 300000)
+        || (leadOf(resource.data.storeId) && (isOwner() || resource.data.userId != request.auth.uid)));
+      allow delete: if leadOf(resource.data.storeId) && (isOwner() || resource.data.userId != request.auth.uid);
+    }
+
     // ---------- activity log ----------
     match /auditLog/{id} {
       allow read: if isLead();
