@@ -49,11 +49,11 @@ test('cashier reads catalogue but never cost', async () => {
   await assertFails(getDoc(doc(as('cash1'), 'costs', 'd1')));
   await assertSucceeds(getDoc(doc(as('mgr1'), 'costs', 'd1')));
 });
-test('only owners create or change people; nobody deletes', async () => {
+test('only owners create, change or delete people', async () => {
   await assertFails(setDoc(doc(as('mgr1'), 'users', 'x'), { name: 'X', role: 'owner', storeIds: [], active: true }));
   await assertFails(updateDoc(doc(as('cash1'), 'users', 'cash1'), { role: 'owner' }));
   await assertSucceeds(setDoc(doc(as('owner'), 'users', 'new1'), { name: 'N', role: 'cashier', storeIds: [1], active: true }));
-  await assertFails(deleteDoc(doc(as('owner'), 'users', 'new1')));
+  await assertSucceeds(deleteDoc(doc(as('owner'), 'users', 'new1')));
 });
 test('staff cannot read other people', async () => {
   await assertFails(getDoc(doc(as('cash1'), 'users', 'mgr1')));
@@ -156,4 +156,9 @@ test('sign-in screen can list store names and staff names without signing in', a
   await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'publicStores', '1'), { id: 1, name: 'S1' }); });
   await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), 'publicStores', '1')));
   await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), 'publicStores', '2'), { id: 2 }));
+});
+test('an owner can delete another person but never themselves; others cannot delete', async () => {
+  await assertSucceeds(deleteDoc(doc(as('owner'), 'users', 'cash2')));
+  await assertFails(deleteDoc(doc(as('owner'), 'users', 'owner')));
+  await assertFails(deleteDoc(doc(as('mgr1'), 'users', 'cash1')));
 });

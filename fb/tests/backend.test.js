@@ -124,3 +124,19 @@ test('cashier cannot reach another store or stock-in', async () => {
   await fails(api.post('/stock/in', { store_id: 1, lines: [{ item_id: 1, qty: 1 }] }), 'FORBIDDEN');
   await fails(api.get('/admin/audit'), 'FORBIDDEN');
 });
+
+test('a person with no history can be deleted; one with sales cannot', async () => {
+  const { api, d, cas } = await setup();
+  const extra = await api.post('/admin/users', { name: 'Oops', role: 'cashier', pin: '654321', store_ids: [1] });
+  await api.post(`/admin/users/${extra.id}/delete`);
+  const list = await api.get('/admin/users');
+  assert.equal(list.users.some((u) => u.id === extra.id), false);
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 3 }] });
+  const staff = await api.get('/public/stores/1/staff'); await api.post('/auth/logout');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  await api.post('/shifts/open', { store_id: 1, open_usd: 0, open_khr: 0 });
+  await api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'search' }], payments: [{ method: 'cash', currency: 'USD', amount: 20000 }] });
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
+  await fails(api.post(`/admin/users/${cas.id}/delete`), 'HAS_HISTORY');
+});

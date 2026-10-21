@@ -706,6 +706,23 @@ export function createApi(B, extra = {}) {
     if (dir) batch.update(ref('staffDirectory', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, storeIds: role === 'owner' ? [] : storeIds });
     auditIn(batch, null, 'user.update', 'user', id, { role, active }); await batch.commit(); return { ok: true };
   }
+  async function adminUserDelete(id) {
+    need('users.manage'); const u = await read('users', id); if (!u) throw notFound();
+    if (id === S().uid) throw bad('SELF', 'You cannot delete your own account.');
+    if (u.role === 'owner') { const others = (await list('users')).filter((x) => x.role === 'owner' && x.active === true && x.id !== id); if (others.length < 1) throw bad('LAST_OWNER', 'There must always be at least one active owner.'); }
+    const stores = await B.loadStores(); let used = false;
+    for (const st of stores) {
+      if ((await list('sales', where('storeId', '==', st.id), where('cashierId', '==', id))).length) used = true;
+      if ((await list('shifts', where('storeId', '==', st.id), where('userId', '==', id))).length) used = true;
+    }
+    if (!used && (await list('movements', where('userId', '==', id))).length) used = true;
+    if (used) throw bad('HAS_HISTORY', 'This person has sales, shifts or stock records. Turn them off (untick Active) instead of deleting, so the history stays correct.');
+    const wb = writeBatch(db);
+    wb.delete(ref('users', id)); wb.delete(ref('staffDirectory', id));
+    auditIn(wb, null, 'user.delete', 'user', id, { name: u.name, role: u.role });
+    await wb.commit().catch(wrap('Delete failed'));
+    return { ok: true };
+  }
   async function auditList(q) {
     need('audit.view'); const rows = (await list('auditLog')).sort((a, b) => b.ts - a.ts).slice(0, Math.min(Number(q.limit) || 100, 300));
     const users = new Map((S().user.role === 'owner' ? await list('users') : []).map((u) => [u.id, u.name]));
@@ -866,6 +883,7 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && path === '/admin/users') return await adminUsers();
       if (method === 'POST' && path === '/admin/users') return await adminUserCreate(b);
       if (method === 'PUT' && (m = path.match(/^\/admin\/users\/([^/]+)$/))) return await adminUserUpdate(m[1], b);
+      if (method === 'POST' && (m = path.match(/^\/admin\/users\/([^/]+)\/delete$/))) return await adminUserDelete(m[1]);
       if (method === 'GET' && path === '/admin/audit') return await auditList(q);
       if (extra.route) { const r = await extra.route(method, path, q, b); if (r !== undefined) return r; }
       throw notFound('Not found.');

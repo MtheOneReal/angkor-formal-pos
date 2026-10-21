@@ -29,7 +29,8 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/setup/state)
         && existsAfter(/databases/$(database)/documents/setup/state)
         && getAfter(/databases/$(database)/documents/setup/state).data.firstOwner == uid;
-      allow delete: if false;
+      // An owner may remove someone (never themselves). The app only allows it when they have no history.
+      allow delete: if isOwner() && request.auth.uid != uid;
     }
 
     // One-time setup: the very first person to sign in creates the first owner.

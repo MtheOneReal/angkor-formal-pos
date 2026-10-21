@@ -89,6 +89,8 @@ function Users() {
 }
 
 function UserForm({ u, stores, onClose, onSaved }) {
+  const { me } = useApp();
+  const remove = async () => { if (!window.confirm(`Delete ${u.name} for good?`)) return; try { await api.post(`/admin/users/${u.id}/delete`); onSaved(); } catch (e) { setErr(e.message); } };
   const [f, setF] = useState(u); const [err, setErr] = useState(''); const isNew = !u.id;
   const save = async () => {
     try {
@@ -103,11 +105,13 @@ function UserForm({ u, stores, onClose, onSaved }) {
       <label>Name</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
       <label>Role</label><select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="cashier">Cashier</option><option value="manager">Store manager</option><option value="owner">Owner</option></select>
       {f.role !== 'owner' && <><label>Stores</label><div className="row wrap">{stores.map((s) => <button key={s.id} className={`chip ${f.store_ids.includes(s.id) ? 'on' : ''}`} onClick={() => setF({ ...f, store_ids: f.store_ids.includes(s.id) ? f.store_ids.filter((x) => x !== s.id) : [...f.store_ids, s.id] })}>{s.code}</button>)}</div></>}
-      {f.role !== 'cashier' && <><label>Email</label><input value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} /><label>{isNew ? 'Password (8+ characters)' : 'New password (leave empty to keep)'}</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></>}
-      <label>{isNew ? 'PIN (4–6 digits)' : 'New PIN (leave empty to keep)'}</label><input inputMode="numeric" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value })} />
+      {isNew && f.role !== 'cashier' && <><label>Email</label><input value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} /><label>Password (8+ characters)</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></>}
+      {isNew && f.role === 'cashier' && <><label>PIN (4–6 digits, 6 is safer)</label><input inputMode="numeric" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value })} /></>}
+      {!isNew && <p className="muted small">Password and PIN cannot be changed here. To replace them, turn this person off and add a new account.</p>}
       {!isNew && <label style={{ textTransform: 'none', fontSize: 15, color: 'var(--text)' }}><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} style={{ width: 20, height: 20, minHeight: 0, marginRight: 8 }} />Active</label>}
       {err && <div className="error">{err}</div>}
       <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={save}>Save</button>
+      {!isNew && u.id !== me.id && <button className="btn" style={{ width: '100%', marginTop: 8, color: '#c0392b' }} onClick={remove}>Delete this person (only if they have no history)</button>}
     </Modal>
   );
 }
