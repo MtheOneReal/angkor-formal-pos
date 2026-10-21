@@ -750,6 +750,27 @@ export function createApi(B, extra = {}) {
   const STORES = [['AF', 'Angkor Formal', 'AF', 'Thank you for choosing Angkor Formal.'], ['BW', 'Business Outfits (Wat Koh)', 'BO', 'Thank you.'], ['B5', 'Business Outfits (598)', 'BO', 'Thank you.'], ['AC', 'អាវធំ Cambodia', 'AT', 'សូមអរគុណ។'], ['S5', 'Store 5 (name to be confirmed)', 'AF', 'Thank you.']];
   const TYPES = [['S', 'Suit', 'ឈុតអាវសូត'], ['B', 'Blazer', 'អាវធំ'], ['T', 'Trousers', 'ខោ'], ['H', 'Shirt', 'អាវ'], ['A', 'Accessory', 'គ្រឿងបន្ថែម']];
   const COLOURS = [['BLK', 'Black', 'ខ្មៅ', '#1b1917'], ['NVY', 'Navy', 'ខៀវចាស់', '#1f2a44'], ['CHA', 'Charcoal', 'ប្រផេះចាស់', '#3b3f46'], ['GRY', 'Grey', 'ប្រផេះ', '#8a8d91'], ['BRN', 'Brown', 'ត្នោត', '#5b4636'], ['BEI', 'Beige', 'ក្រែម', '#d8c7a8'], ['WHT', 'White', 'ស', '#f5f3ee']];
+  async function seedData(uid) {
+    const w = writeBatch(db);
+    BRANDS.forEach(([code, nm], i) => w.set(ref('brands', i + 1), { id: i + 1, code, name: nm }));
+    TYPES.forEach(([code, en, km]) => w.set(ref('types', code), { code, nameEn: en, nameKm: km }));
+    COLOURS.forEach(([code, en, km, hex]) => w.set(ref('colours', code), { code, nameEn: en, nameKm: km, hex }));
+    STORES.forEach(([code, nm, bc, foot], i) => {
+      const id = i + 1; const brandId = BRANDS.findIndex((x) => x[0] === bc) + 1;
+      w.set(ref('stores', id), { id, code, name: nm, brandId, receiptFooter: foot, active: true, switches: { ...SWITCH_DEFAULTS } });
+      w.set(ref('publicStores', id), { id, code, name: nm, active: true, brandCode: bc });
+    });
+    w.set(ref('settings', 'rate'), { khrPerUsd: 4000, ts: ts(), setBy: uid });
+    w.set(ref('meta', 'ids'), { design: 0, item: 0, transfer: 0 });
+    auditIn(w, null, 'setup.create', 'user', uid, null, uid);
+    await w.commit();
+  }
+  async function setupSeed() {
+    need('settings.manage');
+    if ((await list('stores')).length) throw bad('ALREADY_SETUP', 'Stores already exist.');
+    await seedData(S().uid).catch(wrap('Setup failed'));
+    B.clearCaches(); await B.startSession(); return { ok: true };
+  }
   async function setupCreate(b) {
     if ((await getDoc(ref('setup', 'state'))).exists()) throw bad('ALREADY_SETUP', 'This system is already set up. Sign in instead.');
     const name = String(b.name || '').trim(); const email = String(b.email || '').trim().toLowerCase();
@@ -760,20 +781,7 @@ export function createApi(B, extra = {}) {
     first.set(ref('setup', 'state'), { firstOwner: uid, ts: ts() });
     first.set(ref('users', uid), { name, email, role: 'owner', storeIds: [], active: true, lang: 'en', perms: {}, createdAt: ts(), hasPin: false });
     await first.commit().catch(wrap('Setup failed'));
-    const w = writeBatch(db);
-    BRANDS.forEach(([code, nm], i) => w.set(ref('brands', i + 1), { id: i + 1, code, name: nm }));
-    TYPES.forEach(([code, en, km]) => w.set(ref('types', code), { code, nameEn: en, nameKm: km }));
-    COLOURS.forEach(([code, en, km, hex]) => w.set(ref('colours', code), { code, nameEn: en, nameKm: km, hex }));
-    STORES.forEach(([code, nm, bc, foot], i) => {
-      const id = i + 1; const brandId = BRANDS.findIndex((x) => x[0] === bc) + 1;
-      w.set(ref('stores', id), { id, code, name: nm, brandId, receiptFooter: foot, active: true, switches: { ...SWITCH_DEFAULTS } });
-      w.set(ref('publicStores', id), { id, code, name: nm, active: true, brandCode: bc });
-      w.set(ref('counters', id), { seq: 0 });
-    });
-    w.set(ref('settings', 'rate'), { khrPerUsd: 4000, ts: ts(), setBy: uid });
-    w.set(ref('meta', 'ids'), { design: 0, item: 0, transfer: 0 });
-    auditIn(w, null, 'setup.create', 'user', uid, { name }, uid);
-    await w.commit().catch(wrap('Setup failed'));
+    await seedData(uid).catch(wrap('Setup failed'));
     B.clearCaches();
     await B.startSession();
     return { ok: true };
@@ -795,6 +803,7 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && path === '/me') return await B.publicUser();
       if (!S()) await B.startSession();
       if (method === 'POST' && path === '/auth/unlock') { const dir = await read('staffDirectory', S().uid); const st = await storeById(S().storeId); try { await secondary.signInAs(dir.authEmail, tillPassword(String(b.pin), st.code)).then((c) => c.done()); } catch { throw new ApiErr(401, 'BAD_LOGIN', 'PIN is not correct.'); } return { ok: true }; }
+      if (method === 'POST' && path === '/setup/seed') return await setupSeed();
       if (method === 'POST' && path === '/me/store') { const id = assertStore(b.store_id); S().storeId = id; B.localStorageSet('af_store', String(id)); return { ok: true }; }
       if (method === 'POST' && path === '/me/prefs') { const upd = {}; if (['en', 'km'].includes(b.lang)) upd.lang = b.lang; if (['light', 'dark'].includes(b.theme)) upd.theme = b.theme; if (Object.keys(upd).length) { await updateDoc(ref('users', S().uid), upd).catch(() => {}); Object.assign(S().user, upd); } return { ok: true }; }
       // catalogue and stock

@@ -45,7 +45,7 @@ function Login({ onDone }) {
   return (
     <div className="login theme-ivory" style={{ background: '#F2EBDD' }}>
       <div className="box">
-        <img src={`${import.meta.env.BASE_URL}brand/angkor-formal-logo-espresso.svg`} alt="Angkor Formal" style={{ width: 220, display: 'block', margin: '0 auto 24px' }} />
+        <img src={`./brand/angkor-formal-logo-espresso.svg`} alt="Angkor Formal" style={{ width: 220, display: 'block', margin: '0 auto 24px' }} />
         <div className="tabs" style={{ justifyContent: 'center' }}>
           <button className={`chip ${mode === 'till' ? 'on' : ''}`} onClick={() => { setMode('till'); setErr(''); }}>{t('till_login')}</button>
           <button className={`chip ${mode === 'owner' ? 'on' : ''}`} onClick={() => { setMode('owner'); setErr(''); }}>{t('owner_login')}</button>
@@ -95,6 +95,18 @@ function FirstSetup({ onDone }) {
   );
 }
 
+function FinishSetup({ onDone }) {
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const go = async () => { setBusy(true); setErr(''); try { await api.post('/setup/seed'); onDone(); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
+  return (
+    <div className="login theme-ivory" style={{ background: '#F2EBDD' }}><div className="box"><div className="card">
+      <h2>One more step</h2><p className="muted">Your owner account exists, but the stores and lists have not been created yet. Press the button to create your 5 stores, brands, types and colours.</p>
+      {err && <div className="error">{err}</div>}
+      <button className="btn primary big" style={{ width: '100%', marginTop: 16 }} disabled={busy} onClick={go}>Create stores now</button>
+    </div></div></div>
+  );
+}
+
 function LockScreen({ onUnlock, onLogout }) {
   const [err, setErr] = useState('');
   const t = useT();
@@ -139,6 +151,7 @@ export default function App() {
   if (me === undefined) return <Spinner />;
   if (me === null) return <Login onDone={load} />;
 
+  if (me.role === 'owner' && me.stores.length === 0) return <FinishSetup onDone={load} />;
   const allowed = NAV.filter(([k, p]) => me.perms.includes(p) && !(k === 'settings' && !me.perms.includes('settings.manage') && !me.perms.includes('users.manage')));
   const first = allowed[0]?.[0] || 'register';
   const cur = allowed.find(([k]) => k === route) ? route : first;
@@ -157,7 +170,7 @@ export default function App() {
         {me.demo && <div className="banner">{t('demo_banner')}</div>}
         <div className="shell" style={{ flex: 1, minHeight: 0 }}>
           <aside className="side">
-            <img className="logo" src={`${import.meta.env.BASE_URL}brand/angkor-formal-logo-${effTheme === 'dark' ? 'gold' : 'bronze'}.svg`} alt="Angkor Formal" />
+            <img className="logo" src={`./brand/angkor-formal-logo-${effTheme === 'dark' ? 'gold' : 'bronze'}.svg`} alt="Angkor Formal" />
             {allowed.map(([k, , ic]) => <button key={k} className={`nav ${cur === k ? 'on' : ''}`} onClick={() => go(k)}><span>{ic}</span>{t(k)}</button>)}
             <div style={{ flex: 1 }} />
             <div className="small muted" style={{ padding: '0 8px' }}>{me.name} · {me.role}</div>
