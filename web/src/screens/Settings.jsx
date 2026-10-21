@@ -53,6 +53,9 @@ function Stores() {
       <select value={sid} onChange={(e) => setSid(Number(e.target.value))} style={{ width: 'auto', minWidth: 260 }}>{data.stores.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
       <div className="card" style={{ marginTop: 12 }}>
         <label>Store name</label><input defaultValue={s.name} key={`n${s.id}`} onBlur={(e) => e.target.value !== s.name && save({ name: e.target.value })} />
+        <label style={{ display: 'flex', gap: 12, alignItems: 'center', textTransform: 'none', fontSize: 15, color: 'var(--text)', margin: '8px 0' }}>
+          <input type="checkbox" checked={!!s.active} onChange={(e) => save({ active: e.target.checked })} style={{ width: 22, height: 22, minHeight: 0 }} />
+          <span><b>This store is in use</b><span className="muted small"> — untick to remove it from the lists (history is kept)</span></span></label>
         <label>Receipt footer</label><input defaultValue={s.receipt_footer} key={`f${s.id}`} onBlur={(e) => e.target.value !== s.receipt_footer && save({ receipt_footer: e.target.value })} />
         <label>Auto-lock after (minutes, 0 = off)</label><input type="number" min="0" defaultValue={s.switches.autolock_minutes} key={`a${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { autolock_minutes: Number(e.target.value) } })} />
         <label>Cashier discount limit (%) — placeholder, confirm with owners</label><input type="number" min="0" max="100" defaultValue={s.switches.cashier_discount_limit_percent} key={`d${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { cashier_discount_limit_percent: Number(e.target.value) } })} />

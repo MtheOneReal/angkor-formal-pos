@@ -100,7 +100,7 @@ function FinishSetup({ onDone }) {
   const go = async () => { setBusy(true); setErr(''); try { await api.post('/setup/seed'); onDone(); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
   return (
     <div className="login theme-ivory" style={{ background: '#F2EBDD' }}><div className="box"><div className="card">
-      <h2>One more step</h2><p className="muted">Your owner account exists, but the stores and lists have not been created yet. Press the button to create your 5 stores, brands, types and colours.</p>
+      <h2>One more step</h2><p className="muted">Your owner account exists, but the stores and lists have not been created yet. Press the button to create your 4 stores, brands, types and colours.</p>
       {err && <div className="error">{err}</div>}
       <button className="btn primary big" style={{ width: '100%', marginTop: 16 }} disabled={busy} onClick={go}>Create stores now</button>
     </div></div></div>

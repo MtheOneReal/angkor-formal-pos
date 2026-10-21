@@ -764,7 +764,7 @@ export function createApi(B, extra = {}) {
 
   // ---------- first-time setup ----------
   const BRANDS = [['AF', 'Angkor Formal'], ['BO', 'Business Outfits'], ['AT', 'អាវធំ Cambodia']];
-  const STORES = [['AF', 'Angkor Formal', 'AF', 'Thank you for choosing Angkor Formal.'], ['BW', 'Business Outfits (Wat Koh)', 'BO', 'Thank you.'], ['B5', 'Business Outfits (598)', 'BO', 'Thank you.'], ['AC', 'អាវធំ Cambodia', 'AT', 'សូមអរគុណ។'], ['S5', 'Store 5 (name to be confirmed)', 'AF', 'Thank you.']];
+  const STORES = [['AF', 'Angkor Formal', 'AF', 'Thank you for choosing Angkor Formal.'], ['BW', 'Business Outfits (Wat Koh)', 'BO', 'Thank you.'], ['B5', 'Business Outfits (598)', 'BO', 'Thank you.'], ['AC', 'អាវធំ Cambodia', 'AT', 'សូមអរគុណ។']];
   const TYPES = [['S', 'Suit', 'ឈុតអាវសូត'], ['B', 'Blazer', 'អាវធំ'], ['T', 'Trousers', 'ខោ'], ['H', 'Shirt', 'អាវ'], ['A', 'Accessory', 'គ្រឿងបន្ថែម']];
   const COLOURS = [['BLK', 'Black', 'ខ្មៅ', '#1b1917'], ['NVY', 'Navy', 'ខៀវចាស់', '#1f2a44'], ['CHA', 'Charcoal', 'ប្រផេះចាស់', '#3b3f46'], ['GRY', 'Grey', 'ប្រផេះ', '#8a8d91'], ['BRN', 'Brown', 'ត្នោត', '#5b4636'], ['BEI', 'Beige', 'ក្រែម', '#d8c7a8'], ['WHT', 'White', 'ស', '#f5f3ee']];
   async function seedData(uid) {

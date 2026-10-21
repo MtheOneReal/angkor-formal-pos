@@ -35,9 +35,9 @@ async function setup() {
 test('first owner setup seeds stores and blocks a second setup', async () => {
   const { api } = await setup();
   const stores = await api.get('/public/stores');
-  assert.equal(stores.length, 5);
+  assert.equal(stores.length, 4);
   const me = await api.get('/me');
-  assert.equal(me.role, 'owner'); assert.equal(me.stores.length, 5);
+  assert.equal(me.role, 'owner'); assert.equal(me.stores.length, 4);
 });
 
 test('stock in, lookup and a cashier sale reduce stock and number the receipt', async () => {
