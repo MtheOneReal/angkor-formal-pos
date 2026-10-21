@@ -1,0 +1,81 @@
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { tr } from './i18n.js';
+
+export const Ctx = createContext(null);
+export const useApp = () => useContext(Ctx);
+export function useT() { const { lang } = useApp(); return (k) => tr(lang, k); }
+
+export function Modal({ title, onClose, children, wide }) {
+  useEffect(() => { const h = (e) => e.key === 'Escape' && onClose?.(); window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onClose]);
+  return (
+    <div className="modal-bg" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
+      <div className="modal" style={wide ? { width: 'min(860px,100%)' } : null} role="dialog" aria-modal="true">
+        {title && <div className="row between" style={{ marginBottom: 12 }}><h2>{title}</h2><button className="btn" onClick={onClose} aria-label="Close">✕</button></div>}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function PinPad({ onDone, length = 4, error, busy }) {
+  const [v, setV] = useState('');
+  const press = (d) => { if (busy) return; const n = (v + d).slice(0, 6); setV(n); };
+  useEffect(() => {
+    const h = (e) => { if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') setV((x) => x.slice(0, -1)); else if (e.key === 'Enter' && v.length >= 4) onDone(v); };
+    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
+  });
+  useEffect(() => { if (error) setV(''); }, [error]);
+  return (
+    <div>
+      <div className="dots" aria-label="PIN">{Array.from({ length: Math.max(length, v.length) }).map((_, i) => <i key={i} className={i < v.length ? 'f' : ''} />)}</div>
+      {error && <div className="error" style={{ textAlign: 'center' }}>{error}</div>}
+      <div className="pinpad">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => <button key={d} onClick={() => press(String(d))}>{d}</button>)}
+        <button onClick={() => setV((x) => x.slice(0, -1))} aria-label="Delete">⌫</button>
+        <button onClick={() => press('0')}>0</button>
+        <button className="btn primary" disabled={v.length < 4 || busy} onClick={() => onDone(v)} style={{ fontSize: 18 }}>OK</button>
+      </div>
+    </div>
+  );
+}
+
+// Asks a manager for a PIN (used when the server says approval is needed).
+export function ManagerPin({ message, onSubmit, onClose }) {
+  const [err, setErr] = useState('');
+  return (
+    <Modal title="Manager PIN" onClose={onClose}>
+      <p className="muted">{message || 'A manager must approve this. Ask a manager to enter their PIN.'}</p>
+      <PinPad error={err} onDone={async (pin) => { try { await onSubmit(pin); } catch (e) { setErr(e.message); } }} />
+    </Modal>
+  );
+}
+
+export function useToast() {
+  const [msg, setMsg] = useState('');
+  const t = useRef();
+  const show = useCallback((m) => { setMsg(m); clearTimeout(t.current); t.current = setTimeout(() => setMsg(''), 2800); }, []);
+  return [msg ? <div className="toast" role="status">{msg}</div> : null, show];
+}
+
+export const Spinner = () => <div className="muted" style={{ padding: 20 }}>Loading…</div>;
+
+export function StoreSelect({ value, onChange, stores, all }) {
+  const t = useT();
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 'auto', minWidth: 200 }} aria-label="Store">
+      {all && <option value="all">{t('all_stores')}</option>}
+      {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </select>
+  );
+}
+
+export function LevelBadge({ level }) {
+  const t = useT();
+  const cls = level === 'in' ? 'ok' : level === 'low' ? 'low' : 'out';
+  return <span className={`badge ${cls}`}>{t(level === 'in' ? 'in_stock' : level)}</span>;
+}
+
+export function useName() {
+  const { lang } = useApp();
+  return (o, key = 'name') => (lang === 'km' && o[`${key}_km`]) || o[`${key}_en`] || o[key];
+}

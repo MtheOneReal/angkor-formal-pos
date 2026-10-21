@@ -1,0 +1,24 @@
+// English and Khmer text. Khmer wording has not been checked by a native reader yet.
+const D = {
+  en: {
+    register: 'Register', lookup: 'Find stock', stock: 'Stock', transfers: 'Transfers', catalogue: 'Catalogue', sales: 'Receipts', customers: 'Customers',
+    dashboard: 'Dashboard', settings: 'Settings', logout: 'Sign out', search: 'Scan or type a code or name', cart: 'Cart', empty_cart: 'Nothing in the cart yet.',
+    total: 'Total', pay: 'Take payment', discount: 'Discount', subtotal: 'Subtotal', cash: 'Cash', khqr: 'KHQR', change: 'Change', open_shift: 'Open shift', close_shift: 'Close shift',
+    all_stores: 'All stores', today: 'Today', week: '7 days', month: 'This month', year: 'This year', save: 'Save', cancel: 'Cancel', confirm: 'Confirm', back: 'Back',
+    sign_in: 'Sign in', till_login: 'Till login', owner_login: 'Owner / manager', email: 'Email', password: 'Password', choose_store: 'Choose your store', who_are_you: 'Who is working?', enter_pin: 'Enter your PIN',
+    keyboard: 'Keyboard', camera: 'Camera', add: 'Add', in_stock: 'In stock', low: 'Low', out: 'Out', receipt: 'Receipt', print: 'Print', new_sale: 'New sale', done: 'Done',
+    demo_banner: 'Demo accounts are on. Change every password and PIN before real use.', locked: 'Locked', unlock: 'Unlock', language: 'Language', theme: 'Theme',
+    request: 'Request transfer', approve: 'Approve', reject: 'Reject', send: 'Send', receive: 'Receive', sales_total: 'Sales', orders: 'Orders', avg_basket: 'Average basket', pieces: 'Pieces in stock', profit: 'Gross profit', low_stock: 'Low stock',
+  },
+  km: {
+    register: 'គិតលុយ', lookup: 'រកស្តុក', stock: 'ស្តុក', transfers: 'ផ្ទេរទំនិញ', catalogue: 'កាតាឡុក', sales: 'បង្កាន់ដៃ', customers: 'អតិថិជន',
+    dashboard: 'ផ្ទាំងគ្រប់គ្រង', settings: 'ការកំណត់', logout: 'ចាកចេញ', search: 'ស្កែន ឬវាយលេខកូដ ឬឈ្មោះ', cart: 'កន្ត្រក', empty_cart: 'មិនទាន់មានទំនិញទេ។',
+    total: 'សរុប', pay: 'ទទួលការបង់ប្រាក់', discount: 'បញ្ចុះតម្លៃ', subtotal: 'សរុបរង', cash: 'សាច់ប្រាក់', khqr: 'KHQR', change: 'ប្រាក់អាប់', open_shift: 'បើកវេន', close_shift: 'បិទវេន',
+    all_stores: 'ហាងទាំងអស់', today: 'ថ្ងៃនេះ', week: '៧ ថ្ងៃ', month: 'ខែនេះ', year: 'ឆ្នាំនេះ', save: 'រក្សាទុក', cancel: 'បោះបង់', confirm: 'បញ្ជាក់', back: 'ត្រឡប់',
+    sign_in: 'ចូល', till_login: 'ចូលតាមបញ្ជរ', owner_login: 'ម្ចាស់ / អ្នកគ្រប់គ្រង', email: 'អ៊ីមែល', password: 'ពាក្យសម្ងាត់', choose_store: 'ជ្រើសរើសហាង', who_are_you: 'នរណាកំពុងធ្វើការ?', enter_pin: 'បញ្ចូលលេខ PIN',
+    keyboard: 'ក្តារចុច', camera: 'កាមេរ៉ា', add: 'បន្ថែម', in_stock: 'មាន', low: 'ជិតអស់', out: 'អស់', receipt: 'បង្កាន់ដៃ', print: 'បោះពុម្ព', new_sale: 'លក់ថ្មី', done: 'រួចរាល់',
+    demo_banner: 'គណនីសាកល្បងកំពុងបើក។ ប្តូរពាក្យសម្ងាត់ និង PIN ទាំងអស់មុនប្រើពិតប្រាកដ។', locked: 'ចាក់សោ', unlock: 'ដោះសោ', language: 'ភាសា', theme: 'ស្បែក',
+    request: 'ស្នើផ្ទេរ', approve: 'អនុម័ត', reject: 'បដិសេធ', send: 'ផ្ញើ', receive: 'ទទួល', sales_total: 'ការលក់', orders: 'ការបញ្ជាទិញ', avg_basket: 'មធ្យមក្នុងមួយវិក្កយបត្រ', pieces: 'ចំនួនក្នុងស្តុក', profit: 'ប្រាក់ចំណេញដុល', low_stock: 'ស្តុកទាប',
+  },
+};
+export const tr = (lang, k) => D[lang]?.[k] ?? D.en[k] ?? k;

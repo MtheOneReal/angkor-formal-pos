@@ -1,0 +1,30 @@
+{
+  "name": "angkor-formal-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Angkor Formal group: POS, stock and owner dashboard",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node server/index.js",
+    "seed": "node server/seed.js",
+    "build": "vite build web",
+    "dev:web": "vite web",
+    "test": "node --test server/tests/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@fontsource/cormorant-garamond": "^5.1.0",
+    "@fontsource/montserrat": "^5.1.0",
+    "@fontsource/noto-sans-khmer": "^5.1.0",
+    "@fontsource/noto-serif-khmer": "^5.1.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "@zxing/library": "^0.21.3",
+    "jsbarcode": "^3.11.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.0"
+  }
+}
