@@ -149,26 +149,27 @@ export function createExtras(B) {
   // ---------- payroll (owner only) ----------
   const deductionCents = async () => (await read('settings', 'payroll'))?.lateDeductionCents ?? 500;
   async function payroll(q) {
-    need('payroll.view'); const month = monthOk(q.month); const ded = await deductionCents();
+    need('payroll.view'); const month = monthOk(q.month); const ded = await deductionCents(); const only = q.store_id && q.store_id !== 'all' ? Number(q.store_id) : null;
     const users = (await list('users')).filter((u) => u.active === true && ((u.salaryCents || 0) > 0 || u.role !== 'owner'));
     const stores = (await B.loadStores()).filter((s) => s.active !== false && s.kind !== 'warehouse');
     const att = []; for (const st of stores) for (const a of await list('attendance', where('storeId', '==', st.id), where('month', '==', month))) att.push({ a, sw: st.switches });
-    const rows = [];
+    const rows = []; const homeOf = (u) => Number((u.storeIds || [])[0]) || stores[0]?.id;
     for (const u of users) {
+      if (only && homeOf(u) !== only) continue;
       const mine = att.filter((x) => x.a.userId === u.id); const lateDays = mine.filter((x) => lateInfo(x.a, x.sw).late).length; const excused = mine.filter((x) => x.a.excused && lateInfo({ ...x.a, excused: false }, x.sw).late).length;
       const base = u.salaryCents || 0; const deduction = Math.min(base, lateDays * ded);
       const paid = !!(await read('expenses', `salary_${u.id}_${month}`));
-      rows.push({ user_id: u.id, name: u.name, role: u.role, store_ids: u.storeIds || [], base_cents: base, days_present: mine.length, late_days: lateDays, excused_days: excused, deduction_cents: deduction, net_cents: base - deduction, recorded: paid });
+      rows.push({ user_id: u.id, name: u.name, role: u.role, store_ids: u.storeIds || [], store_id: homeOf(u), store_name: stores.find((s) => s.id === homeOf(u))?.name || '', multi_store: (u.storeIds || []).length > 1, base_cents: base, days_present: mine.length, late_days: lateDays, excused_days: excused, deduction_cents: deduction, net_cents: base - deduction, recorded: paid });
     }
     rows.sort((a, b) => a.name.localeCompare(b.name));
-    return { month, late_deduction_cents: ded, rows, total_net_cents: rows.reduce((n, r) => n + r.net_cents, 0), total_base_cents: rows.reduce((n, r) => n + r.base_cents, 0) };
+    return { month, store_id: only ? String(only) : 'all', stores: stores.map((s) => ({ id: s.id, name: s.name })), late_deduction_cents: ded, rows, total_net_cents: rows.reduce((n, r) => n + r.net_cents, 0), total_base_cents: rows.reduce((n, r) => n + r.base_cents, 0) };
   }
   async function payrollSettings(b) {
     need('payroll.view'); const c = Math.round(Number(b.late_deduction_usd) * 100); if (!(c >= 0 && c <= 100000)) throw bad('BAD_INPUT', 'Enter a deduction between $0 and $1000.');
     await setDoc(ref('settings', 'payroll'), { lateDeductionCents: c, ts: now(), setBy: S().uid }); await audit(null, 'payroll.settings', 'settings', 'payroll', { cents: c }); return { ok: true };
   }
   async function payrollRecord(b) {
-    need('payroll.view'); const month = monthOk(b.month); const p = await payroll({ month }); const stores = (await B.loadStores()).filter((s) => s.active !== false && s.kind !== 'warehouse');
+    need('payroll.view'); const month = monthOk(b.month); const p = await payroll({ month, store_id: b.store_id }); const stores = (await B.loadStores()).filter((s) => s.active !== false && s.kind !== 'warehouse');
     const date = `${month}-28`; const wb = writeBatch(db); let n = 0; const rate = await B.currentRate();
     for (const r of p.rows) {
       if (r.recorded || r.net_cents <= 0) continue;

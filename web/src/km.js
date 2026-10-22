@@ -1,6 +1,7 @@
 // Khmer wording for screens that still have English text written directly in the code.
 // Matched exactly against the text on screen. Khmer has not been checked by a native reader yet.
 export const KM = {
+"Salaries are set per person in Settings → Staff. A person is late when they clock in after the store’s start time. A manager can excuse a late day in Attendance. Recording adds one Salary expense per person (once per month) in their first store, so the dashboard’s net profit includes it. A “+” after the shop name means the person works in more than one shop; their salary is counted under the first one.": "ប្រាក់ខែកំណត់ម្នាក់ៗក្នុងការកំណត់ → បុគ្គលិក។ អ្នកណាចូលធ្វើការក្រោយម៉ោងចាប់ផ្តើមរបស់ហាង រាប់ថាយឺត។ អ្នកគ្រប់គ្រងអាចលើកលែងថ្ងៃយឺតក្នុងទំព័រវត្តមាន។ ការកត់ត្រាបន្ថែមចំណាយប្រាក់ខែម្នាក់ម្តង (ម្តងក្នុងមួយខែ) ក្នុងហាងដំបូងរបស់គេ ដូច្នេះចំណេញសុទ្ធនៅផ្ទាំងគ្រប់គ្រងរាប់បញ្ចូល។ សញ្ញា «+» ក្រោយឈ្មោះហាង មានន័យថាមនុស្សនោះធ្វើការច្រើនជាងមួយហាង ប្រាក់ខែរាប់ក្នុងហាងដំបូង។",
 "Requests will be sent to:": "សំណើនឹងផ្ញើទៅ៖",
 "you are here": "អ្នកនៅទីនេះ",
 "Search every branch and warehouse. You can only look here; to receive or adjust stock, use “Stock in this branch”.": "ស្វែងរកគ្រប់សាខា និងឃ្លាំង។ នៅទីនេះអាចមើលបានតែប៉ុណ្ណោះ។ ដើម្បីទទួលទំនិញ ឬកែស្តុក សូមប្រើ «ស្តុកក្នុងសាខានេះ»។",
