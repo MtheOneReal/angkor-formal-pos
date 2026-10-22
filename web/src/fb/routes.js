@@ -51,7 +51,7 @@ export function createApi(B, extra = {}) {
     need('settings.manage'); if (S().user.role !== 'owner') throw forbidden('Only the owner can reset.');
     if (b.confirm !== 'RESET') throw bad('CONFIRM', 'Type RESET to confirm.');
     await setDoc(ref('settings', 'testMode'), { enabled: true, ts: ts(), by: S().uid });
-    const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), ...(b.capital ? ['capitalPayments', 'shareholders'] : []), 'balances', 'balancePayments', 'alterations', 'stocktakes', 'auditLog'];
+    const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'itemStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), ...(b.capital ? ['capitalPayments', 'shareholders'] : []), 'balances', 'balancePayments', 'alterations', 'stocktakes', 'auditLog'];
     let n = 0;
     for (const c of cols) {
       let docs; try { docs = (await getDocs(collection(db, c))).docs; } catch { throw bad('RESET_FAILED', `Could not read ${c}.`); }
@@ -191,6 +191,24 @@ export function createApi(B, extra = {}) {
       return { ...safe, incoming: inc, stores: per };
     });
     return { stores: show.map((s) => ({ id: s.id, name: s.name, code: s.code })), items };
+  }
+  // Best sellers (ranked) and low stock for one branch, safe for cashiers: quantities only, never cost.
+  async function restock(q) {
+    need('stock.view');
+    const my = assertStore(q.store_id); const days = [7, 30, 90].includes(Number(q.days)) ? Number(q.days) : 30;
+    const sw = await switchesOf(my); const cashier = S().user.role === 'cashier';
+    const canOther = can('stock.view_other') && (!cashier || sw.cashier_see_other_stock);
+    const today = dateOf(ts()); const sold = new Map();
+    const docs = (await Promise.all(Array.from({ length: days }, (_, i) => read(can('dashboard.view') ? 'dailyStats' : 'itemStats', `${my}_${dstr(today, -i)}`).catch(() => null)))).filter(Boolean);
+    for (const d of docs) for (const [iid, v] of Object.entries(d.byItem || {})) sold.set(Number(iid), (sold.get(Number(iid)) || 0) + (v.qty || 0));
+    const rows = await B.itemRows('', 3000); const mine = await B.stockOfStore(my); const all = canOther ? await B.stockOfAll() : [];
+    const list_ = rows.map((r) => {
+      const a = B.quant(mine.get(r.id)).available; const others = canOther ? all.filter((x) => Number(x.itemId) === r.id && Number(x.storeId) !== my).reduce((n, x) => n + Math.max(0, B.quant(x).available), 0) : 0;
+      return { id: r.id, sku: r.sku, name_en: r.name_en, name_km: r.name_km, colour_en: r.colour_en, colour_km: r.colour_km, size: r.size, sold: sold.get(r.id) || 0, here: Math.max(0, a), level: level(a, r.low_stock), others, can_other: canOther };
+    });
+    const best = list_.filter((r) => r.sold > 0).sort((a, b) => b.sold - a.sold).slice(0, 20).map((r, i) => ({ ...r, rank: i + 1 }));
+    const low = list_.filter((r) => r.level !== 'in' && (r.sold > 0 || r.here > 0)).sort((a, b) => (a.here === 0 ? 0 : 1) - (b.here === 0 ? 0 : 1) || b.sold - a.sold).slice(0, 40);
+    return { days, store_id: my, can_other: canOther, best, low };
   }
   async function stockIn(b) {
     need('stock.in');
@@ -406,7 +424,7 @@ export function createApi(B, extra = {}) {
     const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due_date || '')) ? b.due_date : null;
     const balance = deposit ? total - net : 0;
 
-    const saleRef = doc(collection(db, 'sales'));
+    const saleRef = doc(collection(db, 'sales')); let late = null;
     const date = dateOf(ts());
     const want = new Map(); for (const l of lines) want.set(l.item_id, (want.get(l.item_id) || 0) + l.qty);
     let seq;
@@ -440,10 +458,13 @@ export function createApi(B, extra = {}) {
       const byMethod = {}; for (const p of tender) byMethod[p.method] = increment(p.usd);
       const bump = { storeId, salesCents: increment(total), orders: increment(1), units: increment(units), discountCents: increment(discount), byItem, byMethod };
       t.set(ref('dailyStats', `${storeId}_${date}`), { ...bump, date }, { merge: true });
+      late = qtyStats(bump, date);
       t.set(ref('monthStats', `${storeId}_${date.slice(0, 7)}`), { ...bump, date: date.slice(0, 7) }, { merge: true });
       auditIn(t, storeId, 'sale.create', 'sale', saleRef.id, { receipt: `${store.code}-${String(seq).padStart(6, '0')}`, total, discount, approver: approver?.uid ?? null });
     }).catch(wrap('Sale failed'));
     B.invalidateStock(storeId);
+    // Best-seller counts are written after the sale is safe, so they can never block or undo a sale.
+    if (late) await setDoc(ref('itemStats', `${storeId}_${date}`), late, { merge: true }).catch(() => {});
     return getSale(saleRef.id);
   }
   async function salesList(q) {
@@ -454,6 +475,8 @@ export function createApi(B, extra = {}) {
     if (q.q) rows = rows.filter((r) => String(r.receiptNo).toLowerCase().includes(String(q.q).trim().toLowerCase()));
     return rows.sort((a, b) => b.seq - a.seq).slice(0, 200).map((s) => ({ id: s.id, receipt_no: s.receiptNo, ts: s.ts, status: s.status, total_cents: s.totalCents, cashier_name: s.cashierName, pieces: (s.lines || []).reduce((a, l) => a + l.qty, 0), methods: [...new Set((s.payments || []).filter((p) => p.kind === 'tender').map((p) => p.method))] }));
   }
+  // Quantities only (no money), so every cashier in the branch can read what is selling.
+  const qtyStats = (st, date) => ({ storeId: st.storeId, date, byItem: Object.fromEntries(Object.entries(st.byItem || {}).map(([k, v]) => [k, { qty: v.qty }])) });
   const statDocs = (s, date, sign) => {
     const lines = s.lines || []; const byItem = {}; for (const l of lines) byItem[l.itemId] = { qty: increment(sign * l.qty), cents: increment(sign * l.totalCents) };
     const byMethod = {}; for (const p of s.payments || []) if (p.kind === 'tender') byMethod[p.method] = increment(sign * p.usd);
@@ -465,7 +488,7 @@ export function createApi(B, extra = {}) {
     if (reason.length < 3) throw bad('REASON_REQUIRED', 'Write a reason for voiding.');
     if (s.status !== 'completed') throw bad('BAD_STATUS', 'This receipt is already voided.');
     await B.asLead(s.storeId, b.manager_pin, 'A manager must approve voiding a receipt.', async (lead) => {
-      const d = lead.db; const date = dateOf(s.ts);
+      const d = lead.db; const date = dateOf(s.ts); let late = null;
       await runTransaction(d, async (t) => {
         const snaps = []; for (const l of s.lines) snaps.push(await t.get(doc(d, 'stock', `${s.storeId}_${l.itemId}`)));
         s.lines.forEach((l, i) => {
@@ -475,9 +498,11 @@ export function createApi(B, extra = {}) {
         });
         t.update(doc(d, 'sales', id), { status: 'voided', voidedBy: lead.uid, voidReason: reason, voidedTs: ts() });
         t.set(doc(d, 'dailyStats', `${s.storeId}_${date}`), { ...statDocs(s, date, -1), date }, { merge: true });
+        late = qtyStats(statDocs(s, date, -1), date);
         t.set(doc(d, 'monthStats', `${s.storeId}_${date.slice(0, 7)}`), { ...statDocs(s, date, -1), date: date.slice(0, 7) }, { merge: true });
         auditIn(t, s.storeId, 'sale.void', 'sale', id, { reason, approver: lead.uid }, lead.uid, d);
       });
+      if (late) await setDoc(doc(d, 'itemStats', `${s.storeId}_${date}`), late, { merge: true }).catch(() => {});
     }).catch(wrap('Void failed'));
     B.invalidateStock(s.storeId);
     return getSale(id);
@@ -496,7 +521,7 @@ export function createApi(B, extra = {}) {
     // Returns are written in a manager's context, so a cashier always asks a manager to sign in.
     const needsLead = !(can('sales.return') && isLeadRole() && !sw.pin_every_return);
     const run = async (lead) => {
-      const d = lead.db; const date = dateOf(s.ts); let refund = 0; const plan = [];
+      const d = lead.db; const date = dateOf(s.ts); let refund = 0; const plan = []; let late = null;
       for (const w of want) {
         const l = s.lines[w.id]; if (!l) throw bad('BAD_LINE', 'This item is not on the receipt.');
         const prior = done.flatMap((r) => r.lines).filter((x) => x.lineIndex === w.id);
@@ -517,9 +542,11 @@ export function createApi(B, extra = {}) {
         const byItem = {}; for (const p of plan) byItem[p.itemId] = { qty: increment(-p.qty), cents: increment(-p.refundCents) };
         const m = { storeId: s.storeId, salesCents: increment(-refund), units: increment(-plan.reduce((a, p) => a + p.qty, 0)), byItem };
         t.set(doc(d, 'dailyStats', `${s.storeId}_${dateOf(ts())}`), { ...m, date: dateOf(ts()) }, { merge: true });
+        late = qtyStats(m, dateOf(ts()));
         t.set(doc(d, 'monthStats', `${s.storeId}_${dateOf(ts()).slice(0, 7)}`), { ...m, date: dateOf(ts()).slice(0, 7) }, { merge: true });
         auditIn(t, s.storeId, 'sale.return', 'sale', id, { refund, reason, approver: lead.uid }, lead.uid, d);
       });
+      if (late) await setDoc(doc(d, 'itemStats', `${s.storeId}_${dateOf(ts())}`), late, { merge: true }).catch(() => {});
       return rr.id;
     };
     const rid = await (needsLead ? B.asLead(s.storeId, b.manager_pin, 'A manager must approve returns.', run) : run(B.ctxOfSelf())).catch(wrap('Return failed'));
@@ -961,6 +988,7 @@ export function createApi(B, extra = {}) {
       if (method === 'POST' && path === '/designs') return await createDesign(b);
       if (method === 'GET' && path === '/stock') return await stockList(q);
       if (method === 'GET' && path === '/stock/lookup') return await lookup(q);
+      if (method === 'GET' && path === '/stock/restock') return await restock(q);
       if (method === 'POST' && path === '/stock/in') return await stockIn(b);
       if (method === 'POST' && path === '/stock/adjust') return await stockAdjust(b);
       if (method === 'GET' && path === '/stock/returned') return await returnedList(q);

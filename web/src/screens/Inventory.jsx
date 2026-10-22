@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../ui.jsx';
 import Lookup from './Lookup.jsx';
+import Restock from './Restock.jsx';
 import StockScreen from './Stock.jsx';
 import Catalogue from './Catalogue.jsx';
 import StockCount from './StockCount.jsx';
@@ -11,6 +12,7 @@ export default function Inventory() {
   const km = lang === 'km';
   const tabs = [
     ['find', km ? '🔎 ស្វែងរកគ្រប់សាខា' : '🔎 Search all branches', 'stock.view', Lookup],
+    ['restock', km ? '🏆 លក់ដាច់ & ស្តុកជិតអស់' : '🏆 Best sellers & low stock', 'stock.view', Restock],
     ['stock', km ? '📦 ស្តុកក្នុងសាខានេះ' : '📦 Stock in this branch', 'stock.in', StockScreen],
     ['count', km ? '🧮 រាប់ស្តុក' : '🧮 Stock count', 'stock.adjust', StockCount],
     ['catalogue', km ? '👔 កាតាឡុក & ស្លាក' : '👔 Catalogue & labels', 'catalog.edit', Catalogue],

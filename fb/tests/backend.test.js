@@ -357,3 +357,18 @@ test('warehouse: owner adds one, receives stock, moves it to a shop; it never se
   await api.post(`/admin/stores/${w.id}`, {}).catch(() => {});
   await fails(api.post(`/admin/stores/${w.id}/delete`), 'HAS_HISTORY'); // has stock
 });
+
+test('restock: best sellers are ranked, low stock is listed, and a cashier can read it without any money figures', async () => {
+  const { api, d } = await setup();
+  const a = await api.get(`/items/code/${d.skus[0]}?store_id=1`); const b = await api.get(`/items/code/${d.skus[1]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: a.id, qty: 6 }, { item_id: b.id, qty: 4 }] });
+  await api.post('/shifts/open', { store_id: 1, open_usd: 0, open_khr: 0 });
+  await api.post('/sales', { store_id: 1, lines: [{ item_id: a.id, qty: 5, entry: 'search' }], payments: [{ method: 'khqr', currency: 'USD', amount: 100000 }] });
+  await api.post('/sales', { store_id: 1, lines: [{ item_id: b.id, qty: 1, entry: 'search' }], payments: [{ method: 'khqr', currency: 'USD', amount: 20000 }] });
+  const staff = await api.get('/public/stores/1/staff'); await api.post('/auth/logout');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  const r = await api.get('/stock/restock?store_id=1&days=30');
+  assert.equal(r.best[0].sku, d.skus[0]); assert.equal(r.best[0].sold, 5); assert.equal(r.best[0].rank, 1); assert.equal(r.best[1].sold, 1);
+  assert.equal(r.low.some((x) => x.sku === d.skus[0] && x.here === 1 && x.level === 'low'), true);
+  assert.equal(JSON.stringify(r).includes('cost'), false); assert.equal(JSON.stringify(r).includes('price'), false);
+});

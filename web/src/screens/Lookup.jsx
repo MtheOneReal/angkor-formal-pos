@@ -42,7 +42,7 @@ export default function Lookup() {
   );
 }
 
-function RequestModal({ item, stores, onClose, onDone }) {
+export function RequestModal({ item, stores, onClose, onDone }) {
   const { store } = useApp(); const [from, setFrom] = useState(item.stores.find((s) => s.store_id !== store.id && s.level !== 'out')?.store_id); const [qty, setQty] = useState(1); const [why, setWhy] = useState(''); const [err, setErr] = useState('');
   return (
     <Modal title="Request transfer" onClose={onClose}>
