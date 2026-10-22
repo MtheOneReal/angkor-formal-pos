@@ -30,7 +30,7 @@ export function createApi(B, extra = {}) {
   const tillPassword = (pin, code) => `${pin}-${code}-af`;
   async function pinLogin(b) {
     const dir = await read('staffDirectory', b.user_id);
-    const st = await read('stores', b.store_id);
+    const st = await read('publicStores', b.store_id);
     if (!dir || !st || !dir.authEmail) throw new ApiErr(401, 'BAD_LOGIN', 'PIN is not correct.');
     try { await auth.signIn(dir.authEmail, tillPassword(String(b.pin), st.code)); } catch { throw new ApiErr(401, 'BAD_LOGIN', 'PIN is not correct.'); }
     B.localStorageSet('af_store', String(b.store_id));
