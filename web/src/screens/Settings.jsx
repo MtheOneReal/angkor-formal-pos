@@ -17,9 +17,9 @@ export default function Settings() {
     <div>
       <h1>{t('settings')}</h1>
       <div className="tabs" style={{ margin: '12px 0' }}>
-        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['categories', 'Expense categories'], ['audit', 'Activity log'], ...(owner ? [['backup', '💾 Download all data'], ['reset', '🧪 Test reset']] : [])].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
+        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['categories', 'Expense categories'], ['audit', 'Activity log'], ...(owner ? [['telegram', '✈️ Telegram'], ['backup', '💾 Download all data'], ['reset', '🧪 Test reset']] : [])].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>
-      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'categories' && owner && <Categories />}{tab === 'audit' && <Audit />}{tab === 'backup' && owner && <Backup />}{tab === 'reset' && owner && <TestReset />}
+      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'categories' && owner && <Categories />}{tab === 'audit' && <Audit />}{tab === 'telegram' && owner && <Telegram />}{tab === 'backup' && owner && <Backup />}{tab === 'reset' && owner && <TestReset />}
     </div>
   );
 }
@@ -115,7 +115,14 @@ function UserForm({ u, stores, onClose, onSaved }) {
       {isNew && f.role === 'cashier' && <><label>PIN (4–6 digits; it signs in by itself once all digits are typed)</label><input inputMode="numeric" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value })} /></>}
       <label>Monthly salary (USD)</label><input type="number" min="0" step="1" value={f.salary_usd ?? ''} onChange={(e) => setF({ ...f, salary_usd: e.target.value })} style={{ width: 160 }} />
       {!isNew && f.role === 'cashier' && <><label>How many digits is this person’s PIN? (so it signs in by itself)</label><select value={f.pin_length || ''} onChange={(e) => setF({ ...f, pin_length: e.target.value })} style={{ width: 'auto', minWidth: 160 }}><option value="">— not set (shows OK) —</option><option value="4">4 digits</option><option value="5">5 digits</option><option value="6">6 digits</option></select></>}
-      {!isNew && <p className="muted small">Password and PIN cannot be changed here. To replace them, turn this person off and add a new account.</p>}
+      {!isNew && me.role === 'owner' && f.id !== me.id && f.role !== 'shareholder' && (
+        <div className="card" style={{ marginTop: 10 }}>
+          <b>{f.role === 'cashier' ? 'Set a new PIN' : 'Set a new password'}</b>
+          <div className="row" style={{ marginTop: 6 }}>
+            <input type={f.role === 'cashier' ? 'text' : 'password'} inputMode={f.role === 'cashier' ? 'numeric' : undefined} value={f.newcred || ''} onChange={(e) => setF({ ...f, newcred: e.target.value })} placeholder={f.role === 'cashier' ? '4 to 6 digits' : '8+ characters'} style={{ maxWidth: 200 }} />
+            <button className="btn" disabled={!f.newcred} onClick={async () => { setErr(''); try { await api.post(`/admin/users/${f.id}/reset`, f.role === 'cashier' ? { pin: f.newcred } : { password: f.newcred }); setF({ ...f, newcred: '', pin_length: f.role === 'cashier' ? String(f.newcred).length : f.pin_length }); setErr('Saved. Tell them the new one.'); } catch (e) { setErr(e.message); } }}>Save</button>
+          </div>
+        </div>)}
       {!isNew && <label style={{ textTransform: 'none', fontSize: 15, color: 'var(--text)' }}><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} style={{ width: 20, height: 20, minHeight: 0, marginRight: 8 }} />Active</label>}
       {err && <div className="error">{err}</div>}
       <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={save}>Save</button>
@@ -171,6 +178,24 @@ function TestReset() {
       <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="RESET" />
       {err && <div className="error">{err}</div>}{ok && <p style={{ color: 'var(--ok)' }}>{ok}</p>}
       <button className="btn danger" style={{ marginTop: 12 }} disabled={word !== 'RESET' || busy} onClick={go}>{busy ? 'Clearing…' : 'Reset now'}</button>
+    </div>
+  );
+}
+
+function Telegram() {
+  const [f, setF] = useState(null); const [msg, setMsg] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => { api.get('/telegram').then((d) => setF({ enabled: d.enabled, chat_id: d.chat_id })).catch((e) => setErr(e.message)); }, []);
+  if (!f) return err ? <div className="error">{err}</div> : null;
+  const save = async () => { setErr(''); setMsg(''); setBusy(true); try { await api.post('/telegram', f); setMsg('Saved.'); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const test = async () => { setErr(''); setMsg(''); setBusy(true); try { await api.post('/telegram', f); await api.post('/telegram/test'); setMsg('Test message sent. Check Telegram.'); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  return (
+    <div className="card" style={{ maxWidth: 560 }}>
+      <h3>Daily sales summary on Telegram</h3>
+      <p className="muted small">Every night at 9:30 PM the server sends the day’s sales, cash, KHQR and expenses for each shop to your Telegram chat. Warehouses are not included.</p>
+      <label style={{ display: 'flex', gap: 10, alignItems: 'center', textTransform: 'none', fontSize: 15, color: 'var(--text)' }}><input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} style={{ width: 22, height: 22, minHeight: 0 }} /><b>Send it every night</b></label>
+      <label>Telegram chat ID</label><input inputMode="numeric" value={f.chat_id} onChange={(e) => setF({ ...f, chat_id: e.target.value })} placeholder="e.g. 123456789 or -1001234567890" />
+      {err && <div className="error">{err}</div>}{msg && <div className="muted small" style={{ marginTop: 8 }}>{msg}</div>}
+      <div className="row" style={{ marginTop: 12 }}><button className="btn primary" disabled={busy} onClick={save}>Save</button><button className="btn" disabled={busy} onClick={test}>Send a test now</button></div>
     </div>
   );
 }

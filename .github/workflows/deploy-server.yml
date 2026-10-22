@@ -1,0 +1,38 @@
+name: Deploy server part (functions and security rules)
+
+# Runs by itself whenever the server code or the security rules change, or when you press "Run workflow".
+on:
+  workflow_dispatch:
+  push:
+    branches: [angkor-system-v1]
+    paths: ['fb/functions/**', 'fb/firestore.rules', 'fb/firebase.json', '.github/workflows/deploy-server.yml']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+    steps:
+      - name: Check setup
+        if: env.HAS_KEY != 'true'
+        run: echo "The FIREBASE_SERVICE_ACCOUNT secret is not added yet, so nothing was deployed."
+      - uses: actions/checkout@v4
+        if: env.HAS_KEY == 'true'
+      - uses: actions/setup-node@v4
+        if: env.HAS_KEY == 'true'
+        with: { node-version: 22 }
+      - name: Install server dependencies
+        if: env.HAS_KEY == 'true'
+        run: npm install --prefix fb/functions
+      - name: Test server logic
+        if: env.HAS_KEY == 'true'
+        run: npm test --prefix fb/functions
+      - name: Sign in to Google
+        if: env.HAS_KEY == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Deploy
+        if: env.HAS_KEY == 'true'
+        working-directory: fb
+        run: npx --yes firebase-tools@14 deploy --only functions,firestore:rules --project angkor-formal-pos --non-interactive --force

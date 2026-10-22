@@ -996,6 +996,10 @@ export function createApi(B, extra = {}) {
       if (method === 'POST' && (m = path.match(/^\/customers\/([^/]+)\/delete$/))) return await customerDelete(m[1]);
       if (method === 'POST' && path === '/admin/stores') return await adminStoreCreate(b);
       if (method === 'PUT' && (m = path.match(/^\/admin\/stores\/(\d+)$/))) return await adminStoreUpdate(m[1], b);
+      if (method === 'GET' && path === '/telegram') { need('settings.manage'); const d = await getDoc(ref('settings', 'telegram')); const x = d.exists() ? d.data() : {}; return { enabled: !!x.enabled, chat_id: x.chatId || '' }; }
+      if (method === 'POST' && path === '/telegram') { need('settings.manage'); const chat = String(b.chat_id || '').trim(); if (b.enabled && !/^-?\d{5,20}$/.test(chat)) throw bad('BAD_INPUT', 'The chat ID is a number, like 123456789 or -1001234567890.'); await setDoc(ref('settings', 'telegram'), { enabled: !!b.enabled, chatId: chat }); await audit(null, 'telegram.update', 'settings', 'telegram', { enabled: !!b.enabled }); return { ok: true }; }
+      if (method === 'POST' && path === '/telegram/test') { need('settings.manage'); if (!auth.call) throw bad('NOT_AVAILABLE', 'Not available in this mode.'); return await auth.call('telegramTest', {}); }
+      if (method === 'POST' && (m = path.match(/^\/admin\/users\/([^/]+)\/reset$/))) { need('users.manage'); if (!auth.call) throw bad('NOT_AVAILABLE', 'Not available in this mode.'); return await auth.call('staffReset', { user_id: m[1], pin: b.pin, password: b.password }); }
       if (method === 'GET' && path === '/admin/users') return await adminUsers();
       if (method === 'POST' && path === '/admin/users') return await adminUserCreate(b);
       if (method === 'PUT' && (m = path.match(/^\/admin\/users\/([^/]+)$/))) return await adminUserUpdate(m[1], b);

@@ -1,5 +1,6 @@
 // Connects the backend to the real Firebase project (Auth + Firestore). Used in the browser only.
 import { initializeApp, deleteApp } from 'firebase/app';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth, EmailAuthProvider, reauthenticateWithCredential, updatePassword, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'firebase/auth';
 import * as fs from 'firebase/firestore';
 import { createBackend } from './backend.js';
@@ -46,6 +47,13 @@ const auth = {
   createAndSignIn: async (e, p) => { const c = await createUserWithEmailAndPassword(mainAuth, e, p); return c.user.uid; },
   changePassword: async (current, next) => { const u = mainAuth.currentUser; await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, current)); await updatePassword(u, next); },
   resetEmail: async (email) => { await ready; await sendPasswordResetEmail(mainAuth, email); },
+  call: async (name, data) => {
+    await ready;
+    try { return (await httpsCallable(getFunctions(app, 'asia-southeast1'), name)(data || {})).data; } catch (e) {
+      if (String(e.code) === 'functions/not-found') throw new Error('The server part is not switched on yet. It is set up from GitHub (see the setup steps).');
+      throw new Error(String(e.message || 'Server error').replace(/^[a-z-]+:\s*/i, ''));
+    }
+  },
   ready: () => ready,
 };
 
