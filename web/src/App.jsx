@@ -121,8 +121,8 @@ function LockScreen({ onUnlock, onLogout }) {
     <div className="modal-bg" style={{ background: 'rgba(12,10,8,.92)' }}>
       <div className="modal" style={{ textAlign: 'center' }}>
         <h2>{t('locked')}</h2><p className="muted">{t('enter_pin')}</p>
-        <PinPad length={me.pin_length || 0} error={err} onDone={async (pin) => { try { await api.post('/auth/unlock', { pin }); onUnlock(); } catch (e) { setErr(e.message); } }} />
-        <button className="btn" onClick={onLogout}>{t('logout')}</button>
+        <PinPad length={me.pin_length || 0} corner={me.pin_length ? <button className="btn primary" onClick={onLogout} style={{ fontSize: 13, lineHeight: 1.1, padding: 4 }}>⎋<br />{t('logout')}</button> : null} error={err} onDone={async (pin) => { try { await api.post('/auth/unlock', { pin }); onUnlock(); } catch (e) { setErr(e.message); } }} />
+        {!me.pin_length && <button className="btn primary" style={{ marginTop: 12 }} onClick={onLogout}>⎋ {t('logout')}</button>}
       </div>
     </div>
   );

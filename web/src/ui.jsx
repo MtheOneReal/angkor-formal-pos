@@ -19,7 +19,7 @@ export function Modal({ title, onClose, children, wide }) {
 
 // length > 0: the PIN signs in by itself as soon as that many digits are typed (no OK button).
 // length 0 (older accounts whose PIN length is unknown): keep the OK button.
-export function PinPad({ onDone, length = 0, error, busy }) {
+export function PinPad({ onDone, length = 0, error, busy, corner }) {
   const [v, setV] = useState('');
   const auto = length > 0;
   const press = (d) => { if (busy) return; const n = (v + d).slice(0, auto ? length : 6); setV(n); if (auto && n.length === length) setTimeout(() => onDone(n), 120); };
@@ -35,7 +35,7 @@ export function PinPad({ onDone, length = 0, error, busy }) {
       <div className="pinpad">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => <button key={d} onClick={() => press(String(d))}>{d}</button>)}
         {auto ? (<>
-          <span />
+          {corner || <span />}
           <button onClick={() => press('0')}>0</button>
           <button onClick={() => setV((x) => x.slice(0, -1))} aria-label="Delete">⌫</button>
         </>) : (<>
