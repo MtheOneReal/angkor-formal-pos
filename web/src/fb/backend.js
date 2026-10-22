@@ -162,10 +162,11 @@ export function createBackend(deps) {
     if (!S) await startSession();
     const stores = (await loadStores()).filter((s) => S.stores.includes(s.id) && s.active !== false);
     const brands = (await loadCatalog()).brandsList;
+    const dirMe = S.user.role === 'cashier' ? await read('staffDirectory', S.uid).catch(() => null) : null;
     const sw = {}; for (const s of stores) sw[s.id] = s.switches;
     return {
       id: S.uid, name: S.user.name, role: S.user.role, lang: S.user.lang || 'en', theme: S.user.theme || null, demo: !!S.user.demo,
-      perms: [...S.perms], store_id: S.storeId, switches: sw, rate: await currentRate(),
+      perms: [...S.perms], pin_length: dirMe?.pinLength || 0, store_id: S.storeId, switches: sw, rate: await currentRate(),
       stores: stores.map((s) => { const b = brands.find((x) => String(x.id) === String(s.brandId)); return { id: s.id, code: s.code, name: s.name, kind: s.kind === 'warehouse' ? 'warehouse' : 'shop', brand_id: s.brandId, brand_code: b?.code, brand_name: b?.name }; }),
     };
   }

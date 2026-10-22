@@ -25,7 +25,7 @@ export function createApi(B, extra = {}) {
   async function publicStaff(storeId) {
     const rows = await list('staffDirectory');
     return rows.filter((r) => r.active !== false && (r.storeIds || []).map(Number).includes(Number(storeId)) && r.authEmail)
-      .map((r) => ({ id: r.id, name: r.name, role: r.role })).sort((a, b) => (a.role < b.role ? 1 : -1) || a.name.localeCompare(b.name));
+      .map((r) => ({ id: r.id, name: r.name, role: r.role, pin_length: r.pinLength || 0 })).sort((a, b) => (a.role < b.role ? 1 : -1) || a.name.localeCompare(b.name));
   }
   const tillPassword = (pin, code) => `${pin}-${code}-af`;
   async function pinLogin(b) {
@@ -773,7 +773,7 @@ export function createApi(B, extra = {}) {
     const row = { name: txt(b.name, 80).trim(), email: b.role === 'cashier' ? null : email, role: b.role, storeIds: ['owner', 'shareholder'].includes(b.role) ? [] : storeIds, active: true, lang: b.lang === 'km' ? 'km' : 'en', perms: b.perms || {}, createdAt: ts(), hasPin: !!b.pin, salaryCents: Math.max(0, Math.round(Number(b.salary_usd || 0) * 100)) };
     const batch = writeBatch(db);
     batch.set(ref('users', uid), row);
-    batch.set(ref('staffDirectory', uid), { name: row.name, role: row.role, storeIds: row.storeIds, active: true, authEmail: b.role === 'cashier' ? email : null });
+    batch.set(ref('staffDirectory', uid), { name: row.name, role: row.role, storeIds: row.storeIds, active: true, authEmail: b.role === 'cashier' ? email : null, ...(b.role === 'cashier' ? { pinLength: String(b.pin).length } : {}) });
     auditIn(batch, null, 'user.create', 'user', uid, { role: b.role, name: b.name });
     await batch.commit(); return { id: uid };
   }

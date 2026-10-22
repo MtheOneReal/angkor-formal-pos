@@ -17,23 +17,26 @@ export function Modal({ title, onClose, children, wide }) {
   );
 }
 
-export function PinPad({ onDone, length = 4, error, busy }) {
+// length > 0: the PIN signs in by itself as soon as that many digits are typed (no OK button).
+// length 0 (older accounts whose PIN length is unknown): keep the OK button.
+export function PinPad({ onDone, length = 0, error, busy }) {
   const [v, setV] = useState('');
-  const press = (d) => { if (busy) return; const n = (v + d).slice(0, 6); setV(n); };
+  const auto = length > 0;
+  const press = (d) => { if (busy) return; const n = (v + d).slice(0, auto ? length : 6); setV(n); if (auto && n.length === length) setTimeout(() => onDone(n), 120); };
   useEffect(() => {
-    const h = (e) => { if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') setV((x) => x.slice(0, -1)); else if (e.key === 'Enter' && v.length >= 4) onDone(v); };
+    const h = (e) => { if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') setV((x) => x.slice(0, -1)); else if (e.key === 'Enter' && !auto && v.length >= 4) onDone(v); };
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
   });
   useEffect(() => { if (error) setV(''); }, [error]);
   return (
     <div>
-      <div className="dots" aria-label="PIN">{Array.from({ length: Math.max(length, v.length) }).map((_, i) => <i key={i} className={i < v.length ? 'f' : ''} />)}</div>
+      <div className="dots" aria-label="PIN">{Array.from({ length: Math.max(length || 4, v.length) }).map((_, i) => <i key={i} className={i < v.length ? 'f' : ''} />)}</div>
       {error && <div className="error" style={{ textAlign: 'center' }}>{error}</div>}
       <div className="pinpad">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => <button key={d} onClick={() => press(String(d))}>{d}</button>)}
         <button onClick={() => setV((x) => x.slice(0, -1))} aria-label="Delete">⌫</button>
         <button onClick={() => press('0')}>0</button>
-        <button className="btn primary" disabled={v.length < 4 || busy} onClick={() => onDone(v)} style={{ fontSize: 18 }}>OK</button>
+        {auto ? <span /> : <button className="btn primary" disabled={v.length < 4 || busy} onClick={() => onDone(v)} style={{ fontSize: 18 }}>OK</button>}
       </div>
     </div>
   );

@@ -72,7 +72,7 @@ function Login({ onDone }) {
           ) : (
             <div><div className="row between"><h3>{who.name}</h3><button className="btn" onClick={() => { setWho(null); setErr(''); }}>{t('back')}</button></div>
               <p className="muted" style={{ textAlign: 'center' }}>{t('enter_pin')}</p>
-              <PinPad onDone={pinLogin} error={err} busy={busy} /></div>
+              <PinPad key={who.id} length={who.pin_length || 0} onDone={pinLogin} error={err} busy={busy} /></div>
           )}
         </div>
       </div>
@@ -113,13 +113,13 @@ function FinishSetup({ onDone }) {
 }
 
 function LockScreen({ onUnlock, onLogout }) {
-  const [err, setErr] = useState('');
+  const { me } = useApp(); const [err, setErr] = useState('');
   const t = useT();
   return (
     <div className="modal-bg" style={{ background: 'rgba(12,10,8,.92)' }}>
       <div className="modal" style={{ textAlign: 'center' }}>
         <h2>{t('locked')}</h2><p className="muted">{t('enter_pin')}</p>
-        <PinPad error={err} onDone={async (pin) => { try { await api.post('/auth/unlock', { pin }); onUnlock(); } catch (e) { setErr(e.message); } }} />
+        <PinPad length={me.pin_length || 0} error={err} onDone={async (pin) => { try { await api.post('/auth/unlock', { pin }); onUnlock(); } catch (e) { setErr(e.message); } }} />
         <button className="btn" onClick={onLogout}>{t('logout')}</button>
       </div>
     </div>
