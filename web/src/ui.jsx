@@ -34,9 +34,15 @@ export function PinPad({ onDone, length = 0, error, busy }) {
       {error && <div className="error" style={{ textAlign: 'center' }}>{error}</div>}
       <div className="pinpad">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => <button key={d} onClick={() => press(String(d))}>{d}</button>)}
-        <button onClick={() => setV((x) => x.slice(0, -1))} aria-label="Delete">⌫</button>
-        <button onClick={() => press('0')}>0</button>
-        {auto ? <span /> : <button className="btn primary" disabled={v.length < 4 || busy} onClick={() => onDone(v)} style={{ fontSize: 18 }}>OK</button>}
+        {auto ? (<>
+          <span />
+          <button onClick={() => press('0')}>0</button>
+          <button onClick={() => setV((x) => x.slice(0, -1))} aria-label="Delete">⌫</button>
+        </>) : (<>
+          <button onClick={() => setV((x) => x.slice(0, -1))} aria-label="Delete">⌫</button>
+          <button onClick={() => press('0')}>0</button>
+          <button className="btn primary" disabled={v.length < 4 || busy} onClick={() => onDone(v)} style={{ fontSize: 18 }}>OK</button>
+        </>)}
       </div>
     </div>
   );
