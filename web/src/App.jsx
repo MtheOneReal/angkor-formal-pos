@@ -30,7 +30,7 @@ function Login({ onDone }) {
   const [staff, setStaff] = useState([]);
   const [who, setWho] = useState(null);
   const [err, setErr] = useState('');
-  const [email, setEmail] = useState(''); const [pw, setPw] = useState(''); const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false); const [email, setEmail] = useState(''); const [pw, setPw] = useState(''); const [busy, setBusy] = useState(false);
   const lang = localStorage.getItem('af_lang') || 'en';
   const t = (k) => tr(lang, k);
   const [needSetup, setNeedSetup] = useState(null);
@@ -61,7 +61,9 @@ function Login({ onDone }) {
               <label>{t('email')}</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus autoComplete="username" />
               <label>{t('password')}</label><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" />
               {err && <div className="error">{err}</div>}
+              {sent && <div className="muted small" style={{ marginTop: 8 }}>If that email has an account, a reset link is on its way. Check your inbox and spam.</div>}
               <button className="btn primary big" style={{ width: '100%', marginTop: 16 }} disabled={busy}>{t('sign_in')}</button>
+              <button type="button" className="btn" style={{ width: '100%', marginTop: 8 }} onClick={async () => { setErr(''); try { await api.post('/auth/forgot', { email }); setSent(true); } catch (x) { setErr(x.message); } }}>Forgot password?</button>
             </form>
           ) : !store ? (
             <div><h3 style={{ marginBottom: 10 }}>{t('choose_store')}</h3>

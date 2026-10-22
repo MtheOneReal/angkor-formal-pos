@@ -1,6 +1,6 @@
 // Connects the backend to the real Firebase project (Auth + Firestore). Used in the browser only.
 import { initializeApp, deleteApp } from 'firebase/app';
-import { getAuth, EmailAuthProvider, reauthenticateWithCredential, updatePassword, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, EmailAuthProvider, reauthenticateWithCredential, updatePassword, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'firebase/auth';
 import * as fs from 'firebase/firestore';
 import { createBackend } from './backend.js';
 import { createApi } from './routes.js';
@@ -45,6 +45,7 @@ const auth = {
   signIn: async (e, p) => { await ready; return signInWithEmailAndPassword(mainAuth, e, p); },
   createAndSignIn: async (e, p) => { const c = await createUserWithEmailAndPassword(mainAuth, e, p); return c.user.uid; },
   changePassword: async (current, next) => { const u = mainAuth.currentUser; await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, current)); await updatePassword(u, next); },
+  resetEmail: async (email) => { await ready; await sendPasswordResetEmail(mainAuth, email); },
   ready: () => ready,
 };
 

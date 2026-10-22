@@ -939,6 +939,7 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && (m = path.match(/^\/public\/stores\/(\d+)\/staff$/))) return await publicStaff(m[1]);
       if (method === 'POST' && path === '/auth/login') return await emailLogin(b);
       if (method === 'POST' && path === '/admin/reset-test') return await resetTest(b);
+      if (method === 'POST' && path === '/auth/forgot') { const e = String(b.email || '').trim().toLowerCase(); if (!e.includes('@') || e.endsWith('@till.angkor.app')) throw bad('BAD_INPUT', 'Enter your email address.'); try { await (auth.resetEmail ? auth.resetEmail(e) : Promise.resolve()); } catch { /* never reveal whether the address exists */ } return { ok: true }; }
       if (method === 'POST' && path === '/auth/change-password') return await changePassword(b);
       if (method === 'POST' && path === '/auth/pin-login') return await pinLogin(b);
       if (method === 'POST' && path === '/auth/logout') { await auth.signOut(); B.setSession(null); B.clearCaches(); return { ok: true }; }
