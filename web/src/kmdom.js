@@ -7,9 +7,15 @@ const textOrig = new WeakMap(); // text node -> { en, km }
 const attrOrig = new WeakMap(); // element -> { attr: { en, km } }
 let obs = null; let busy = false;
 
+const PATTERNS = [
+  [/^At cost (\$[\d.,]+[A-Za-z]*)$/, 'តាមថ្លៃដើម $1'],
+  [/^(\d+) stores? · (.*)$/, '$1 ហាង · $2'],
+];
 const lookup = (s) => {
   const k = s.replace(/\s+/g, ' ').trim(); const v = KM[k];
-  return v ? s.replace(s.trim(), v) : null;
+  if (v) return s.replace(s.trim(), v);
+  for (const [re, to] of PATTERNS) if (re.test(k)) return s.replace(s.trim(), k.replace(re, to));
+  return null;
 };
 
 function doText(n) {

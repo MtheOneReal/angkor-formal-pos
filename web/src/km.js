@@ -1,6 +1,13 @@
 // Khmer wording for screens that still have English text written directly in the code.
 // Matched exactly against the text on screen. Khmer has not been checked by a native reader yet.
 export const KM = {
+"Rent": "ថ្លៃជួល",
+"or more.": "ឡើងទៅ។",
+"A receipt photo is required for expenses of": "ត្រូវមានរូបថតបង្កាន់ដៃសម្រាប់ចំណាយចាប់ពី",
+"Gross profit minus expenses": "ចំណេញដុល ដកចំណាយ",
+"Rent, utilities, salaries…": "ថ្លៃជួល ទឹកភ្លើង ប្រាក់ខែ…",
+"Sales minus cost of goods": "ការលក់ ដកថ្លៃដើមទំនិញ",
+"Note (optional)": "កំណត់ចំណាំ (ជាជម្រើស)",
 "Store": "ហាង",
 "Receipt": "បង្កាន់ដៃ",
 "Cashier": "អ្នកគិតលុយ",
