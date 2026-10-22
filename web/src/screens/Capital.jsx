@@ -89,13 +89,28 @@ export default function Capital() {
 
 function ShareholderForm({ f, d, L, onClose, onDone }) {
   const [x, setX] = useState(f); const [err, setErr] = useState('');
+  const [tot, setTot] = useState(() => Object.fromEntries(d.stores.map((st) => { let v = ''; try { v = localStorage.getItem(`af_cap_total_${st.id}`) || ''; } catch { /* ignore */ } return [st.id, v]; }))); const [pc, setPc] = useState({});
   const save = async () => { try { await api.post(x.id ? `/capital/shareholders/${x.id}` : '/capital/shareholders', { name: x.name, agreed_by_store: x.agreed_by_store, note: x.note, active: x.active !== false }); onDone(); } catch (e) { setErr(e.message); } };
   const del = async () => { if (!window.confirm(L('Delete this shareholder?', 'លុបអ្នកហ៊ុននេះ?'))) return; try { await api.post(`/capital/shareholders/${x.id}/delete`); onDone(); } catch (e) { setErr(e.message); } };
   return (
     <Modal title={x.id ? L('Edit shareholder', 'កែអ្នកហ៊ុន') : L('New shareholder', 'អ្នកហ៊ុនថ្មី')} onClose={onClose}>
       <label>{L('Name', 'ឈ្មោះ')}</label><input value={x.name} onChange={(e) => setX({ ...x, name: e.target.value })} autoFocus />
-      <label>{L('Agreed to invest in each store ($, leave empty if none)', 'ចំនួនដែលព្រមវិនិយោគក្នុងសាខានីមួយៗ ($)')}</label>
-      {d.stores.map((st) => <div className="row" key={st.id} style={{ marginBottom: 6 }}><span className="grow">{st.name}</span><input type="number" min="0" style={{ width: 140 }} value={x.agreed_by_store[st.id] ?? ''} onChange={(e) => setX({ ...x, agreed_by_store: { ...x.agreed_by_store, [st.id]: e.target.value } })} /></div>)}
+      <label>{L('Share in each store: type the shop’s total once, then this person’s %. Leave empty if none.', 'ចំណែកក្នុងសាខានីមួយៗ៖ វាយដើមទុនសរុបម្តង រួចវាយ % របស់អ្នកនេះ។ ទុកទទេបើគ្មាន។')}</label>
+      {d.stores.map((st) => {
+        const total = tot[st.id] ?? ''; const amt = x.agreed_by_store[st.id] ?? '';
+        const setTotal = (v) => { setTot({ ...tot, [st.id]: v }); try { localStorage.setItem(`af_cap_total_${st.id}`, v); } catch { /* ignore */ } };
+        const setPct = (v) => { setPc({ ...pc, [st.id]: v }); if (total !== '' && v !== '') setX({ ...x, agreed_by_store: { ...x.agreed_by_store, [st.id]: String(Math.round((Number(total) * Number(v)) * 100) / 10000) } }); };
+        return (
+          <div key={st.id} style={{ marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--line, #e4dccb)' }}>
+            <b>{st.name}</b>
+            <div className="row wrap" style={{ gap: 8, marginTop: 4 }}>
+              <label style={{ margin: 0 }} className="small">{L('Shop total capital ($)', 'ដើមទុនសរុបរបស់សាខា ($)')}<input type="number" min="0" style={{ width: 130, display: 'block' }} value={total} onChange={(e) => setTotal(e.target.value)} /></label>
+              <label style={{ margin: 0 }} className="small">{L('This person’s %', '% របស់អ្នកនេះ')}<input type="number" min="0" max="100" step="0.1" style={{ width: 90, display: 'block' }} value={pc[st.id] ?? (total !== '' && amt !== '' && Number(total) > 0 ? Math.round((Number(amt) / Number(total)) * 1000) / 10 : '')} onChange={(e) => setPct(e.target.value)} /></label>
+              <label style={{ margin: 0 }} className="small">{L('Agreed amount ($)', 'ចំនួនព្រមព្រៀង ($)')}<input type="number" min="0" style={{ width: 130, display: 'block' }} value={amt} onChange={(e) => { setPc({ ...pc, [st.id]: undefined }); setX({ ...x, agreed_by_store: { ...x.agreed_by_store, [st.id]: e.target.value } }); }} /></label>
+            </div>
+          </div>
+        );
+      })}
       <label>{L('Note', 'កំណត់ចំណាំ')}</label><input value={x.note || ''} onChange={(e) => setX({ ...x, note: e.target.value })} />
       {x.id && <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={x.active !== false} onChange={(e) => setX({ ...x, active: e.target.checked })} />{L('Active', 'សកម្ម')}</label>}
       {err && <div className="error">{err}</div>}
