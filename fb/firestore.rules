@@ -16,6 +16,8 @@ service cloud.firestore {
     function isLead() { return isOwner() || isManager(); }
     function inStore(sid) { return isOwner() || (active() && (sid in me().storeIds)); }
     function leadOf(sid) { return isOwner() || (isManager() && (sid in me().storeIds)); }
+    // TESTING ONLY: lets the owner wipe test data while settings/testMode.enabled is true. Remove with the Reset button.
+    function testReset() { return isOwner() && exists(/databases/$(database)/documents/settings/testMode) && get(/databases/$(database)/documents/settings/testMode).data.enabled == true; }
     function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
 
     // ---------- people ----------
@@ -83,7 +85,7 @@ service cloud.firestore {
         && request.resource.data.onHand < resource.data.onHand
         && request.resource.data.lastSaleId is string
         && existsAfter(/databases/$(database)/documents/sales/$(request.resource.data.lastSaleId));
-      allow delete: if false;
+      allow delete: if testReset();
     }
     // Every change to stock is also written here. Records can only be added.
     match /movements/{id} {
@@ -91,11 +93,13 @@ service cloud.firestore {
       allow create: if active()
         && inStore(request.resource.data.storeId)
         && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if testReset();
     }
 
     // ---------- selling ----------
     match /counters/{sid} {
+      allow delete: if testReset();
       allow read: if active() && inStore(int(sid));
       allow create: if active() && inStore(int(sid)) && request.resource.data.seq == 1;
       allow update: if active() && inStore(int(sid)) && request.resource.data.seq == resource.data.seq + 1;
@@ -122,14 +126,15 @@ service cloud.firestore {
         && resource.data.status == 'completed'
         && request.resource.data.status == 'voided'
         && onlyChanges(['status', 'voidedBy', 'voidReason', 'voidedTs']);
-      allow delete: if false;
+      allow delete: if testReset();
     }
 
     // Returns are always written by a manager or owner (a manager signs in at the till to approve).
     match /returns/{id} {
       allow read: if active() && (isLead() ? inStore(resource.data.storeId) : resource.data.requestedBy == request.auth.uid);
       allow create: if leadOf(request.resource.data.storeId);
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if testReset();
     }
 
     match /shifts/{id} {
@@ -139,21 +144,21 @@ service cloud.firestore {
       allow update: if active() && inStore(resource.data.storeId)
         && ((resource.data.userId == request.auth.uid && resource.data.closedTs == null)
             || (isLead() && resource.data.userId != request.auth.uid && onlyChanges(['reviewedBy', 'reviewedTs'])));
-      allow delete: if false;
+      allow delete: if testReset();
     }
 
     // Daily totals the dashboard reads. Cashiers may add to them but never read them.
     match /dailyStats/{key} {
       allow read: if active() && isLead() && inStore(resource.data.storeId);
       allow create, update: if active() && inStore(request.resource.data.storeId);
-      allow delete: if false;
+      allow delete: if testReset();
     }
 
     // Monthly totals (for the year view).
     match /monthStats/{key} {
       allow read: if active() && isLead() && inStore(resource.data.storeId);
       allow create, update: if active() && inStore(request.resource.data.storeId);
-      allow delete: if false;
+      allow delete: if testReset();
     }
 
     // Manager approvals (replace PIN entry on the cashier's screen).
@@ -168,7 +173,7 @@ service cloud.firestore {
         && resource.data.status == 'pending'
         && request.resource.data.status in ['approved', 'rejected']
         && onlyChanges(['status', 'decidedBy', 'decidedTs']);
-      allow delete: if false;
+      allow delete: if testReset();
     }
 
     match /customers/{id} {
@@ -208,7 +213,7 @@ service cloud.firestore {
         || (resource.data.status in ['awaiting_owner', 'approved'] && leadOf(resource.data.fromStoreId)
             && request.resource.data.status == 'cancelled')
       );
-      allow delete: if false;
+      allow delete: if testReset();
     }
 
     // ---------- expenses ----------
@@ -249,7 +254,8 @@ service cloud.firestore {
     match /auditLog/{id} {
       allow read: if isLead();
       allow create: if active() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if testReset();
     }
 
     match /{document=**} { allow read, write: if false; }

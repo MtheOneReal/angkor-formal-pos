@@ -17,9 +17,9 @@ export default function Settings() {
     <div>
       <h1>{t('settings')}</h1>
       <div className="tabs" style={{ margin: '12px 0' }}>
-        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['categories', 'Expense categories'], ['audit', 'Activity log']].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
+        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['categories', 'Expense categories'], ['audit', 'Activity log'], ...(owner ? [['reset', '🧪 Test reset']] : [])].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>
-      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'categories' && owner && <Categories />}{tab === 'audit' && <Audit />}
+      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'categories' && owner && <Categories />}{tab === 'audit' && <Audit />}{tab === 'reset' && owner && <TestReset />}
     </div>
   );
 }
@@ -148,4 +148,24 @@ function Audit() {
   useEffect(() => { api.get('/admin/audit?limit=200').then(setRows).catch(() => setRows([])); }, []);
   if (!me.perms.includes('audit.view')) return <p className="muted">Not available for your role.</p>;
   return (<div className="card" style={{ overflow: 'auto' }}><table><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody>{(rows || []).map((r) => <tr key={r.id}><td>{dt(r.ts)}</td><td>{r.user_name}</td><td>{r.action}<div className="small muted">{r.detail && String(r.detail).slice(0, 120)}</div></td></tr>)}</tbody></table></div>);
+}
+
+// TESTING ONLY: remove this tab, the /admin/reset-test route and the testReset() rule when the app goes live.
+function TestReset() {
+  const [word, setWord] = useState(''); const [cat, setCat] = useState(false); const [err, setErr] = useState(''); const [ok, setOk] = useState(''); const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setErr(''); setOk(''); setBusy(true);
+    try { const r = await api.post('/admin/reset-test', { confirm: word, catalogue: cat }); setOk(`Done. ${r.removed} records cleared.`); setWord(''); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="card" style={{ maxWidth: 520 }}>
+      <h3>Reset test data</h3>
+      <p className="muted">Clears everything created while testing: sales, receipts, shifts, stock counts, transfers, customers, expenses, attendance and the activity log. Stores, staff accounts, exchange rate and settings are kept.</p>
+      <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={cat} onChange={(e) => setCat(e.target.checked)} />Also delete all products (the catalogue)</label>
+      <p className="small muted">This cannot be undone. Type RESET to confirm.</p>
+      <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="RESET" />
+      {err && <div className="error">{err}</div>}{ok && <p style={{ color: 'var(--ok)' }}>{ok}</p>}
+      <button className="btn danger" style={{ marginTop: 12 }} disabled={word !== 'RESET' || busy} onClick={go}>{busy ? 'Clearing…' : 'Reset now'}</button>
+    </div>
+  );
 }

@@ -248,3 +248,16 @@ test('owner can change own password; wrong current password is refused', async (
   await fails(api.post('/auth/change-password', { current_password: 'nope', new_password: 'Brand-new-123' }), 'BAD_LOGIN');
   await fails(api.post('/auth/change-password', { current_password: 'x', new_password: 'short' }), 'WEAK_PASSWORD');
 });
+
+test('test reset clears activity and keeps staff, stores and catalogue unless asked', async () => {
+  const { api } = await setup();
+  await api.post('/expenses', { store_id: 1, date: '2026-10-21', category: 'Water', amount: 10, currency: 'USD' });
+  await fails(api.post('/admin/reset-test', { confirm: 'no' }), 'CONFIRM');
+  const r = await api.post('/admin/reset-test', { confirm: 'RESET' });
+  assert.ok(r.removed >= 1);
+  assert.equal((await api.get('/expenses?store_id=1&month=2026-10')).rows.length, 0);
+  assert.ok((await api.get('/designs')).length > 0);
+  await api.post('/admin/reset-test', { confirm: 'RESET', catalogue: true });
+  assert.equal((await api.get('/designs')).length, 0);
+  const st = await api.get('/admin/stores'); assert.ok((Array.isArray(st) ? st : st.stores).length >= 1);
+});

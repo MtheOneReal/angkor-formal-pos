@@ -44,6 +44,26 @@ export function createApi(B, extra = {}) {
     try { await auth.changePassword(String(b.current_password || ''), next); } catch { throw new ApiErr(401, 'BAD_LOGIN', 'Your current password is not correct.'); }
     await audit(S().storeId, 'password.change', 'user', S().uid, {}); return { ok: true };
   }
+  // TESTING ONLY. Remove this, its route, the Settings button and the testReset() rule when the app goes live.
+  async function resetTest(b) {
+    need('settings.manage'); if (S().user.role !== 'owner') throw forbidden('Only the owner can reset.');
+    if (b.confirm !== 'RESET') throw bad('CONFIRM', 'Type RESET to confirm.');
+    await setDoc(ref('settings', 'testMode'), { enabled: true, ts: ts(), by: S().uid });
+    const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), 'auditLog'];
+    let n = 0;
+    for (const c of cols) {
+      let docs; try { docs = (await getDocs(collection(db, c))).docs; } catch { throw bad('RESET_FAILED', `Could not read ${c}.`); }
+      for (let i = 0; i < docs.length; i += 400) {
+        const wb = writeBatch(db); docs.slice(i, i + 400).forEach((d) => wb.delete(ref(c, d.id)));
+        try { await wb.commit(); } catch { throw bad('RESET_FAILED', `Could not clear ${c}. Some data may already be cleared; try again.`); }
+      }
+      n += docs.length;
+    }
+    if (b.catalogue) await setDoc(ref('meta', 'ids'), { design: 0, item: 0, transfer: 0 });
+    else { const m = (await read('meta', 'ids')) || {}; await setDoc(ref('meta', 'ids'), { ...m, transfer: 0 }); }
+    B.clearCaches(); await B.startSession();
+    await audit(null, 'test.reset', 'system', 'all', { removed: n, catalogue: !!b.catalogue }); return { ok: true, removed: n };
+  }
   async function emailLogin(b) {
     if (!b.email || !b.password) throw bad('MISSING', 'Enter email and password.');
     try { await auth.signIn(String(b.email).trim().toLowerCase(), b.password); } catch { throw new ApiErr(401, 'BAD_LOGIN', 'Email or password is not correct.'); }
@@ -880,6 +900,7 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && path === '/public/stores') return await publicStores();
       if (method === 'GET' && (m = path.match(/^\/public\/stores\/(\d+)\/staff$/))) return await publicStaff(m[1]);
       if (method === 'POST' && path === '/auth/login') return await emailLogin(b);
+      if (method === 'POST' && path === '/admin/reset-test') return await resetTest(b);
       if (method === 'POST' && path === '/auth/change-password') return await changePassword(b);
       if (method === 'POST' && path === '/auth/pin-login') return await pinLogin(b);
       if (method === 'POST' && path === '/auth/logout') { await auth.signOut(); B.setSession(null); B.clearCaches(); return { ok: true }; }
