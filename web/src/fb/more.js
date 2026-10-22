@@ -3,7 +3,7 @@ import { ApiErr, khrToUsdCents, khrTolerance, dateOf } from './backend.js';
 
 export function createMore(B) {
   const { fs, db } = B.deps;
-  const { doc, collection, getDoc, writeBatch, where } = fs;
+  const { doc, collection, getDoc, setDoc, writeBatch, where } = fs;
   const { bad, notFound, need, can, assertStore, read, list, auditIn, wrap, now } = B;
   const S = () => B.S();
   const ref = (n, id) => doc(db, n, String(id));
@@ -119,8 +119,50 @@ export function createMore(B) {
     return { sheets: { Sales: sales, 'Sale lines': lines, Stock: stock, Products: items, Expenses: expenses, Attendance: attendance, Customers: customers, Shareholders: shareholders, 'Capital payments': capital, Balances: balances, Alterations: jobs, 'Stock counts': counts } };
   }
 
+  // ---------- owner-editable lists: brands, types (kinds), colours, size sets ----------
+  const ownerOnly = () => { need('settings.manage'); if (S().user.role !== 'owner') throw bad('FORBIDDEN', 'Only the owner can change these lists.'); };
+  const codeOk = (c, min, max, what) => { const v = String(c || '').trim().toUpperCase(); if (!new RegExp(`^[A-Z0-9]{${min},${max}}$`).test(v)) throw bad('BAD_INPUT', `${what} code must be ${min}–${max} letters or numbers, no spaces.`); return v; };
+  async function listSave(kind, id, b) {
+    ownerOnly(); const cat = await B.loadCatalog(true); const nameEn = txt(b.name_en ?? b.name, 80).trim(); if (!nameEn) throw bad('BAD_INPUT', 'Enter a name.');
+    const wb = writeBatch(db);
+    if (kind === 'brands') {
+      if (id) { if (!cat.brandsList.find((x) => String(x.id) === String(id))) throw notFound(); wb.update(ref('brands', id), { name: nameEn }); const pub = await list('publicStores'); void pub; }
+      else { const code = codeOk(b.code, 2, 5, 'Brand'); if (cat.brandsList.some((x) => x.code === code)) throw bad('DUPLICATE', 'This brand code already exists.'); const nid = Math.max(0, ...cat.brandsList.map((x) => Number(x.id))) + 1; wb.set(ref('brands', nid), { id: nid, code, name: nameEn }); }
+    } else if (kind === 'types') {
+      const nameKm = txt(b.name_km, 80).trim() || null;
+      if (id) { if (!cat.typesList.find((x) => x.code === id)) throw notFound(); wb.update(ref('types', id), { nameEn, nameKm }); }
+      else { const code = codeOk(b.code, 1, 3, 'Type'); if (cat.typesList.some((x) => x.code === code)) throw bad('DUPLICATE', 'This type code already exists.'); wb.set(ref('types', code), { code, nameEn, nameKm }); }
+    } else if (kind === 'colours') {
+      const nameKm = txt(b.name_km, 80).trim() || null; const hex = /^#[0-9a-fA-F]{6}$/.test(String(b.hex || '')) ? b.hex : '#999999';
+      if (id) { if (!cat.coloursList.find((x) => x.code === id)) throw notFound(); wb.update(ref('colours', id), { nameEn, nameKm, hex }); }
+      else { const code = codeOk(b.code, 2, 4, 'Colour'); if (cat.coloursList.some((x) => x.code === code)) throw bad('DUPLICATE', 'This colour code already exists.'); wb.set(ref('colours', code), { code, nameEn, nameKm, hex }); }
+    } else throw notFound();
+    auditIn(wb, null, `list.${kind}.${id ? 'rename' : 'add'}`, kind, id || b.code || '', { name: nameEn }); await wb.commit().catch(wrap('Could not save')); await B.loadCatalog(true); return { ok: true };
+  }
+  async function listDelete(kind, id) {
+    ownerOnly(); const cat = await B.loadCatalog(true); const wb = writeBatch(db);
+    if (kind === 'brands') { if ([...cat.designs.values()].some((d) => String(d.brandId) === String(id))) throw bad('IN_USE', 'Products use this brand, so it cannot be deleted.'); if ((await list('stores')).some((x) => String(x.brandId) === String(id))) throw bad('IN_USE', 'A store uses this brand.'); wb.delete(ref('brands', id)); }
+    else if (kind === 'types') { if ([...cat.designs.values()].some((d) => d.typeCode === id)) throw bad('IN_USE', 'Products use this type, so it cannot be deleted.'); wb.delete(ref('types', id)); }
+    else if (kind === 'colours') { if (cat.items.some((i) => i.colourCode === id)) throw bad('IN_USE', 'Products use this colour, so it cannot be deleted.'); wb.delete(ref('colours', id)); }
+    else throw notFound();
+    auditIn(wb, null, `list.${kind}.delete`, kind, id, {}); await wb.commit().catch(wrap('Could not delete')); await B.loadCatalog(true); return { ok: true };
+  }
+  const DEFAULT_SIZE_SETS = { Suit: ['44', '46', '48', '50', '52', '54', '56'], Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] };
+  async function sizeSets() { const d = await read('settings', 'sizeSets'); return { size_sets: d?.sets || DEFAULT_SIZE_SETS }; }
+  async function sizeSetsSave(b) {
+    ownerOnly(); const out = {};
+    for (const [k, v] of Object.entries(b.sets || {})) { const name = txt(k, 30).trim(); const sizes = [...new Set((Array.isArray(v) ? v : []).map((x) => txt(x, 8).trim().toUpperCase()).filter(Boolean))].slice(0, 40); if (name && sizes.length) out[name] = sizes; }
+    if (!Object.keys(out).length) throw bad('BAD_INPUT', 'Keep at least one size group.');
+    await setDoc(ref('settings', 'sizeSets'), { sets: out, ts: now(), setBy: S().uid }); return { ok: true };
+  }
+
   async function route(method, path, q, b) {
     let m;
+    if (method === 'GET' && path === '/lists/sizes') return sizeSets();
+    if (method === 'POST' && path === '/lists/sizes') return sizeSetsSave(b);
+    if (method === 'POST' && (m = path.match(/^\/lists\/(brands|types|colours)$/))) return listSave(m[1], null, b);
+    if (method === 'POST' && (m = path.match(/^\/lists\/(brands|types|colours)\/([^/]+)\/delete$/))) return listDelete(m[1], m[2]);
+    if (method === 'POST' && (m = path.match(/^\/lists\/(brands|types|colours)\/([^/]+)$/))) return listSave(m[1], m[2], b);
     if (method === 'GET' && path === '/balances') return balancesList(q);
     if (method === 'POST' && (m = path.match(/^\/balances\/([^/]+)\/collect$/))) return collect(m[1], b);
     if (method === 'GET' && path === '/alterations') return jobsList(q);

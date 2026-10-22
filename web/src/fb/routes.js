@@ -121,7 +121,7 @@ export function createApi(B, extra = {}) {
   async function meta() {
     const c = await B.loadCatalog();
     return { brands: c.brandsList.map((b) => ({ id: Number(b.id), code: b.code, name: b.name })), types: c.typesList.map((t) => ({ code: t.code, name_en: t.nameEn, name_km: t.nameKm })),
-      colours: c.coloursList.map((x) => ({ code: x.code, name_en: x.nameEn, name_km: x.nameKm, hex: x.hex })), suit_sizes: ['44', '46', '48', '50', '52', '54', '56'] };
+      colours: c.coloursList.map((x) => ({ code: x.code, name_en: x.nameEn, name_km: x.nameKm, hex: x.hex })), suit_sizes: ['44', '46', '48', '50', '52', '54', '56'], size_sets: (await read('settings', 'sizeSets'))?.sets || null };
   }
   async function nextIds(kind, n) {
     const r = ref('meta', 'ids');

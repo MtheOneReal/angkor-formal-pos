@@ -316,3 +316,25 @@ test('deposit sale, balance collection, alteration job, stock count, report, sum
   const sum = await api.get('/summary/daily'); assert.ok(sum.text.includes('Angkor') && sum.total_cents === 20000);
   const ex = await api.get('/export'); assert.equal(ex.sheets.Sales.length, 1); assert.ok(ex.sheets['Sale lines'].length === 1 && ex.sheets.Stock.length >= 1);
 });
+
+test('owner edits brands, types, colours and size groups; used entries cannot be deleted', async () => {
+  const { api, d } = await setup();
+  await api.post('/lists/brands', { code: 'ZZ', name_en: 'Zed Brand' });
+  await fails(api.post('/lists/brands', { code: 'ZZ', name_en: 'Again' }), 'DUPLICATE');
+  await fails(api.post('/lists/brands', { code: 'bad code!', name_en: 'X' }), 'BAD_INPUT');
+  await api.post('/lists/types', { code: 'JK', name_en: 'Jacket', name_km: 'អាវ' });
+  await api.post('/lists/colours', { code: 'RED', name_en: 'Red', hex: '#aa0000' });
+  let m = await api.get('/meta');
+  assert.ok(m.brands.some((b) => b.code === 'ZZ') && m.types.some((t) => t.code === 'JK') && m.colours.some((c) => c.code === 'RED'));
+  await api.post('/lists/types/JK', { name_en: 'Blazer jacket' });
+  assert.equal((await api.get('/meta')).types.find((t) => t.code === 'JK').name_en, 'Blazer jacket');
+  await fails(api.post('/lists/brands/1/delete'), 'IN_USE'); // brand 1 is used by a store
+  await fails(api.post('/lists/colours/NVY/delete'), 'IN_USE'); // used by the design from setup
+  await api.post('/lists/colours/RED/delete'); await api.post('/lists/types/JK/delete');
+  await api.post('/lists/sizes', { sets: { Suit: ['44', '46'], Shoes: ['40', '41'] } });
+  assert.deepEqual((await api.get('/meta')).size_sets, { Suit: ['44', '46'], Shoes: ['40', '41'] });
+  const des = await api.post('/designs', { brand_id: (await api.get('/meta')).brands.find((b) => b.code === 'ZZ').id, type_code: 'S', name_en: 'Odd size', price_usd: 10, colours: ['NVY'], sizes: ['58'] });
+  assert.equal(des.skus.length, 1);
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'mgr@x.com', password: 'Mgr-pass-123' });
+  await fails(api.post('/lists/brands', { code: 'QQ', name_en: 'No' }), 'FORBIDDEN');
+});
