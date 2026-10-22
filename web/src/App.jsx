@@ -193,7 +193,7 @@ export default function App() {
             <button className="nav" onClick={logout}>⎋ {t('logout')}</button>
           </aside>
           <main className="main">
-            {me.stores.length > 1 && !['dashboard', 'capital', 'report', 'account', 'expenses', 'payroll', 'attendance'].includes(cur) && (
+            {me.stores.length > 1 && !['dashboard', 'capital', 'report', 'account', 'expenses', 'payroll', 'attendance', 'settings'].includes(cur) && (
               <div className="topbar"><select value={me.store_id} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 220 }} aria-label="Store">
                 {me.stores.map((s) => <option key={s.id} value={s.id}>{s.kind === 'warehouse' ? '🏬 ' : ''}{s.name}</option>)}</select></div>
             )}
