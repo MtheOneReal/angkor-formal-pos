@@ -1,45 +1,58 @@
 import React from 'react';
 
-// Default pictures for products that have no photo yet. Simple line drawings that follow the text colour.
-const P = {
-  suit: <><path d="M22 8l10 6 10-6 10 8-4 12v26H16V28L12 16z" /><path d="M32 14v42M26 8l6 14 6-14" /><circle cx="35" cy="34" r="1.2" /><circle cx="35" cy="42" r="1.2" /><path d="M20 38h6" /></>,
-  blazer: <><path d="M21 8l11 8 11-8 9 8-3 14v24H15V30L12 16z" /><path d="M32 16l-8 12 8 28M32 16l8 12-8 28" /><circle cx="30" cy="40" r="1.2" /><path d="M18 44h8" /></>,
-  trousers: <><path d="M20 6h24l4 52H35L32 26l-3 32H16z" /><path d="M20 12h24M32 12v14" /></>,
-  shirt: <><path d="M22 8l-12 8 6 10 5-3v33h22V23l5 3 6-10-12-8" /><path d="M22 8l10 10 10-10M32 18v38" /><circle cx="32" cy="28" r="1.1" /><circle cx="32" cy="36" r="1.1" /><circle cx="32" cy="44" r="1.1" /></>,
-  tie: <><path d="M27 6h10l-2 8h-6z" /><path d="M29 14l-4 34 7 10 7-10-4-34" /><path d="M29 22h6" /></>,
-  bowtie: <><path d="M32 32L12 20v24zM32 32l20-12v24z" /><rect x="28" y="27" width="8" height="10" rx="2" /></>,
-  socks: <><path d="M24 6h16v24l12 10c3 3 1 10-4 10-3 0-5-1-8-3L26 38c-2-2-2-4-2-8z" /><path d="M24 14h16" /></>,
-  belt: <><rect x="6" y="26" width="52" height="12" rx="3" /><rect x="24" y="23" width="14" height="18" rx="2" /><path d="M31 28v8M46 32h.01M52 32h.01" /></>,
-  shoe: <><path d="M6 40V26l10 4 8-6 6 6h14c8 0 14 4 14 10v4H6z" /><path d="M6 44h52M24 24l-2-8h-6" /></>,
-  vest: <><path d="M20 8l12 14 12-14 6 8-4 40H18L14 16z" /><path d="M32 22v34" /><circle cx="35" cy="32" r="1.1" /><circle cx="35" cy="40" r="1.1" /><circle cx="35" cy="48" r="1.1" /></>,
-  coat: <><path d="M20 6l12 10 12-10 10 10-4 16 2 26H14l2-26-4-16z" /><path d="M32 16v42M26 6l6 14 6-14" /><circle cx="36" cy="34" r="1.2" /><circle cx="36" cy="44" r="1.2" /></>,
-  pocket: <><path d="M10 50V26l8-6h28l8 6v24z" /><path d="M20 26l6 10 6-14 6 14 6-10" /></>,
-  cufflink: <><circle cx="22" cy="32" r="10" /><circle cx="42" cy="32" r="6" /><path d="M32 32h4" /><circle cx="22" cy="32" r="4" /></>,
-  hat: <><path d="M12 40c0-12 8-24 20-24s20 12 20 24z" /><path d="M6 44h52" /><path d="M14 40h36" /></>,
-  scarf: <><path d="M14 10c10 4 26 4 36 0v12c-10 4-26 4-36 0z" /><path d="M24 24v30l5-4 5 4V24M38 22v26l5-4 5 4V22" /></>,
-  wallet: <><rect x="8" y="16" width="48" height="34" rx="5" /><path d="M8 26h48" /><rect x="40" y="32" width="16" height="10" rx="3" /><circle cx="46" cy="37" r="1.2" /></>,
-  hanger: <><path d="M32 22v-4a5 5 0 1 0-5-5" /><path d="M32 22L8 42c-3 2-1 6 2 6h44c3 0 5-4 2-6z" /></>,
+// Default pictures for products that have no photo yet.
+// Each drawing has a body (the garment) and detail lines. Three looks are drawn from the same shapes:
+//   line  = thin outline        solid = filled shape with cut-out details        duo = soft tint, outline and gold details
+export const ICON_STYLES = ['line', 'solid', 'duo'];
+
+const G = {
+  suit: { body: ['M24 6L12 11 7 46l8 2 3-22v32h28V26l3 22 8-2-5-35-12-5-8 6z'], detail: ['M32 12L25 32l7 10 7-10z', 'M32 14l-2 3 2 3 2-3z', 'M30 20l-2 20 4 4 4-4-2-20z', 'M32 44v14', 'M22 48h6M36 48h6'] },
+  blazer: { body: ['M24 6L12 11 7 46l8 2 3-22v32h28V26l3 22 8-2-5-35-12-5-8 6z'], detail: ['M32 12L25 32l7 10 7-10z', 'M32 42v16', 'M32 47h.01', 'M22 48h6M36 48h6', 'M37 31h5'] },
+  trousers: { body: ['M18 5h28l3 54H35l-3-30-3 30H15z'], detail: ['M18 11h28', 'M32 11v18', 'M21 13l3 9', 'M43 13l-3 9', 'M23 36l-1 21', 'M41 36l1 21'] },
+  shirt: { body: ['M22 6l10 6 10-6 10 6 5 36-8 2-3-22v32H18V26l-3 22-8-2 5-34z'], detail: ['M22 6l5 10 5-4 5 4 5-10', 'M32 12v46', 'M32 22h.01M32 31h.01M32 40h.01M32 49h.01', 'M11 44l5 1M53 44l-5 1'] },
+  tie: { body: ['M27 5h10l-2 9h-6z', 'M29 14l-5 36 8 9 8-9-5-36z'], detail: ['M28 9h8', 'M27 24h10', 'M26 34h12', 'M25 44h14'] },
+  bowtie: { body: ['M32 32L9 19v26z', 'M32 32l23-13v26z', 'M27 26h10v12H27z'], detail: ['M16 26l7 6-7 6', 'M48 26l-7 6 7 6'] },
+  socks: { body: ['M23 5h18v26l12 9c4 4 2 11-4 11-4 0-7-2-10-4L26 40c-2-2-3-5-3-9z'], detail: ['M23 13h18', 'M23 18h18', 'M45 45l5-4'] },
+  belt: { body: ['M5 25h54v14H5z', 'M24 21h16v22H24z'], detail: ['M29 27h6v10h-6z', 'M45 32h.01M50 32h.01M55 32h.01', 'M8 28h12M8 36h12'] },
+  shoes: { body: ['M5 36V26h13c3 6 8 9 15 9l14 3c7 2 12 5 12 10v3H5z'], detail: ['M5 46h54', 'M22 28l5 5M27 25l5 6M32 24l5 6', 'M10 31h6'] },
+  waistcoat: { body: ['M20 5l12 17 12-17 7 8-3 45H16L13 13z'], detail: ['M32 22v36', 'M32 30h.01M32 38h.01M32 46h.01', 'M20 46h7', 'M44 46h-7'] },
+  coat: { body: ['M24 5L11 10 6 50l8 2 4-24-2 32h32l-2-32 4 24 8-2-5-40-13-5-8 7z'], detail: ['M32 12l-8 22 8 12 8-12z', 'M32 46v14', 'M32 50h.01', 'M21 50h5M38 50h5'] },
+  cufflink: { body: ['M10 22a11 11 0 1 0 22 0a11 11 0 1 0-22 0', 'M38 38a8 8 0 1 0 16 0a8 8 0 1 0-16 0'], detail: ['M21 22a4 4 0 1 0 .01 0', 'M32 28l8 6', 'M46 38h.01'] },
+  pocket: { body: ['M8 52V24l8-8h32l8 8v28z'], detail: ['M8 24h48', 'M16 24l8 12 8-16 8 16 8-12'] },
+  hanger: { body: ['M32 24L8 43c-3 2-1 6 2 6h44c3 0 5-4 2-6z'], detail: ['M32 24v-5a5 5 0 1 0-5-5'] },
 };
 
-// Which drawing for which product type. Matches the type code first, then the type's name.
 const BY_CODE = { S: 'suit', B: 'blazer', T: 'trousers', H: 'shirt', A: 'tie' };
 const WORDS = [
-  [/bow\s*tie/, 'bowtie'], [/neck\s*tie|\btie/, 'tie'], [/sock|stocking/, 'socks'], [/belt/, 'belt'], [/shoe|loafer|oxford|boot/, 'shoe'],
-  [/waistcoat|vest|gilet/, 'vest'], [/over\s*coat|\bcoat|trench/, 'coat'], [/pocket/, 'pocket'], [/cuff/, 'cufflink'], [/\bhat|cap\b/, 'hat'],
-  [/scarf/, 'scarf'], [/wallet/, 'wallet'], [/blazer|jacket/, 'blazer'], [/trouser|pant|chino|jean|short/, 'trousers'], [/shirt|polo|tee|blouse/, 'shirt'], [/suit|tuxedo|tux/, 'suit'],
-  [/ខោ/, 'trousers'], [/អាវធំ/, 'blazer'], [/ឈុត/, 'suit'], [/អាវ/, 'shirt'], [/ក្រវ៉ាត់/, 'tie'], [/ស្រោមជើង/, 'socks'], [/ខ្សែក្រវ៉ាត់/, 'belt'], [/ស្បែកជើង/, 'shoe'],
+  [/bow\s*tie/, 'bowtie'], [/neck\s*tie|\btie/, 'tie'], [/sock|stocking/, 'socks'], [/belt/, 'belt'], [/shoe|loafer|oxford|boot/, 'shoes'],
+  [/waistcoat|vest|gilet/, 'waistcoat'], [/over\s*coat|\bcoat|trench/, 'coat'], [/pocket/, 'pocket'], [/cuff/, 'cufflink'],
+  [/blazer|jacket/, 'blazer'], [/trouser|pant|chino|jean|short/, 'trousers'], [/shirt|polo|tee|blouse/, 'shirt'], [/suit|tuxedo|tux/, 'suit'],
+  [/ខោ/, 'trousers'], [/អាវធំ/, 'blazer'], [/ឈុត/, 'suit'], [/អាវ/, 'shirt'], [/ក្រវ៉ាត់/, 'tie'], [/ស្រោមជើង/, 'socks'], [/ខ្សែក្រវ៉ាត់/, 'belt'], [/ស្បែកជើង/, 'shoes'],
 ];
 export function garmentKey(code, nameEn, nameKm) {
   const text = `${nameEn || ''} ${nameKm || ''}`.toLowerCase();
   for (const [re, k] of WORDS) if (re.test(text)) return k;
   return BY_CODE[String(code || '').toUpperCase()] || 'hanger';
 }
+export const GARMENT_KEYS = Object.keys(G);
 
-export default function GarmentIcon({ code, name, nameKm, size = 56, style }) {
-  const k = garmentKey(code, name, nameKm);
+let chosen = 'duo';
+try { chosen = globalThis.localStorage?.getItem('af_icon_style') || 'duo'; } catch { /* ignore */ }
+export const setIconStyle = (s) => { chosen = ICON_STYLES.includes(s) ? s : 'duo'; try { globalThis.localStorage?.setItem('af_icon_style', chosen); } catch { /* ignore */ } };
+
+export default function GarmentIcon({ code, name, nameKm, kind, size = 56, variant, style }) {
+  const g = G[kind || garmentKey(code, name, nameKm)];
+  const v = variant || chosen;
+  const common = { strokeLinecap: 'round', strokeLinejoin: 'round' };
+  const body = g.body.map((d, i) => v === 'line'
+    ? <path key={`b${i}`} d={d} fill="none" stroke="currentColor" strokeWidth="2" {...common} />
+    : v === 'solid'
+      ? <path key={`b${i}`} d={d} fill="currentColor" stroke="currentColor" strokeWidth="1" {...common} />
+      : <path key={`b${i}`} d={d} fill="currentColor" fillOpacity=".16" stroke="currentColor" strokeWidth="2" {...common} />);
+  const detail = g.detail.map((d, i) => <path key={`d${i}`} d={d} fill="none" strokeWidth={v === 'solid' ? 2 : 1.8} stroke={v === 'solid' ? 'var(--icon-cut, #1c1a17)' : v === 'duo' ? 'var(--icon-accent, currentColor)' : 'currentColor'} {...common} />);
   return (
-    <svg viewBox="0 0 64 64" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.7, ...style }}>
-      {P[k]}
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" style={style}>
+      {body}{detail}
     </svg>
   );
 }
