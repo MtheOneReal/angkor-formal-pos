@@ -194,21 +194,21 @@ export function createApi(B, extra = {}) {
   }
   // Best sellers (ranked) and low stock for one branch, safe for cashiers: quantities only, never cost.
   async function restock(q) {
-    need('stock.view');
+    need('rank.view');
     const my = assertStore(q.store_id); const days = [7, 30, 90].includes(Number(q.days)) ? Number(q.days) : 30;
     const sw = await switchesOf(my); const cashier = S().user.role === 'cashier';
     const canOther = can('stock.view_other') && (!cashier || sw.cashier_see_other_stock);
     const today = dateOf(ts()); const sold = new Map();
     const docs = (await Promise.all(Array.from({ length: days }, (_, i) => read(can('dashboard.view') ? 'dailyStats' : 'itemStats', `${my}_${dstr(today, -i)}`).catch(() => null)))).filter(Boolean);
     for (const d of docs) for (const [iid, v] of Object.entries(d.byItem || {})) sold.set(Number(iid), (sold.get(Number(iid)) || 0) + (v.qty || 0));
-    const rows = await B.itemRows('', 3000); const mine = await B.stockOfStore(my); const all = canOther ? await B.stockOfAll() : [];
+    const seeStock = can('stock.view'); const rows = await B.itemRows('', 3000); const mine = seeStock ? await B.stockOfStore(my) : new Map(); const all = canOther && seeStock ? await B.stockOfAll() : [];
     const list_ = rows.map((r) => {
       const a = B.quant(mine.get(r.id)).available; const others = canOther ? all.filter((x) => Number(x.itemId) === r.id && Number(x.storeId) !== my).reduce((n, x) => n + Math.max(0, B.quant(x).available), 0) : 0;
-      return { id: r.id, sku: r.sku, name_en: r.name_en, name_km: r.name_km, colour_en: r.colour_en, colour_km: r.colour_km, size: r.size, sold: sold.get(r.id) || 0, here: Math.max(0, a), level: level(a, r.low_stock), others, can_other: canOther };
+      return { id: r.id, sku: r.sku, name_en: r.name_en, name_km: r.name_km, colour_en: r.colour_en, colour_km: r.colour_km, size: r.size, sold: sold.get(r.id) || 0, ...(seeStock ? { here: Math.max(0, a), level: level(a, r.low_stock), others, can_other: canOther } : {}) };
     });
     const best = list_.filter((r) => r.sold > 0).sort((a, b) => b.sold - a.sold).slice(0, 20).map((r, i) => ({ ...r, rank: i + 1 }));
-    const low = list_.filter((r) => r.level !== 'in' && (r.sold > 0 || r.here > 0)).sort((a, b) => (a.here === 0 ? 0 : 1) - (b.here === 0 ? 0 : 1) || b.sold - a.sold).slice(0, 40);
-    return { days, store_id: my, can_other: canOther, best, low };
+    const low = !seeStock ? [] : list_.filter((r) => r.level !== 'in' && (r.sold > 0 || r.here > 0)).sort((a, b) => (a.here === 0 ? 0 : 1) - (b.here === 0 ? 0 : 1) || b.sold - a.sold).slice(0, 40);
+    return { days, store_id: my, can_other: canOther && seeStock, has_stock: seeStock, best, low };
   }
   async function stockIn(b) {
     need('stock.in');

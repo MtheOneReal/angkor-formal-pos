@@ -5,6 +5,7 @@ import { Ctx, useApp, useT, PinPad, Modal, Spinner } from './ui.jsx';
 import { tr } from './i18n.js';
 import Register from './screens/Register.jsx';
 import Capital from './screens/Capital.jsx';
+import Restock from './screens/Restock.jsx';
 import Jobs from './screens/Jobs.jsx';
 import Report from './screens/Report.jsx';
 import Account from './screens/Account.jsx';
@@ -19,10 +20,10 @@ import Attendance from './screens/Attendance.jsx';
 import Payroll from './screens/Payroll.jsx';
 
 const NAV = [
-  ['register', 'pos.sell', '🧾'], ['inventory', 'stock.view', '📦'], ['jobs', 'pos.sell', '✂️'], ['transfers', 'transfer.request', '🔁'],
+  ['register', 'pos.sell', '🧾'], ['inventory', 'stock.view', '📦'], ['bestsellers', 'rank.view', '🏆'], ['jobs', 'pos.sell', '✂️'], ['transfers', 'transfer.request', '🔁'],
   ['sales', 'sales.view', '📄'], ['customers', 'customers.manage', '👥'], ['expenses', 'expenses.manage', '💸'], ['attendance', 'attendance.use', '🕘'], ['payroll', 'payroll.view', '💰'], ['report', 'report.view', '📈'], ['capital', 'capital.view', '🤝'], ['dashboard', 'dashboard.view', '📊'], ['settings', 'users.manage', '⚙️'],
 ];
-const SCREENS = { register: Register, inventory: Inventory, account: Account, jobs: Jobs, report: Report, capital: Capital, transfers: Transfers, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
+const SCREENS = { bestsellers: Restock, register: Register, inventory: Inventory, account: Account, jobs: Jobs, report: Report, capital: Capital, transfers: Transfers, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
 
 function Login({ onDone }) {
   const [mode, setMode] = useState('till');
@@ -162,7 +163,7 @@ export default function App() {
 
   if (me.role === 'owner' && me.stores.length === 0) return <FinishSetup onDone={load} />;
   const inWh = me.stores.find((s) => s.id === me.store_id)?.kind === 'warehouse';
-  const SHOP_ONLY = ['register', 'jobs', 'sales', 'customers', 'expenses', 'attendance'];
+  const SHOP_ONLY = ['bestsellers', 'register', 'jobs', 'sales', 'customers', 'expenses', 'attendance'];
   const allowed = NAV.filter(([k, p]) => me.perms.includes(p) && !(inWh && SHOP_ONLY.includes(k)) && !(k === 'settings' && !me.perms.includes('settings.manage') && !me.perms.includes('users.manage')));
   const first = allowed[0]?.[0] || 'register';
   const cur = (allowed.find(([k]) => k === route) || route === 'account') ? route : first;

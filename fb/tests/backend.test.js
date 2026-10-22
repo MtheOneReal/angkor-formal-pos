@@ -284,7 +284,8 @@ test('capital: shareholders, payments, reversal, totals; shareholder login sees 
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'inv@x.com', password: 'Investor-123' });
   assert.equal((await api.get('/capital')).can_edit, false);
   await fails(api.post('/capital/shareholders', { name: 'X', agreed_by_store: {} }), 'FORBIDDEN');
-  const me = await api.get('/me'); assert.deepEqual(me.perms, ['capital.view', 'report.view']);
+  const me = await api.get('/me'); assert.deepEqual(me.perms, ['capital.view', 'report.view', 'rank.view']);
+  const rk = await api.get('/stock/restock?store_id=1&days=30'); assert.equal(rk.has_stock, false); assert.deepEqual(rk.low, []);
 });
 
 test('deposit sale, balance collection, alteration job, stock count, report, summary, export', async () => {
