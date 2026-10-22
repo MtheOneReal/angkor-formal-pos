@@ -48,7 +48,7 @@ export function createApi(B, extra = {}) {
   }
   // TESTING ONLY. Remove this, its route, the Settings button and the testReset() rule when the app goes live.
   async function resetTest(b) {
-    need('settings.manage'); if (S().user.role !== 'owner') throw forbidden('Only the owner can reset.');
+    need('settings.manage'); if (!S().isSuper) throw forbidden('Only the super admin can reset.');
     if (b.confirm !== 'RESET') throw bad('CONFIRM', 'Type RESET to confirm.');
     await setDoc(ref('settings', 'testMode'), { enabled: true, ts: ts(), by: S().uid });
     const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'itemStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), ...(b.capital ? ['capitalPayments', 'shareholders'] : []), 'balances', 'balancePayments', 'alterations', 'stocktakes', 'auditLog'];
@@ -779,11 +779,12 @@ export function createApi(B, extra = {}) {
     await wb.commit();
     await audit(Number(id), 'store.update', 'store', id, { name: b.name, switches: changed }); await B.loadStores(true); await B.startSession(); return { ok: true };
   }
-  const userView = (u) => ({ id: u.id, name: u.name, email: u.email || null, role: u.role, active: u.active === true, lang: u.lang || 'en', demo: !!u.demo, perms: u.perms || {}, store_ids: (u.storeIds || []).map(Number), has_pin: !!u.hasPin, has_password: !!u.email, salary_usd: (u.salaryCents || 0) / 100 });
+  const userView = (u) => ({ is_super: !!S().superUid && u.id === S().superUid, id: u.id, name: u.name, email: u.email || null, role: u.role, active: u.active === true, lang: u.lang || 'en', demo: !!u.demo, perms: u.perms || {}, store_ids: (u.storeIds || []).map(Number), has_pin: !!u.hasPin, has_password: !!u.email, salary_usd: (u.salaryCents || 0) / 100 });
   async function adminUsers() { need('users.manage'); const rows = await list('users'); return { users: rows.sort((a, b) => (a.active === b.active ? 0 : a.active ? -1 : 1) || a.role.localeCompare(b.role) || a.name.localeCompare(b.name)).map(userView), all_perms: Object.keys(ROLE_PERMS).length ? [...new Set(Object.values(ROLE_PERMS).flat())] : [], role_perms: ROLE_PERMS }; }
   const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12) || 'staff';
   async function adminUserCreate(b) {
     need('users.manage');
+    if (b.role === 'owner' && !S().isSuper) throw forbidden('Only the super admin can add an owner.');
     if (!String(b.name || '').trim()) throw bad('BAD_INPUT', 'Enter a name.');
     if (!['owner', 'manager', 'cashier', 'shareholder'].includes(b.role)) throw bad('BAD_INPUT', 'Choose a role.');
     const storeIds = (b.store_ids || []).map(Number);
@@ -807,6 +808,11 @@ export function createApi(B, extra = {}) {
   async function adminUserUpdate(id, b) {
     need('users.manage'); const u = await read('users', id); if (!u) throw notFound();
     const role = b.role || u.role; const active = b.active == null ? u.active : !!b.active;
+    if (id === S().superUid && (role !== 'owner' || !active)) throw forbidden('The super admin cannot be switched off or changed to another role.');
+    if (id === S().superUid && !S().isSuper) throw forbidden('Only the super admin can change the super admin.');
+    if (!S().isSuper && id !== S().uid && u.role === 'owner') throw forbidden('Only the super admin can change an owner.');
+    if (!S().isSuper && role === 'owner' && u.role !== 'owner') throw forbidden('Only the super admin can make someone an owner.');
+    if (!S().isSuper && id === S().uid && (role !== u.role || active !== u.active)) throw forbidden('You cannot change your own role.');
     if (u.role === 'owner' && (role !== 'owner' || !active)) { const others = (await list('users')).filter((x) => x.role === 'owner' && x.active === true && x.id !== id); if (others.length < 1) throw bad('LAST_OWNER', 'There must always be at least one active owner.'); }
     if (b.password || b.pin) throw bad('USE_RESET', 'Changing a password or PIN is done by the person under My account, or by deleting and re-adding the account.');
     const storeIds = b.store_ids ? b.store_ids.map(Number) : (u.storeIds || []);
@@ -820,6 +826,8 @@ export function createApi(B, extra = {}) {
   async function adminUserDelete(id) {
     need('users.manage'); const u = await read('users', id); if (!u) throw notFound();
     if (id === S().uid) throw bad('SELF', 'You cannot delete your own account.');
+    if (id === S().superUid) throw forbidden('The super admin cannot be deleted.');
+    if (u.role === 'owner' && !S().isSuper) throw forbidden('Only the super admin can delete an owner.');
     if (u.role === 'owner') { const others = (await list('users')).filter((x) => x.role === 'owner' && x.active === true && x.id !== id); if (others.length < 1) throw bad('LAST_OWNER', 'There must always be at least one active owner.'); }
     const stores = await B.loadStores(); let used = false;
     for (const st of stores) {
@@ -1027,7 +1035,7 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && path === '/telegram') { need('settings.manage'); const d = await getDoc(ref('settings', 'telegram')); const x = d.exists() ? d.data() : {}; return { enabled: !!x.enabled, chat_id: x.chatId || '' }; }
       if (method === 'POST' && path === '/telegram') { need('settings.manage'); const chat = String(b.chat_id || '').trim(); if (b.enabled && !/^-?\d{5,20}$/.test(chat)) throw bad('BAD_INPUT', 'The chat ID is a number, like 123456789 or -1001234567890.'); await setDoc(ref('settings', 'telegram'), { enabled: !!b.enabled, chatId: chat }); await audit(null, 'telegram.update', 'settings', 'telegram', { enabled: !!b.enabled }); return { ok: true }; }
       if (method === 'POST' && path === '/telegram/test') { need('settings.manage'); if (!auth.call) throw bad('NOT_AVAILABLE', 'Not available in this mode.'); return await auth.call('telegramTest', {}); }
-      if (method === 'POST' && (m = path.match(/^\/admin\/users\/([^/]+)\/reset$/))) { need('users.manage'); if (!auth.call) throw bad('NOT_AVAILABLE', 'Not available in this mode.'); return await auth.call('staffReset', { user_id: m[1], pin: b.pin, password: b.password }); }
+      if (method === 'POST' && (m = path.match(/^\/admin\/users\/([^/]+)\/reset$/))) { need('users.manage'); { const tu = await read('users', m[1]); if (tu && (m[1] === S().superUid || tu.role === 'owner') && !S().isSuper) throw forbidden('Only the super admin can reset an owner’s password.'); } if (!auth.call) throw bad('NOT_AVAILABLE', 'Not available in this mode.'); return await auth.call('staffReset', { user_id: m[1], pin: b.pin, password: b.password }); }
       if (method === 'GET' && path === '/admin/users') return await adminUsers();
       if (method === 'POST' && path === '/admin/users') return await adminUserCreate(b);
       if (method === 'PUT' && (m = path.match(/^\/admin\/users\/([^/]+)$/))) return await adminUserUpdate(m[1], b);

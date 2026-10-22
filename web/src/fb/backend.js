@@ -145,7 +145,8 @@ export function createBackend(deps) {
     const ids = ['owner', 'shareholder'].includes(u.role) ? stores.filter((s) => s.active !== false).map((s) => s.id) : (u.storeIds || []).map(Number).filter((id) => stores.find((s) => s.id === id)?.active !== false);
     let storeId = Number(localStorageGet('af_store')) || null;
     if (!ids.includes(storeId)) storeId = ids.find((i) => stores.find((s) => s.id === i)?.kind !== 'warehouse') ?? ids[0] ?? null;
-    S = { uid: cu.uid, user: u, perms: permsFor(u), stores: ids, storeId };
+    let superUid = null; try { superUid = (await read('setup', 'state'))?.firstOwner || null; } catch { /* ignore */ }
+    S = { uid: cu.uid, user: u, perms: permsFor(u), stores: ids, storeId, superUid, isSuper: !!superUid && superUid === cu.uid };
     return S;
   }
   const localStorageGet = (k) => { try { return globalThis.localStorage?.getItem(k); } catch { return null; } };
@@ -165,7 +166,7 @@ export function createBackend(deps) {
     const dirMe = S.user.role === 'cashier' ? await read('staffDirectory', S.uid).catch(() => null) : null;
     const sw = {}; for (const s of stores) sw[s.id] = s.switches;
     return {
-      id: S.uid, name: S.user.name, role: S.user.role, lang: S.user.lang || 'en', theme: S.user.theme || null, demo: !!S.user.demo,
+      id: S.uid, name: S.user.name, role: S.user.role, is_super: !!S.isSuper, lang: S.user.lang || 'en', theme: S.user.theme || null, demo: !!S.user.demo,
       perms: [...S.perms], pin_length: dirMe?.pinLength || 0, store_id: S.storeId, switches: sw, rate: await currentRate(),
       stores: stores.map((s) => { const b = brands.find((x) => String(x.id) === String(s.brandId)); return { id: s.id, code: s.code, name: s.name, kind: s.kind === 'warehouse' ? 'warehouse' : 'shop', brand_id: s.brandId, brand_code: b?.code, brand_name: b?.name }; }),
     };

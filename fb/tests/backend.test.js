@@ -373,3 +373,22 @@ test('restock: best sellers are ranked, low stock is listed, and a cashier can r
   assert.equal(r.low.some((x) => x.sku === d.skus[0] && x.here === 1 && x.level === 'low'), true);
   assert.equal(JSON.stringify(r).includes('cost'), false); assert.equal(JSON.stringify(r).includes('price'), false);
 });
+
+test('super admin: only the first owner can add or change owners, and cannot be removed or demoted', async () => {
+  const { api, A } = await setup();
+  const me = await api.get('/me');
+  assert.equal(me.is_super, true);
+  const users = (await api.get('/admin/users')).users;
+  assert.equal(users.find((u) => u.id === me.id).is_super, true);
+  await fails(api.put(`/admin/users/${me.id}`, { role: 'manager', store_ids: [1] }), 'FORBIDDEN');
+  await fails(api.put(`/admin/users/${me.id}`, { active: false }), 'FORBIDDEN');
+  const o2 = await api.post('/admin/users', { name: 'Second', role: 'owner', email: 'o2@x.com', password: 'Owner-pass-12' });
+  await A.auth.signOut(); await api.post('/auth/login', { email: 'o2@x.com', password: 'Owner-pass-12' });
+  const me2 = await api.get('/me');
+  assert.equal(me2.is_super, false);
+  await fails(api.post('/admin/users', { name: 'Third', role: 'owner', email: 'o3@x.com', password: 'Owner-pass-12' }), 'FORBIDDEN');
+  await fails(api.put(`/admin/users/${me.id}`, { name: 'Hacked' }), 'FORBIDDEN');
+  await fails(api.post(`/admin/users/${me.id}/delete`), 'FORBIDDEN');
+  await fails(api.post('/admin/reset-test', { confirm: 'RESET' }), 'FORBIDDEN');
+  assert.ok(o2.id);
+});

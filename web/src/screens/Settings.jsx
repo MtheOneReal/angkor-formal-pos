@@ -12,14 +12,14 @@ const SWITCHES = [
 
 export default function Settings() {
   const { me } = useApp(); const [tab, setTab] = useState('stores'); const t = useT();
-  const owner = me.perms.includes('settings.manage');
+  const owner = me.perms.includes('settings.manage'); const sup = !!me.is_super;
   return (
     <div>
       <h1>{t('settings')}</h1>
       <div className="tabs" style={{ margin: '12px 0' }}>
-        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['categories', 'Expense categories'], ['audit', 'Activity log'], ...(owner ? [['telegram', '✈️ Telegram'], ['backup', '💾 Download all data'], ['reset', '🧪 Test reset']] : [])].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
+        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['categories', 'Expense categories'], ['audit', 'Activity log'], ...(owner ? [['telegram', '✈️ Telegram']] : []), ...(sup ? [['backup', '💾 Recovery & backup'], ['reset', '🧪 Test reset']] : [])].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>
-      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'categories' && owner && <Categories />}{tab === 'audit' && <Audit />}{tab === 'telegram' && owner && <Telegram />}{tab === 'backup' && owner && <Backup />}{tab === 'reset' && owner && <TestReset />}
+      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'categories' && owner && <Categories />}{tab === 'audit' && <Audit />}{tab === 'telegram' && owner && <Telegram />}{tab === 'backup' && sup && <Backup />}{tab === 'reset' && sup && <TestReset />}
     </div>
   );
 }
@@ -88,7 +88,7 @@ function Users() {
     <div>
       <button className="btn primary" onClick={() => setEdit({ name: '', role: 'cashier', store_ids: [], email: '', password: '', pin: '' })}>＋ Add staff</button>
       <div className="card" style={{ marginTop: 12, overflow: 'auto' }}><table><thead><tr><th>Name</th><th>Role</th><th>Stores</th><th></th></tr></thead>
-        <tbody>{data.users.map((u) => <tr key={u.id} className="click" onClick={() => setEdit({ ...u, password: '', pin: '' })} style={{ opacity: u.active ? 1 : .5 }}><td><b>{u.name}</b>{u.demo && <span className="badge low" style={{ marginLeft: 8 }}>demo</span>}<div className="small muted">{u.email}</div></td><td>{u.role}</td><td>{u.role === 'owner' ? 'All' : u.store_ids.map((id) => stores.find((s) => s.id === id)?.code).join(', ')}</td><td>{!u.active && 'inactive'}</td></tr>)}</tbody></table></div>
+        <tbody>{data.users.map((u) => <tr key={u.id} className="click" onClick={() => setEdit({ ...u, password: '', pin: '' })} style={{ opacity: u.active ? 1 : .5 }}><td><b>{u.name}</b>{u.is_super && <span className="badge ok" style={{ marginLeft: 8 }}>👑 Super admin</span>}{u.demo && <span className="badge low" style={{ marginLeft: 8 }}>demo</span>}<div className="small muted">{u.email}</div></td><td>{u.role}</td><td>{u.role === 'owner' ? 'All' : u.store_ids.map((id) => stores.find((s) => s.id === id)?.code).join(', ')}</td><td>{!u.active && 'inactive'}</td></tr>)}</tbody></table></div>
       {edit && <UserForm u={edit} stores={stores} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
     </div>
   );
@@ -108,14 +108,15 @@ function UserForm({ u, stores, onClose, onSaved }) {
   };
   return (
     <Modal title={isNew ? 'Add staff' : u.name} onClose={onClose}>
+      {f.is_super && <p className="small muted">👑 Super admin: the one account that can never be removed, switched off or changed by anyone else.</p>}
       <label>Name</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-      <label>Role</label><select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="cashier">Cashier</option><option value="manager">Store manager</option><option value="owner">Owner</option><option value="shareholder">Shareholder (view capital only)</option></select>
+      <label>Role</label><select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="cashier">Cashier</option><option value="manager">Store manager</option>{(me.is_super || f.role === 'owner') && <option value="owner">Owner</option>}<option value="shareholder">Shareholder (view capital only)</option></select>
       {!['owner', 'shareholder'].includes(f.role) && <><label>Stores</label><div className="row wrap">{stores.map((s) => <button key={s.id} className={`chip ${f.store_ids.includes(s.id) ? 'on' : ''}`} onClick={() => setF({ ...f, store_ids: f.store_ids.includes(s.id) ? f.store_ids.filter((x) => x !== s.id) : [...f.store_ids, s.id] })}>{s.code}</button>)}</div></>}
       {isNew && f.role !== 'cashier' && <><label>Email</label><input value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} /><label>Password (8+ characters)</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></>}
       {isNew && f.role === 'cashier' && <><label>PIN (4–6 digits; it signs in by itself once all digits are typed)</label><input inputMode="numeric" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value })} /></>}
       <label>Monthly salary (USD)</label><input type="number" min="0" step="1" value={f.salary_usd ?? ''} onChange={(e) => setF({ ...f, salary_usd: e.target.value })} style={{ width: 160 }} />
       {!isNew && f.role === 'cashier' && <><label>How many digits is this person’s PIN? (so it signs in by itself)</label><select value={f.pin_length || ''} onChange={(e) => setF({ ...f, pin_length: e.target.value })} style={{ width: 'auto', minWidth: 160 }}><option value="">— not set (shows OK) —</option><option value="4">4 digits</option><option value="5">5 digits</option><option value="6">6 digits</option></select></>}
-      {!isNew && me.role === 'owner' && f.id !== me.id && f.role !== 'shareholder' && (
+      {!isNew && me.role === 'owner' && f.id !== me.id && f.role !== 'shareholder' && (me.is_super || f.role !== 'owner') && (
         <div className="card" style={{ marginTop: 10 }}>
           <b>{f.role === 'cashier' ? 'Set a new PIN' : 'Set a new password'}</b>
           <div className="row" style={{ marginTop: 6 }}>
@@ -126,7 +127,7 @@ function UserForm({ u, stores, onClose, onSaved }) {
       {!isNew && <label style={{ textTransform: 'none', fontSize: 15, color: 'var(--text)' }}><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} style={{ width: 20, height: 20, minHeight: 0, marginRight: 8 }} />Active</label>}
       {err && <div className="error">{err}</div>}
       <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={save}>Save</button>
-      {!isNew && u.id !== me.id && <button className="btn" style={{ width: '100%', marginTop: 8, color: '#c0392b' }} onClick={remove}>Delete this person (only if they have no history)</button>}
+      {!isNew && u.id !== me.id && !u.is_super && (me.is_super || u.role !== 'owner') && <button className="btn" style={{ width: '100%', marginTop: 8, color: '#c0392b' }} onClick={remove}>Delete this person (only if they have no history)</button>}
     </Modal>
   );
 }
@@ -212,8 +213,10 @@ function Backup() {
   };
   return (
     <div className="card" style={{ maxWidth: 520 }}>
+      <h3>👑 Recovery &amp; backup (super admin only)</h3>
+      <p className="muted">Only you, the super admin, see this page. If anyone changes or deletes something by mistake, the <b>Activity log</b> tab shows who did what and when. For big recoveries, Google keeps a daily backup plus a 7-day undo history of the whole database. Only the Google/Firebase account that owns this project can use it (Firebase → Firestore → Disaster recovery). Keep that Google account protected with 2-step verification.</p>
       <h3>Download everything</h3>
-      <p className="muted">One Excel file with sales, sale lines, stock, products with cost, expenses, attendance, customers, shareholders, capital payments, balances, alterations and stock counts. Keep a copy somewhere safe, for example once a week. Only the owner sees this.</p>
+      <p className="muted">One Excel file with sales, sale lines, stock, products with cost, expenses, attendance, customers, shareholders, capital payments, balances, alterations and stock counts. Keep a copy somewhere safe, for example once a week. </p>
       {err && <div className="error">{err}</div>}{ok && <p style={{ color: 'var(--ok)' }}>{ok}</p>}
       <button className="btn primary" disabled={busy} onClick={go}>{busy ? 'Preparing…' : '⬇ Download Excel file'}</button>
     </div>

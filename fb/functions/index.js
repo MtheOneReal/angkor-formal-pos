@@ -55,6 +55,8 @@ export const staffReset = onCall({ region: REGION }, async (req) => {
   if (!uid) throw new HttpsError('invalid-argument', 'Choose a person.');
   const dir = (await db.doc(`staffDirectory/${uid}`).get()).data(); const u = (await db.doc(`users/${uid}`).get()).data();
   if (!u) throw new HttpsError('not-found', 'Person not found.');
+  const superUid = ((await db.doc('setup/state').get()).data() || {}).firstOwner;
+  if ((uid === superUid || u.role === 'owner') && req.auth.uid !== superUid) throw new HttpsError('permission-denied', 'Only the super admin can reset an owner.');
   const auth = getAuth();
   if (u.role === 'cashier') {
     if (!validPin(pin)) throw new HttpsError('invalid-argument', 'PIN must be 4 to 6 digits.');
