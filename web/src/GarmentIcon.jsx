@@ -5,7 +5,7 @@ import React from 'react';
 // Each drawing is a left half + mirror so garments are perfectly symmetric.
 //   s = outline (mirrored)   f = inner detail lines (mirrored)   S / F = outline / detail drawn once   D = round buttons [x, y, r]
 const JACKET = 'M40 10L25 15Q21 17 20 22L14 70Q14 73 17 73L26 74L30 38L31 78Q31 82 34 83.5Q38 86 40 86';
-const G = {
+export const G = {
   blazer: {
     s: [JACKET],
     f: ['M40 10L33 24L37 27L29 30L42 50L48 54', 'M43 13L47 44', 'M47 54Q47 74 40 86', 'M32.5 63H42V69H32.5Z'],
@@ -58,7 +58,7 @@ const G = {
     S: [], F: [], D: [[48, 52, 1.8], [48, 61, 1.8], [48, 70, 1.8], [48, 79, 1.8]],
   },
   coat: {
-    s: ['M40 9L25 14Q20 16 19 22L12 78Q12 81 15 81L25 83L30 40L29 90H48'],
+    s: ['M40 9L25 14Q20 16 19 22L12 78Q12 81 15 81L25 83L30 40L29 90L48 90'],
     f: ['M40 9L32 24L36 27L28 30L42 52L48 57', 'M43 12L47 46', 'M32 66H43V72H32Z'],
     S: [], F: ['M54 36H63V40H54Z'], D: [[48, 62, 1.8], [48, 74, 1.8]],
   },
