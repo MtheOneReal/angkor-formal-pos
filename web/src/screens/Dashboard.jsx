@@ -51,7 +51,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="topbar"><h1 className="grow">{t('dashboard')}</h1>
-        <StoreSelect value={sel} onChange={setSel} stores={me.stores} all={me.perms.includes('dashboard.all_stores')} />
+        <StoreSelect value={sel} onChange={setSel} stores={me.stores.filter((s) => s.kind !== 'warehouse')} all={me.perms.includes('dashboard.all_stores')} />
         {me.perms.includes('dashboard.view') && <DailySummary />}
         <div className="row">{PERIODS.map(([k, lab]) => <button key={k} className={`chip ${period === k ? 'on' : ''}`} onClick={() => setPeriod(k)}>{t(lab)}</button>)}</div></div>
       {err && <div className="error">{err}</div>}

@@ -24,19 +24,19 @@ export default function Settings() {
   );
 }
 
-function AddStore({ onAdded }) {
+function AddStore({ onAdded, warehouse }) {
   const [f, setF] = useState({ name: '', code: '', brand_id: '' }); const [brands, setBrands] = useState([]); const [err, setErr] = useState(''); const [open, setOpen] = useState(false);
   useEffect(() => { api.get('/meta').then((m) => { setBrands(m.brands); setF((x) => ({ ...x, brand_id: m.brands[0]?.id })); }); }, []);
-  const go = async (e) => { e.preventDefault(); setErr(''); try { await api.post('/admin/stores', f); setF({ ...f, name: '', code: '' }); setOpen(false); onAdded(); } catch (x) { setErr(x.message); } };
-  if (!open) return <button className="btn" style={{ marginTop: 12 }} onClick={() => setOpen(true)}>+ Add a store</button>;
+  const go = async (e) => { e.preventDefault(); setErr(''); try { await api.post('/admin/stores', { ...f, kind: warehouse ? 'warehouse' : 'shop' }); setF({ ...f, name: '', code: '' }); setOpen(false); onAdded(); } catch (x) { setErr(x.message); } };
+  if (!open) return <button className="btn" style={{ marginTop: 12 }} onClick={() => setOpen(true)}>{warehouse ? '+ Add a warehouse' : '+ Add a store'}</button>;
   return (
     <form className="card" style={{ marginTop: 12 }} onSubmit={go}>
-      <h3>Add a store</h3>
-      <label>Store name</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+      <h3>{warehouse ? 'Add a warehouse / stock place' : 'Add a store'}</h3>
+      <label>{warehouse ? 'Warehouse name' : 'Store name'}</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
       <label>Short code (2 to 4 letters, used on receipts)</label><input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} style={{ width: 120 }} />
-      <label>Brand</label><select value={f.brand_id} onChange={(e) => setF({ ...f, brand_id: e.target.value })}>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+      {!warehouse && <><label>Brand</label><select value={f.brand_id} onChange={(e) => setF({ ...f, brand_id: e.target.value })}>{brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></>}
       {err && <div className="error">{err}</div>}
-      <div className="row" style={{ marginTop: 12 }}><button className="btn primary">Add store</button><button type="button" className="btn" onClick={() => setOpen(false)}>Cancel</button></div>
+      <div className="row" style={{ marginTop: 12 }}><button className="btn primary">{warehouse ? 'Add warehouse' : 'Add store'}</button><button type="button" className="btn" onClick={() => setOpen(false)}>Cancel</button></div>
     </form>
   );
 }
@@ -48,28 +48,31 @@ function Stores() {
   if (!data) return null;
   const s = data.stores.find((x) => x.id === sid) || data.stores[0];
   const save = async (patch) => { await api.put(`/admin/stores/${s.id}`, patch); show('Saved'); load(); window.dispatchEvent(new Event('af-reload-me')); };
+  const wh = s.kind === 'warehouse';
   return (
     <div>
-      <select value={sid} onChange={(e) => setSid(Number(e.target.value))} style={{ width: 'auto', minWidth: 260 }}>{data.stores.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
+      <select value={sid} onChange={(e) => setSid(Number(e.target.value))} style={{ width: 'auto', minWidth: 260 }}>{data.stores.map((x) => <option key={x.id} value={x.id}>{x.kind === 'warehouse' ? '🏬 ' : ''}{x.name}</option>)}</select>
       <div className="card" style={{ marginTop: 12 }}>
-        <label>Store name</label><input defaultValue={s.name} key={`n${s.id}`} onBlur={(e) => e.target.value !== s.name && save({ name: e.target.value })} />
+        <label>{wh ? 'Warehouse name' : 'Store name'}</label><input defaultValue={s.name} key={`n${s.id}`} onBlur={(e) => e.target.value !== s.name && save({ name: e.target.value })} />
         <label style={{ display: 'flex', gap: 12, alignItems: 'center', textTransform: 'none', fontSize: 15, color: 'var(--text)', margin: '8px 0' }}>
           <input type="checkbox" checked={!!s.active} onChange={(e) => save({ active: e.target.checked })} style={{ width: 22, height: 22, minHeight: 0 }} />
-          <span><b>This store is in use</b><span className="muted small"> — untick to remove it from the lists (history is kept)</span></span></label>
+          <span><b>{wh ? 'This warehouse is in use' : 'This store is in use'}</b><span className="muted small"> — untick to remove it from the lists (history is kept)</span></span></label>
+        {!wh && <>
         <label>Receipt footer</label><input defaultValue={s.receipt_footer} key={`f${s.id}`} onBlur={(e) => e.target.value !== s.receipt_footer && save({ receipt_footer: e.target.value })} />
         <label>Auto-lock after (minutes, 0 = off)</label><input type="number" min="0" defaultValue={s.switches.autolock_minutes} key={`a${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { autolock_minutes: Number(e.target.value) } })} />
         <label>Work starts at (staff arriving later are marked late)</label><input type="time" defaultValue={`${String(Math.floor((s.switches.work_start_minutes ?? 540) / 60)).padStart(2, '0')}:${String((s.switches.work_start_minutes ?? 540) % 60).padStart(2, '0')}`} key={`w${s.id}`} style={{ width: 140 }} onBlur={(e) => { const [h, m] = e.target.value.split(':').map(Number); if (!Number.isNaN(h)) save({ switches: { work_start_minutes: h * 60 + (m || 0) } }); }} />
         <label>Minutes allowed after start before it counts as late</label><input type="number" min="0" defaultValue={s.switches.late_grace_minutes ?? 0} key={`g${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { late_grace_minutes: Number(e.target.value) } })} />
         <label>Cashier discount limit (%) — placeholder, confirm with owners</label><input type="number" min="0" max="100" defaultValue={s.switches.cashier_discount_limit_percent} key={`d${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { cashier_discount_limit_percent: Number(e.target.value) } })} />
+        </>}
       </div>
-      <div className="card" style={{ marginTop: 12 }}>
+      {!wh && <div className="card" style={{ marginTop: 12 }}>
         {SWITCHES.map(([k, l, h]) => (
           <label key={k} style={{ display: 'flex', gap: 12, alignItems: 'center', textTransform: 'none', fontSize: 15, color: 'var(--text)', margin: '8px 0' }}>
             <input type="checkbox" checked={!!s.switches[k]} onChange={(e) => save({ switches: { [k]: e.target.checked } })} style={{ width: 22, height: 22, minHeight: 0 }} />
             <span><b>{l}</b>{h && <span className="muted small"> — {h}</span>}</span></label>))}
-      </div>
+      </div>}
       <button className="btn" style={{ marginTop: 12, marginRight: 8, color: '#c0392b' }} onClick={async () => { if (!window.confirm(`Delete “${s.name}” for good? This only works if it has no records.`)) return; try { await api.post(`/admin/stores/${s.id}/delete`); show('Deleted'); setSid(null); load(); window.dispatchEvent(new Event('af-reload-me')); } catch (e) { window.alert(e.message); } }}>Delete this store (only if it has no records)</button>
-      <AddStore onAdded={() => { load(); window.dispatchEvent(new Event('af-reload-me')); }} />
+      <div className="row wrap" style={{ gap: 8 }}><AddStore onAdded={() => { load(); window.dispatchEvent(new Event('af-reload-me')); }} /><AddStore warehouse onAdded={() => { load(); window.dispatchEvent(new Event('af-reload-me')); }} /></div>
       <p className="muted small" style={{ marginTop: 10 }}>Approval rules (no self-approval, second approver for large amounts) are always on.</p>{toast}
     </div>
   );

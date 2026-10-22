@@ -55,7 +55,7 @@ export function createMore(B) {
   // ---------- shareholder / owner monthly report ----------
   async function report(q) {
     need('report.view');
-    const stores = (await B.loadStores()).filter((x) => x.active !== false); const sel = String(q.store_id || 'all'); const ids = sel === 'all' ? stores.map((x) => x.id) : [Number(sel)];
+    const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse'); const sel = String(q.store_id || 'all'); const ids = sel === 'all' ? stores.map((x) => x.id) : [Number(sel)];
     if (sel !== 'all' && !stores.find((x) => x.id === ids[0])) throw bad('BAD_INPUT', 'Unknown store.');
     const month = monthOf(q.month);
     const cat = await B.loadCatalog(); const costs = new Map((await list('costs')).map((c) => [String(c.id), c.costCents || 0]));
@@ -80,7 +80,7 @@ export function createMore(B) {
   // ---------- daily summary ----------
   async function dailySummary(q) {
     need('dashboard.view'); const date = ymd(q.date);
-    const stores = (await B.loadStores()).filter((x) => x.active !== false && (can('dashboard.all_stores') || S().stores.includes(x.id)));
+    const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse' && (can('dashboard.all_stores') || S().stores.includes(x.id)));
     const exps = can('expenses.manage') ? await list('expenses') : [];
     const lines = []; let total = 0; let orders = 0;
     for (const st of stores) {

@@ -151,7 +151,7 @@ export function createExtras(B) {
   async function payroll(q) {
     need('payroll.view'); const month = monthOk(q.month); const ded = await deductionCents();
     const users = (await list('users')).filter((u) => u.active === true && ((u.salaryCents || 0) > 0 || u.role !== 'owner'));
-    const stores = (await B.loadStores()).filter((s) => s.active !== false);
+    const stores = (await B.loadStores()).filter((s) => s.active !== false && s.kind !== 'warehouse');
     const att = []; for (const st of stores) for (const a of await list('attendance', where('storeId', '==', st.id), where('month', '==', month))) att.push({ a, sw: st.switches });
     const rows = [];
     for (const u of users) {
@@ -168,7 +168,7 @@ export function createExtras(B) {
     await setDoc(ref('settings', 'payroll'), { lateDeductionCents: c, ts: now(), setBy: S().uid }); await audit(null, 'payroll.settings', 'settings', 'payroll', { cents: c }); return { ok: true };
   }
   async function payrollRecord(b) {
-    need('payroll.view'); const month = monthOk(b.month); const p = await payroll({ month }); const stores = (await B.loadStores()).filter((s) => s.active !== false);
+    need('payroll.view'); const month = monthOk(b.month); const p = await payroll({ month }); const stores = (await B.loadStores()).filter((s) => s.active !== false && s.kind !== 'warehouse');
     const date = `${month}-28`; const wb = writeBatch(db); let n = 0; const rate = await B.currentRate();
     for (const r of p.rows) {
       if (r.recorded || r.net_cents <= 0) continue;
@@ -183,7 +183,7 @@ export function createExtras(B) {
   const cents = (usdv) => Math.round(Number(usdv) * 100);
   async function capitalView(q) {
     need('capital.view');
-    const stores = (await B.loadStores()).filter((x) => x.active !== false);
+    const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse');
     const sel = String(q.store_id || 'all'); const ids = sel === 'all' ? stores.map((x) => x.id) : [Number(sel)];
     if (sel !== 'all' && !stores.find((x) => x.id === ids[0])) throw bad('BAD_INPUT', 'Unknown store.');
     const sh = await list('shareholders'); const allPays = await list('capitalPayments'); const exps = await list('expenses');
@@ -202,7 +202,7 @@ export function createExtras(B) {
   }
   async function shareholderSave(b, id) {
     need('capital.manage'); const name = txt(b.name, 80).trim(); if (!name) throw bad('BAD_INPUT', 'Enter the shareholder name.');
-    const stores = await B.loadStores(); const agreedByStore = {};
+    const stores = (await B.loadStores()).filter((x) => x.kind !== 'warehouse'); const agreedByStore = {};
     for (const st of stores) { const v = cents((b.agreed_by_store || {})[st.id] || 0); if (!(v >= 0 && v <= 100000000000)) throw bad('BAD_INPUT', 'Enter amounts in dollars.'); if (v) agreedByStore[st.id] = v; }
     const r = id ? ref('shareholders', id) : doc(collection(db, 'shareholders'));
     if (id && !(await read('shareholders', id))) throw notFound('Shareholder not found.');

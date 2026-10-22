@@ -273,6 +273,7 @@ export function createApi(B, extra = {}) {
   }
   async function shiftOpen(b) {
     need('shift.use'); const storeId = assertStore(b.store_id);
+    if ((await storeById(storeId))?.kind === 'warehouse') throw bad('WAREHOUSE', 'A warehouse does not sell. Choose a shop.');
     if (await openShift(S().uid, storeId)) throw bad('ALREADY_OPEN', 'You already have an open shift.');
     const usd = Math.round(Number(b.open_usd || 0) * 100); const khr = Math.round(Number(b.open_khr || 0));
     if (usd < 0 || khr < 0) throw bad('BAD_INPUT', 'Amounts cannot be negative.');
@@ -689,22 +690,23 @@ export function createApi(B, extra = {}) {
   // ---------- owner / admin ----------
   async function adminStores() {
     need('settings.manage'); const stores = await B.loadStores(true); const brands = (await B.loadCatalog()).brandsList;
-    return { stores: stores.map((s) => ({ id: s.id, code: s.code, name: s.name, brand_id: s.brandId, receipt_footer: s.receiptFooter || '', active: s.active === false ? 0 : 1, brand_code: brands.find((b) => String(b.id) === String(s.brandId))?.code, brand_name: brands.find((b) => String(b.id) === String(s.brandId))?.name, switches: s.switches })), defaults: SWITCH_DEFAULTS };
+    return { stores: stores.map((s) => ({ id: s.id, code: s.code, name: s.name, kind: s.kind === 'warehouse' ? 'warehouse' : 'shop', brand_id: s.brandId, receipt_footer: s.receiptFooter || '', active: s.active === false ? 0 : 1, brand_code: brands.find((b) => String(b.id) === String(s.brandId))?.code, brand_name: brands.find((b) => String(b.id) === String(s.brandId))?.name, switches: s.switches })), defaults: SWITCH_DEFAULTS };
   }
   async function adminStoreCreate(b) {
     need('settings.manage');
+    const warehouse = b.kind === 'warehouse';
     const name = txt(b.name, 80).trim(); const code = String(b.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
-    if (!name || code.length < 2) throw bad('BAD_INPUT', 'Enter a store name and a short code (2 to 4 letters or numbers).');
+    if (!name || code.length < 2) throw bad('BAD_INPUT', `Enter a ${warehouse ? 'warehouse' : 'store'} name and a short code (2 to 4 letters or numbers).`);
     const stores = await B.loadStores(true); const cat = await B.loadCatalog();
-    const brand = cat.brandsList.find((x) => Number(x.id) === Number(b.brand_id));
-    if (!brand) throw bad('BAD_INPUT', 'Choose a brand.');
-    if (stores.some((x) => x.code === code)) throw bad('DUPLICATE', 'This code is already used by another store.');
+    const brand = warehouse ? null : cat.brandsList.find((x) => Number(x.id) === Number(b.brand_id));
+    if (!warehouse && !brand) throw bad('BAD_INPUT', 'Choose a brand.');
+    if (stores.some((x) => x.code === code)) throw bad('DUPLICATE', 'This code is already used by another store or warehouse.');
     const id = Math.max(0, ...stores.map((x) => x.id)) + 1;
     const wb = writeBatch(db);
-    wb.set(ref('stores', id), { id, code, name, brandId: Number(brand.id), receiptFooter: 'Thank you.', active: true, switches: { ...SWITCH_DEFAULTS } });
-    wb.set(ref('publicStores', id), { id, code, name, active: true, brandCode: brand.code });
-    auditIn(wb, id, 'store.create', 'store', id, { name, code });
-    await wb.commit().catch(wrap('Could not add the store'));
+    if (warehouse) wb.set(ref('stores', id), { id, code, name, kind: 'warehouse', brandId: null, receiptFooter: '', active: true, switches: { ...SWITCH_DEFAULTS } });
+    else { wb.set(ref('stores', id), { id, code, name, brandId: Number(brand.id), receiptFooter: 'Thank you.', active: true, switches: { ...SWITCH_DEFAULTS } }); wb.set(ref('publicStores', id), { id, code, name, active: true, brandCode: brand.code }); }
+    auditIn(wb, id, warehouse ? 'warehouse.create' : 'store.create', 'store', id, { name, code });
+    await wb.commit().catch(wrap(`Could not add the ${warehouse ? 'warehouse' : 'store'}`));
     await B.loadStores(true); await B.startSession();
     return { id };
   }
@@ -713,7 +715,7 @@ export function createApi(B, extra = {}) {
   async function adminStoreDelete(id) {
     need('settings.manage'); const st = await storeById(id); if (!st) throw notFound();
     const n = Number(id); const stores = await B.loadStores();
-    if (stores.length <= 1) throw bad('LAST_STORE', 'You cannot delete your only store.');
+    if (st.kind !== 'warehouse' && stores.filter((x) => x.kind !== 'warehouse').length <= 1) throw bad('LAST_STORE', 'You cannot delete your only store.');
     const used = [await list('sales', where('storeId', '==', n)), await list('shifts', where('storeId', '==', n)), await list('movements', where('storeId', '==', n)), await list('stock', where('storeId', '==', n)),
       await list('transfers', where('fromStoreId', '==', n)), await list('transfers', where('toStoreId', '==', n)), await list('expenses', where('storeId', '==', n)), await list('attendance', where('storeId', '==', n))];
     const staff = (await list('users')).filter((u) => (u.storeIds || []).map(Number).includes(n));
@@ -746,7 +748,7 @@ export function createApi(B, extra = {}) {
     const nm = txt(b.name ?? s.name, 80); const act = b.active == null ? s.active !== false : !!b.active;
     const wb = writeBatch(db);
     wb.update(ref('stores', id), { name: nm, receiptFooter: txt(b.receipt_footer ?? s.receiptFooter ?? '', 200), active: act, switches: sw });
-    wb.set(ref('publicStores', id), { id: Number(id), code: s.code, name: nm, active: act, brandCode: (await B.loadCatalog()).brandsList.find((x) => String(x.id) === String(s.brandId))?.code || null });
+    if (s.kind !== 'warehouse') wb.set(ref('publicStores', id), { id: Number(id), code: s.code, name: nm, active: act, brandCode: (await B.loadCatalog()).brandsList.find((x) => String(x.id) === String(s.brandId))?.code || null });
     await wb.commit();
     await audit(Number(id), 'store.update', 'store', id, { name: b.name, switches: changed }); await B.loadStores(true); await B.startSession(); return { ok: true };
   }
@@ -821,7 +823,7 @@ export function createApi(B, extra = {}) {
     need('dashboard.view');
     const stores = await B.loadStores(); let ids;
     const sel = String(q.store || 'all');
-    if (sel === 'all') ids = can('dashboard.all_stores') ? stores.filter((s) => s.active !== false).map((s) => s.id) : S().stores; else ids = sel.split(',').map((x) => assertStore(x));
+    if (sel === 'all') ids = (can('dashboard.all_stores') ? stores.filter((s) => s.active !== false).map((s) => s.id) : S().stores).filter((i) => stores.find((s) => s.id === i)?.kind !== 'warehouse'); else ids = sel.split(',').map((x) => assertStore(x));
     if (!ids.length) throw bad('NO_STORES', 'No store selected.');
     const pr = periodRange(q); const seeCost = can('cost.view'); const costs = seeCost ? await B.loadCosts() : new Map(); const cat = await B.loadCatalog();
     const useMonths = q.period === 'year';

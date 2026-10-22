@@ -158,7 +158,9 @@ export default function App() {
   if (me === null) return <Login onDone={load} />;
 
   if (me.role === 'owner' && me.stores.length === 0) return <FinishSetup onDone={load} />;
-  const allowed = NAV.filter(([k, p]) => me.perms.includes(p) && !(k === 'settings' && !me.perms.includes('settings.manage') && !me.perms.includes('users.manage')));
+  const inWh = me.stores.find((s) => s.id === me.store_id)?.kind === 'warehouse';
+  const SHOP_ONLY = ['register', 'jobs', 'sales', 'customers', 'expenses', 'attendance'];
+  const allowed = NAV.filter(([k, p]) => me.perms.includes(p) && !(inWh && SHOP_ONLY.includes(k)) && !(k === 'settings' && !me.perms.includes('settings.manage') && !me.perms.includes('users.manage')));
   const first = allowed[0]?.[0] || 'register';
   const cur = (allowed.find(([k]) => k === route) || route === 'account') ? route : first;
   const Screen = SCREENS[cur];
@@ -189,7 +191,7 @@ export default function App() {
           <main className="main">
             {me.stores.length > 1 && cur !== 'dashboard' && (
               <div className="topbar"><select value={me.store_id} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 220 }} aria-label="Store">
-                {me.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                {me.stores.map((s) => <option key={s.id} value={s.id}>{s.kind === 'warehouse' ? '🏬 ' : ''}{s.name}</option>)}</select></div>
             )}
             {store && <Screen key={`${cur}-${me.store_id}`} />}
           </main>

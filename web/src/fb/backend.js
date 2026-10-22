@@ -144,7 +144,7 @@ export function createBackend(deps) {
     const stores = await loadStores(true);
     const ids = ['owner', 'shareholder'].includes(u.role) ? stores.filter((s) => s.active !== false).map((s) => s.id) : (u.storeIds || []).map(Number).filter((id) => stores.find((s) => s.id === id)?.active !== false);
     let storeId = Number(localStorageGet('af_store')) || null;
-    if (!ids.includes(storeId)) storeId = ids[0] ?? null;
+    if (!ids.includes(storeId)) storeId = ids.find((i) => stores.find((s) => s.id === i)?.kind !== 'warehouse') ?? ids[0] ?? null;
     S = { uid: cu.uid, user: u, perms: permsFor(u), stores: ids, storeId };
     return S;
   }
@@ -166,7 +166,7 @@ export function createBackend(deps) {
     return {
       id: S.uid, name: S.user.name, role: S.user.role, lang: S.user.lang || 'en', theme: S.user.theme || null, demo: !!S.user.demo,
       perms: [...S.perms], store_id: S.storeId, switches: sw, rate: await currentRate(),
-      stores: stores.map((s) => { const b = brands.find((x) => String(x.id) === String(s.brandId)); return { id: s.id, code: s.code, name: s.name, brand_id: s.brandId, brand_code: b?.code, brand_name: b?.name }; }),
+      stores: stores.map((s) => { const b = brands.find((x) => String(x.id) === String(s.brandId)); return { id: s.id, code: s.code, name: s.name, kind: s.kind === 'warehouse' ? 'warehouse' : 'shop', brand_id: s.brandId, brand_code: b?.code, brand_name: b?.name }; }),
     };
   }
 

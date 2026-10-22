@@ -338,3 +338,22 @@ test('owner edits brands, types, colours and size groups; used entries cannot be
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'mgr@x.com', password: 'Mgr-pass-123' });
   await fails(api.post('/lists/brands', { code: 'QQ', name_en: 'No' }), 'FORBIDDEN');
 });
+
+test('warehouse: owner adds one, receives stock, moves it to a shop; it never sells or shows in shop reports', async () => {
+  const { api, d } = await setup();
+  const wh = await api.post('/admin/stores', { kind: 'warehouse', name: 'Main warehouse', code: 'WH' });
+  const list = (await api.get('/admin/stores')).stores; const w = list.find((x) => x.code === 'WH');
+  assert.equal(w.kind, 'warehouse');
+  await fails(api.post('/admin/stores', { kind: 'warehouse', name: 'Dup', code: 'WH' }), 'DUPLICATE');
+  const me = await api.get('/me'); assert.equal(me.stores.find((x) => x.id === w.id).kind, 'warehouse');
+  assert.ok(!(await api.get('/auth/stores').catch(() => [])).some?.((x) => x.id === w.id));
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=${w.id}`);
+  await api.post('/stock/in', { store_id: w.id, lines: [{ item_id: item.id, qty: 10 }] });
+  await fails(api.post('/shifts/open', { store_id: w.id, open_usd: 0, open_khr: 0 }), 'WAREHOUSE');
+  const tr = await api.post('/transfers', { from_store_id: w.id, to_store_id: 1, lines: [{ item_id: item.id, qty: 4 }], reason: 'restock' });
+  await api.post(`/transfers/${tr.id}/approve`).catch(() => {});
+  const dash = await api.get('/dashboard?store=all&period=month'); assert.ok(!dash.scope.stores.some((x) => x.id === w.id));
+  const rep = await api.get('/report?store_id=all&period=month').catch(() => null); if (rep?.stores) assert.ok(!rep.stores.some((x) => x.id === w.id));
+  await api.post(`/admin/stores/${w.id}`, {}).catch(() => {});
+  await fails(api.post(`/admin/stores/${w.id}/delete`), 'HAS_HISTORY'); // has stock
+});

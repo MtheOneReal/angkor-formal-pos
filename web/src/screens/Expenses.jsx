@@ -23,7 +23,7 @@ export default function Expenses() {
     <div>
       <h1>{t('expenses')}</h1>
       <div className="row wrap" style={{ margin: '12px 0' }}>
-        <select value={store} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 200 }}>{canAll && <option value="all">{t('all_stores')}</option>}{me.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+        <select value={store} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 200 }}>{canAll && <option value="all">{t('all_stores')}</option>}{me.stores.filter((s) => s.kind !== 'warehouse').map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
         <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} style={{ width: 'auto' }} />
       </div>
       <form className="card" onSubmit={add}>
