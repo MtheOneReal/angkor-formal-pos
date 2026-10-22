@@ -49,7 +49,7 @@ export function createApi(B, extra = {}) {
     need('settings.manage'); if (S().user.role !== 'owner') throw forbidden('Only the owner can reset.');
     if (b.confirm !== 'RESET') throw bad('CONFIRM', 'Type RESET to confirm.');
     await setDoc(ref('settings', 'testMode'), { enabled: true, ts: ts(), by: S().uid });
-    const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), 'auditLog'];
+    const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), ...(b.capital ? ['capitalPayments', 'shareholders'] : []), 'auditLog'];
     let n = 0;
     for (const c of cols) {
       let docs; try { docs = (await getDocs(collection(db, c))).docs; } catch { throw bad('RESET_FAILED', `Could not read ${c}.`); }
@@ -742,9 +742,9 @@ export function createApi(B, extra = {}) {
   async function adminUserCreate(b) {
     need('users.manage');
     if (!String(b.name || '').trim()) throw bad('BAD_INPUT', 'Enter a name.');
-    if (!['owner', 'manager', 'cashier'].includes(b.role)) throw bad('BAD_INPUT', 'Choose a role.');
+    if (!['owner', 'manager', 'cashier', 'shareholder'].includes(b.role)) throw bad('BAD_INPUT', 'Choose a role.');
     const storeIds = (b.store_ids || []).map(Number);
-    if (b.role !== 'owner' && !storeIds.length) throw bad('BAD_INPUT', 'Choose at least one store.');
+    if (!['owner', 'shareholder'].includes(b.role) && !storeIds.length) throw bad('BAD_INPUT', 'Choose at least one store.');
     if (b.role !== 'cashier' && (!b.email || !b.password || String(b.password).length < 8)) throw bad('BAD_INPUT', 'Managers and owners need an email and a password of at least 8 characters.');
     if (b.pin && !/^\d{4,6}$/.test(String(b.pin))) throw bad('BAD_PIN', 'PIN must be 4 to 6 digits.');
     if (b.role === 'cashier' && !b.pin) throw bad('BAD_PIN', 'Cashiers need a PIN.');
@@ -754,7 +754,7 @@ export function createApi(B, extra = {}) {
     else { email = String(b.email).trim().toLowerCase(); password = b.password; }
     let uid;
     try { uid = await secondary.createUser(email, password); } catch (e) { throw bad('DUPLICATE', 'This email is already used.'); }
-    const row = { name: txt(b.name, 80).trim(), email: b.role === 'cashier' ? null : email, role: b.role, storeIds: b.role === 'owner' ? [] : storeIds, active: true, lang: b.lang === 'km' ? 'km' : 'en', perms: b.perms || {}, createdAt: ts(), hasPin: !!b.pin, salaryCents: Math.max(0, Math.round(Number(b.salary_usd || 0) * 100)) };
+    const row = { name: txt(b.name, 80).trim(), email: b.role === 'cashier' ? null : email, role: b.role, storeIds: ['owner', 'shareholder'].includes(b.role) ? [] : storeIds, active: true, lang: b.lang === 'km' ? 'km' : 'en', perms: b.perms || {}, createdAt: ts(), hasPin: !!b.pin, salaryCents: Math.max(0, Math.round(Number(b.salary_usd || 0) * 100)) };
     const batch = writeBatch(db);
     batch.set(ref('users', uid), row);
     batch.set(ref('staffDirectory', uid), { name: row.name, role: row.role, storeIds: row.storeIds, active: true, authEmail: b.role === 'cashier' ? email : null });
@@ -768,9 +768,9 @@ export function createApi(B, extra = {}) {
     if (b.password || b.pin) throw bad('USE_RESET', 'Changing a password or PIN is done by the person under My account, or by deleting and re-adding the account.');
     const storeIds = b.store_ids ? b.store_ids.map(Number) : (u.storeIds || []);
     const batch = writeBatch(db);
-    batch.update(ref('users', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, perms: b.perms ?? u.perms ?? {}, lang: b.lang ?? u.lang ?? 'en', storeIds: role === 'owner' ? [] : storeIds, salaryCents: b.salary_usd == null ? (u.salaryCents || 0) : Math.max(0, Math.round(Number(b.salary_usd) * 100)) });
+    batch.update(ref('users', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, perms: b.perms ?? u.perms ?? {}, lang: b.lang ?? u.lang ?? 'en', storeIds: ['owner', 'shareholder'].includes(role) ? [] : storeIds, salaryCents: b.salary_usd == null ? (u.salaryCents || 0) : Math.max(0, Math.round(Number(b.salary_usd) * 100)) });
     const dir = await read('staffDirectory', id);
-    if (dir) batch.update(ref('staffDirectory', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, storeIds: role === 'owner' ? [] : storeIds });
+    if (dir) batch.update(ref('staffDirectory', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, storeIds: ['owner', 'shareholder'].includes(role) ? [] : storeIds });
     auditIn(batch, null, 'user.update', 'user', id, { role, active }); await batch.commit(); return { ok: true };
   }
   async function adminUserDelete(id) {

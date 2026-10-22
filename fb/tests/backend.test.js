@@ -261,3 +261,24 @@ test('test reset clears activity and keeps staff, stores and catalogue unless as
   assert.equal((await api.get('/designs')).length, 0);
   const st = await api.get('/admin/stores'); assert.ok((Array.isArray(st) ? st : st.stores).length >= 1);
 });
+
+test('capital: shareholders, payments, reversal, totals; shareholder login sees capital only', async () => {
+  const { api } = await setup();
+  const a = await api.post('/capital/shareholders', { name: 'Partner A', agreed_usd: 10000 });
+  await api.post('/capital/shareholders', { name: 'Partner B', agreed_usd: 5000 });
+  await api.post('/capital/payments', { shareholder_id: a.id, date: '2026-10-01', amount_usd: 4000, note: 'ABA' });
+  const p2 = await api.post('/capital/payments', { shareholder_id: a.id, date: '2026-10-02', amount_usd: 1000 });
+  await fails(api.post('/capital/payments', { shareholder_id: a.id, date: '2026-10-02', amount_usd: 0 }), 'BAD_INPUT');
+  let c = await api.get('/capital');
+  assert.equal(c.totals.agreed_cents, 1500000); assert.equal(c.totals.paid_cents, 500000); assert.equal(c.totals.outstanding_cents, 1000000);
+  await fails(api.post(`/capital/payments/${p2.id}/reverse`, { reason: '' }), 'REASON');
+  await api.post(`/capital/payments/${p2.id}/reverse`, { reason: 'Wrong person' });
+  await fails(api.post(`/capital/payments/${p2.id}/reverse`, { reason: 'again' }), 'ALREADY');
+  c = await api.get('/capital'); assert.equal(c.totals.paid_cents, 400000); assert.equal(c.payments.filter((p) => p.reversed).length, 1);
+  await fails(api.post(`/capital/shareholders/${a.id}/delete`), 'HAS_HISTORY');
+  const u = await api.post('/admin/users', { name: 'Investor', role: 'shareholder', email: 'inv@x.com', password: 'Investor-123' });
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'inv@x.com', password: 'Investor-123' });
+  assert.equal((await api.get('/capital')).can_edit, false);
+  await fails(api.post('/capital/shareholders', { name: 'X', agreed_usd: 1 }), 'FORBIDDEN');
+  const me = await api.get('/me'); assert.deepEqual(me.perms, ['capital.view']);
+});

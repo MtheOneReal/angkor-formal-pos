@@ -179,8 +179,59 @@ export function createExtras(B) {
     auditIn(wb, null, 'payroll.record', 'payroll', month, { people: n }); await wb.commit().catch(wrap('Could not record')); return { recorded: n };
   }
 
+  // ---------- shareholder capital ----------
+  const cents = (usdv) => Math.round(Number(usdv) * 100);
+  async function capitalView() {
+    need('capital.view');
+    const sh = await list('shareholders'); const pays = await list('capitalPayments'); const exps = await list('expenses');
+    const paidBy = new Map(); for (const p of pays) paidBy.set(p.shareholderId, (paidBy.get(p.shareholderId) || 0) + p.amountCents);
+    const reversed = new Set(pays.filter((p) => p.kind === 'reversal').map((p) => p.reversesId));
+    const rows = sh.sort((a, b) => String(a.name).localeCompare(b.name)).map((x) => { const paid = paidBy.get(x.id) || 0; return { id: x.id, name: x.name, note: x.note || '', active: x.active !== false, agreed_cents: x.agreedCents || 0, paid_cents: paid, outstanding_cents: (x.agreedCents || 0) - paid }; });
+    const names = new Map(sh.map((x) => [x.id, x.name]));
+    const payments = pays.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdTs || 0) - (a.createdTs || 0)).map((p) => ({ id: p.id, shareholder_id: p.shareholderId, shareholder_name: names.get(p.shareholderId) || '—', date: p.date, amount_cents: p.amountCents, note: p.note || '', kind: p.kind || 'payment', reverses_id: p.reversesId || null, reversed: reversed.has(p.id), by: p.createdByName || '' }));
+    const byCat = new Map(); let spent = 0; for (const e of exps) { spent += e.amountCents || 0; byCat.set(e.category, (byCat.get(e.category) || 0) + (e.amountCents || 0)); }
+    const agreed = rows.reduce((a, r) => a + r.agreed_cents, 0); const paid = rows.reduce((a, r) => a + r.paid_cents, 0);
+    return { shareholders: rows, payments, totals: { agreed_cents: agreed, paid_cents: paid, outstanding_cents: agreed - paid, expenses_cents: spent, left_cents: paid - spent }, expenses_by_category: [...byCat.entries()].map(([category, c]) => ({ category, cents: c })).sort((a, b) => b.cents - a.cents), can_edit: can('capital.manage') };
+  }
+  async function shareholderSave(b, id) {
+    need('capital.manage'); const name = txt(b.name, 80).trim(); if (!name) throw bad('BAD_INPUT', 'Enter the shareholder name.');
+    const agreed = cents(b.agreed_usd); if (!(agreed >= 0 && agreed <= 100000000000)) throw bad('BAD_INPUT', 'Enter the agreed amount in dollars.');
+    const r = id ? ref('shareholders', id) : doc(collection(db, 'shareholders'));
+    if (id && !(await read('shareholders', id))) throw notFound('Shareholder not found.');
+    const wb = writeBatch(db); wb.set(r, { name, agreedCents: agreed, note: txt(b.note, 200), active: b.active !== false, ...(id ? {} : { createdTs: now() }) }, { merge: true });
+    auditIn(wb, null, id ? 'capital.shareholder.update' : 'capital.shareholder.add', 'shareholder', r.id, { name, agreed }); await wb.commit().catch(wrap('Could not save')); return { id: r.id };
+  }
+  async function shareholderDelete(id) {
+    need('capital.manage'); if (!(await read('shareholders', id))) throw notFound('Shareholder not found.');
+    if ((await list('capitalPayments', where('shareholderId', '==', String(id)))).length) throw bad('HAS_HISTORY', 'This person has recorded payments, so they cannot be deleted. Untick Active instead.');
+    const wb = writeBatch(db); wb.delete(ref('shareholders', id)); auditIn(wb, null, 'capital.shareholder.delete', 'shareholder', id, {}); await wb.commit().catch(wrap('Could not delete')); return { ok: true };
+  }
+  async function paymentAdd(b) {
+    need('capital.manage'); const sh = await read('shareholders', b.shareholder_id); if (!sh) throw notFound('Choose a shareholder.');
+    const date = dateOk(b.date); if (!date) throw bad('BAD_INPUT', 'Choose the date the money was received.');
+    const amt = cents(b.amount_usd); if (!(amt > 0 && amt <= 100000000000)) throw bad('BAD_INPUT', 'Enter the amount received in dollars.');
+    const r = doc(collection(db, 'capitalPayments')); const wb = writeBatch(db);
+    wb.set(r, { shareholderId: String(b.shareholder_id), amountCents: amt, date, note: txt(b.note, 200), kind: 'payment', createdBy: S().uid, createdByName: S().user.name, createdTs: now() });
+    auditIn(wb, null, 'capital.payment', 'shareholder', b.shareholder_id, { amt, date }); await wb.commit().catch(wrap('Could not save')); return { id: r.id };
+  }
+  async function paymentReverse(id, b) {
+    need('capital.manage'); const p = await read('capitalPayments', id); if (!p) throw notFound('Payment not found.');
+    if (p.kind === 'reversal') throw bad('BAD_INPUT', 'This entry is already a correction.');
+    const reason = txt(b.reason, 200).trim(); if (reason.length < 3) throw bad('REASON', 'Write the reason for reversing this payment.');
+    if ((await list('capitalPayments', where('reversesId', '==', String(id)))).length) throw bad('ALREADY', 'This payment is already reversed.');
+    const r = doc(collection(db, 'capitalPayments')); const wb = writeBatch(db);
+    wb.set(r, { shareholderId: p.shareholderId, amountCents: -p.amountCents, date: dateOf(now()), note: `Reversal: ${reason}`, kind: 'reversal', reversesId: String(id), createdBy: S().uid, createdByName: S().user.name, createdTs: now() });
+    auditIn(wb, null, 'capital.reverse', 'shareholder', p.shareholderId, { id, reason }); await wb.commit().catch(wrap('Could not save')); return { id: r.id };
+  }
+
   async function route(method, path, q, b) {
     let m;
+    if (method === 'GET' && path === '/capital') return capitalView();
+    if (method === 'POST' && path === '/capital/shareholders') return shareholderSave(b, null);
+    if (method === 'POST' && (m = path.match(/^\/capital\/shareholders\/([^/]+)\/delete$/))) return shareholderDelete(m[1]);
+    if (method === 'POST' && (m = path.match(/^\/capital\/shareholders\/([^/]+)$/))) return shareholderSave(b, m[1]);
+    if (method === 'POST' && path === '/capital/payments') return paymentAdd(b);
+    if (method === 'POST' && (m = path.match(/^\/capital\/payments\/([^/]+)\/reverse$/))) return paymentReverse(m[1], b);
     if (method === 'GET' && path === '/expense-categories') { need('expenses.manage'); return categories(); }
     if (method === 'POST' && path === '/expense-categories') return addCategory(b);
     if (method === 'POST' && (m = path.match(/^\/expense-categories\/([^/]+)\/delete$/))) return deleteCategory(m[1]);

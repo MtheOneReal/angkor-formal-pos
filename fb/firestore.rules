@@ -13,6 +13,7 @@ service cloud.firestore {
     function isOwner() { return active() && me().role == 'owner'; }
     function isManager() { return active() && me().role == 'manager'; }
     function isCashier() { return active() && me().role == 'cashier'; }
+    function isPartner() { return active() && me().role == 'shareholder'; }
     function isLead() { return isOwner() || isManager(); }
     function inStore(sid) { return isOwner() || (active() && (sid in me().storeIds)); }
     function leadOf(sid) { return isOwner() || (isManager() && (sid in me().storeIds)); }
@@ -219,7 +220,7 @@ service cloud.firestore {
     // ---------- expenses ----------
     match /expenseCategories/{id} { allow read: if active(); allow write: if isOwner(); }
     match /expenses/{id} {
-      allow read: if active() && isLead() && (resource == null || inStore(resource.data.storeId));
+      allow read: if active() && (isPartner() || (isLead() && (resource == null || inStore(resource.data.storeId))));
       allow create: if leadOf(request.resource.data.storeId) && request.resource.data.createdBy == request.auth.uid;
       allow delete: if leadOf(resource.data.storeId);
       allow update: if false;
@@ -231,6 +232,18 @@ service cloud.firestore {
       allow create: if leadOf(request.resource.data.storeId);
       allow delete: if leadOf(resource.data.storeId);
       allow update: if false;
+    }
+
+    // ---------- shareholder capital: owner writes, owner and shareholders read; payments are never edited ----------
+    match /shareholders/{id} {
+      allow read: if isOwner() || isPartner();
+      allow write: if isOwner();
+    }
+    match /capitalPayments/{id} {
+      allow read: if isOwner() || isPartner();
+      allow create: if isOwner() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if false;
+      allow delete: if testReset();
     }
 
     // ---------- attendance ----------

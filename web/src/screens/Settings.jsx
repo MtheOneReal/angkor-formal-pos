@@ -106,8 +106,8 @@ function UserForm({ u, stores, onClose, onSaved }) {
   return (
     <Modal title={isNew ? 'Add staff' : u.name} onClose={onClose}>
       <label>Name</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-      <label>Role</label><select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="cashier">Cashier</option><option value="manager">Store manager</option><option value="owner">Owner</option></select>
-      {f.role !== 'owner' && <><label>Stores</label><div className="row wrap">{stores.map((s) => <button key={s.id} className={`chip ${f.store_ids.includes(s.id) ? 'on' : ''}`} onClick={() => setF({ ...f, store_ids: f.store_ids.includes(s.id) ? f.store_ids.filter((x) => x !== s.id) : [...f.store_ids, s.id] })}>{s.code}</button>)}</div></>}
+      <label>Role</label><select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="cashier">Cashier</option><option value="manager">Store manager</option><option value="owner">Owner</option><option value="shareholder">Shareholder (view capital only)</option></select>
+      {!['owner', 'shareholder'].includes(f.role) && <><label>Stores</label><div className="row wrap">{stores.map((s) => <button key={s.id} className={`chip ${f.store_ids.includes(s.id) ? 'on' : ''}`} onClick={() => setF({ ...f, store_ids: f.store_ids.includes(s.id) ? f.store_ids.filter((x) => x !== s.id) : [...f.store_ids, s.id] })}>{s.code}</button>)}</div></>}
       {isNew && f.role !== 'cashier' && <><label>Email</label><input value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} /><label>Password (8+ characters)</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></>}
       {isNew && f.role === 'cashier' && <><label>PIN (4–6 digits, 6 is safer)</label><input inputMode="numeric" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value })} /></>}
       <label>Monthly salary (USD)</label><input type="number" min="0" step="1" value={f.salary_usd ?? ''} onChange={(e) => setF({ ...f, salary_usd: e.target.value })} style={{ width: 160 }} />
@@ -152,16 +152,17 @@ function Audit() {
 
 // TESTING ONLY: remove this tab, the /admin/reset-test route and the testReset() rule when the app goes live.
 function TestReset() {
-  const [word, setWord] = useState(''); const [cat, setCat] = useState(false); const [err, setErr] = useState(''); const [ok, setOk] = useState(''); const [busy, setBusy] = useState(false);
+  const [word, setWord] = useState(''); const [cat, setCat] = useState(false); const [capx, setCapx] = useState(false); const [err, setErr] = useState(''); const [ok, setOk] = useState(''); const [busy, setBusy] = useState(false);
   const go = async () => {
     setErr(''); setOk(''); setBusy(true);
-    try { const r = await api.post('/admin/reset-test', { confirm: word, catalogue: cat }); setOk(`Done. ${r.removed} records cleared.`); setWord(''); } catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try { const r = await api.post('/admin/reset-test', { confirm: word, catalogue: cat, capital: capx }); setOk(`Done. ${r.removed} records cleared.`); setWord(''); } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   return (
     <div className="card" style={{ maxWidth: 520 }}>
       <h3>Reset test data</h3>
       <p className="muted">Clears everything created while testing: sales, receipts, shifts, stock counts, transfers, customers, expenses, attendance and the activity log. Stores, staff accounts, exchange rate and settings are kept.</p>
       <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={cat} onChange={(e) => setCat(e.target.checked)} />Also delete all products (the catalogue)</label>
+      <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={capx} onChange={(e) => setCapx(e.target.checked)} />Also delete shareholders and capital payments</label>
       <p className="small muted">This cannot be undone. Type RESET to confirm.</p>
       <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="RESET" />
       {err && <div className="error">{err}</div>}{ok && <p style={{ color: 'var(--ok)' }}>{ok}</p>}
