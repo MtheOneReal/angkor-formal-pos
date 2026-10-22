@@ -8,6 +8,10 @@ export default function Capital() {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [toast, show] = useToast();
   const [sel, setSel] = useState(() => { try { return localStorage.getItem('af_cap_store') || 'all'; } catch { return 'all'; } }); const [sh, setSh] = useState(null); const [pay, setPay] = useState(null); const [rev, setRev] = useState(null);
   const load = () => api.get(`/capital?store_id=${sel}`).then(setD).catch((e) => setErr(e.message));
+  const [month, setMonth] = useState(() => todayISO().slice(0, 7)); const [pf, setPf] = useState(null); const [rp, setRp] = useState('');
+  const loadPf = () => api.get(`/capital/profit?store_id=${sel}&month=${month}`).then((x) => { setPf(x); setRp(String(x.reserve_pct)); }).catch(() => setPf(null));
+  useEffect(() => { loadPf(); }, [sel, month]); // eslint-disable-line react-hooks/exhaustive-deps
+  const saveRp = async () => { try { await api.post('/capital/reserve', { pct: Number(rp) }); show(L('Saved', 'បានរក្សាទុក')); loadPf(); } catch (e) { setErr(e.message); } };
   useEffect(() => { load(); try { localStorage.setItem('af_cap_store', sel); } catch { /* ignore */ } }, [sel]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <div>{err ? <div className="error">{err}</div> : null}</div>;
   const t = d.totals; const edit = d.can_edit;
@@ -27,6 +31,22 @@ export default function Capital() {
       </div>
       <div className="card" style={{ marginBottom: 12 }}><div className="row between wrap"><b>{L('Paid-in capital left after expenses', 'ដើមទុនដែលនៅសល់ក្រោយចំណាយ')}</b><b className="num" style={{ color: t.left_cents < 0 ? 'var(--bad)' : 'var(--ok)' }}>{usd(t.left_cents)}</b></div>
         <p className="muted small" style={{ margin: '4px 0 0' }}>{L('Paid in minus all expenses entered. Sales income is not included here.', 'ដើមទុនបង់ចូល ដកចំណាយទាំងអស់។ មិនរួមបញ្ចូលចំណូលពីការលក់ទេ។')}</p></div>
+      {pf && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="row between wrap"><h3 style={{ margin: 0 }}>{L('Monthly profit share and production reserve', 'ចែកចំណេញប្រចាំខែ និងទុនផលិត')}</h3><input type="month" value={month} onChange={(e) => setMonth(e.target.value)} style={{ width: 'auto' }} /></div>
+          <p className="muted small">{L('Profit = sales minus cost of goods minus expenses for the month. Keep a share for production first, then split the rest by ownership %.', 'ចំណេញ = លក់ ដកថ្លៃដើម ដកចំណាយក្នុងខែ។ទុកផ្នែកមួយសម្រាប់ផលិតសិន រួចចែកដែលនៅសល់តាម %។')}</p>
+          <div className="grid g4" style={{ margin: '8px 0' }}>
+            <Kpi l={L('Profit this month', 'ចំណេញខែនេះ')} v={pf.net_cents} tone={pf.net_cents < 0 ? 'warn' : undefined} />
+            <Kpi l={`${L('Keep for production', 'ទុកសម្រាប់ផលិត')} (${pf.reserve_pct}%)`} v={pf.reserve_cents} tone="ok" />
+            <Kpi l={L('To share out', 'ចែកគ្នា')} v={pf.share_cents} />
+            <Kpi l={L('Production fund now', 'ទុនផលិតបច្ចុប្បន្ន')} v={pf.reserve_balance_cents} tone={pf.reserve_balance_cents > 0 ? 'ok' : undefined} />
+          </div>
+          {pf.can_edit && <div className="row wrap" style={{ gap: 8, margin: '4px 0 10px' }}><span className="small">{L('Keep this % of each month’s profit for production', 'ទុក % នៃចំណេញប្រចាំខែសម្រាប់ផលិត')}</span><input type="number" min="0" max="100" value={rp} onChange={(e) => setRp(e.target.value)} style={{ width: 80 }} /><button className="btn" onClick={saveRp}>{L('Save', 'រក្សាទុក')}</button></div>}
+          <div className="tbl"><table><thead><tr><th>{L('Shareholder', 'អ្នកហ៊ុន')}</th><th className="right">{L('Ownership', 'ភាគរយ')}</th><th className="right">{L('Production part', 'ចំណែកទុនផលិត')}</th><th className="right">{L('Take home', 'ទទួលបាន')}</th></tr></thead>
+            <tbody>{pf.holders.map((h) => <tr key={h.id}><td><b>{h.name}</b></td><td className="right num">{h.pct}%</td><td className="right num">{usd(h.reserve_part_cents)}</td><td className="right num">{usd(h.share_cents)}</td></tr>)}{!pf.holders.length && <tr><td colSpan="4" className="muted">{L('Add shareholders with agreed amounts to see ownership %.', 'បន្ថែមអ្នកហ៊ុន និងចំនួនព្រមព្រៀង ដើម្បីមើល %។')}</td></tr>}</tbody></table></div>
+          <p className="muted small" style={{ marginBottom: 0 }}>{L('Production fund = all the money kept aside so far, minus expenses whose category contains “Production”. Add a category called “Production” in Settings, and enter each production payment under it.', 'ទុនផលិត = ប្រាក់ទុកទាំងអស់ ដកចំណាយដែលប្រភេទមានពាក្យ “Production”។ បន្ថែមប្រភេទ “Production” ក្នុងការកំណត់ ហើយបញ្ចូលការបង់ថ្លៃផលិតក្នុងប្រភេទនេះ។')}</p>
+        </div>
+      )}
       {sel === 'all' && d.stores.length > 1 && (
         <div className="card tbl" style={{ marginBottom: 12 }}><h3 style={{ marginBottom: 8 }}>{L('By store', 'តាមសាខា')}</h3>
           <table><thead><tr><th>{L('Store', 'សាខា')}</th><th className="right">{L('Agreed', 'ព្រមព្រៀង')}</th><th className="right">{L('Paid in', 'បានបង់')}</th><th className="right">{L('Still to pay', 'នៅខ្វះ')}</th><th className="right">{L('Expenses', 'ចំណាយ')}</th><th className="right">{L('Left', 'នៅសល់')}</th></tr></thead>

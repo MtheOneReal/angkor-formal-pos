@@ -77,6 +77,30 @@ export function createMore(B) {
     return { month, store_id: sel, stores: stores.map((x) => ({ id: x.id, name: x.name })), rows, totals, trend, note: 'Cost of goods uses each product’s current cost price.' };
   }
 
+  // ---------- monthly profit share and the production reserve ----------
+  async function profit(q) {
+    need('capital.view');
+    const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse'); const sel = String(q.store_id || 'all');
+    const ids = sel === 'all' ? stores.map((x) => x.id) : [Number(sel)]; const month = monthOf(q.month);
+    const cat = await B.loadCatalog(); const costs = new Map((await list('costs')).map((c) => [String(c.id), c.costCents || 0]));
+    const costOfItem = new Map(cat.items.map((i) => [String(i.id), costs.get(String(i.designId)) || 0]));
+    const stats = (await list('monthStats')).filter((x) => ids.includes(Number(x.storeId))); const exps = (await list('expenses')).filter((e) => ids.includes(Number(e.storeId)));
+    const cogsOf = (st) => Object.entries(st.byItem || {}).reduce((n, [item, v]) => n + (v.qty || 0) * (costOfItem.get(String(item)) || 0), 0);
+    const net = (m) => stats.filter((x) => x.date === m).reduce((n, x) => n + (x.salesCents || 0) - cogsOf(x), 0) - exps.filter((e) => e.month === m).reduce((n, e) => n + (e.amountCents || 0), 0);
+    const rd = await getDoc(ref('settings', 'reserve')); const pct = rd.exists() ? Math.min(100, Math.max(0, Number(rd.data().pct) || 0)) : 0;
+    const n = net(month); const reserve = n > 0 ? Math.round((n * pct) / 100) : 0; const share = n > 0 ? n - reserve : 0;
+    const sh = await list('shareholders'); const agreedOf = (x) => ids.reduce((a, sid) => a + ((x.agreedByStore || {})[sid] || 0), 0); const totalAgreed = sh.reduce((a, x) => a + agreedOf(x), 0);
+    const holders = sh.filter((x) => agreedOf(x) > 0).map((x) => { const w = totalAgreed ? agreedOf(x) / totalAgreed : 0; return { id: x.id, name: x.name, pct: Math.round(w * 1000) / 10, share_cents: Math.round(share * w), reserve_part_cents: Math.round(reserve * w) }; }).sort((a, b) => b.pct - a.pct);
+    const months = [...new Set(stats.map((x) => x.date))]; const setAside = months.reduce((a, m) => a + Math.max(0, Math.round((net(m) * pct) / 100)), 0);
+    const used = exps.filter((e) => /production/i.test(e.category || '')).reduce((a, e) => a + (e.amountCents || 0), 0);
+    return { month, store_id: sel, net_cents: n, reserve_pct: pct, reserve_cents: reserve, share_cents: share, holders, set_aside_total_cents: setAside, used_cents: used, reserve_balance_cents: setAside - used, can_edit: can('capital.manage') };
+  }
+  async function reserveSave(b) {
+    need('capital.manage'); const pct = Number(b.pct); if (!(pct >= 0 && pct <= 100)) throw bad('BAD_INPUT', 'Enter a percentage from 0 to 100.');
+    const wb = writeBatch(db); wb.set(ref('settings', 'reserve'), { pct: Math.round(pct * 10) / 10, updatedTs: now() }); auditIn(wb, null, 'capital.reserve', 'settings', 'reserve', { pct });
+    await wb.commit().catch(wrap('Could not save')); return { ok: true };
+  }
+
   // ---------- daily summary ----------
   async function dailySummary(q) {
     need('dashboard.view'); const date = ymd(q.date);
@@ -168,6 +192,8 @@ export function createMore(B) {
     if (method === 'GET' && path === '/alterations') return jobsList(q);
     if (method === 'POST' && (m = path.match(/^\/alterations\/([^/]+)$/))) return jobUpdate(m[1], b);
     if (method === 'GET' && path === '/report') return report(q);
+    if (method === 'GET' && path === '/capital/profit') return profit(q);
+    if (method === 'POST' && path === '/capital/reserve') return reserveSave(b);
     if (method === 'GET' && path === '/summary/daily') return dailySummary(q);
     if (method === 'GET' && path === '/export') return exportAll();
     return undefined;
