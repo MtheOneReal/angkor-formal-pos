@@ -1,6 +1,13 @@
 // Khmer wording for screens that still have English text written directly in the code.
 // Matched exactly against the text on screen. Khmer has not been checked by a native reader yet.
 export const KM = {
+"— untick to remove it from the lists (history is kept)": "— ដកធីកដើម្បីដកចេញពីបញ្ជី (ប្រវត្តិនៅរក្សាទុក)",
+"+ Add a warehouse": "+ បន្ថែមឃ្លាំង",
+"+ Add a store": "+ បន្ថែមហាង",
+"Delete this store (only if it has no records)": "លុបហាងនេះ (តែពេលគ្មានកំណត់ត្រាប៉ុណ្ណោះ)",
+"Work starts at (staff arriving later are marked late)": "ម៉ោងចាប់ផ្តើមការងារ (បុគ្គលិកមកក្រោយត្រូវកត់ថាយឺត)",
+"Auto-lock after (minutes, 0 = off)": "ចាក់សោស្វ័យប្រវត្តិក្រោយ (នាទី, 0 = បិទ)",
+"Staff": "បុគ្គលិក",
 "Rent": "ថ្លៃជួល",
 "or more.": "ឡើងទៅ។",
 "A receipt photo is required for expenses of": "ត្រូវមានរូបថតបង្កាន់ដៃសម្រាប់ចំណាយចាប់ពី",
