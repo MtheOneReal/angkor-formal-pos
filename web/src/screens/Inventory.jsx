@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../ui.jsx';
 import Lookup from './Lookup.jsx';
 import StockScreen from './Stock.jsx';
@@ -16,6 +16,7 @@ export default function Inventory() {
     ['catalogue', km ? '👔 កាតាឡុក & ស្លាក' : '👔 Catalogue & labels', 'catalog.edit', Catalogue],
   ].filter((x) => me.perms.includes(x[2]));
   const [cur, setCur] = useState(tabs[0]?.[0]);
+  useEffect(() => { document.body.dataset.invTab = cur || ''; return () => { delete document.body.dataset.invTab; }; }, [cur]);
   const Active = (tabs.find((x) => x[0] === cur) || tabs[0])?.[3];
   return (
     <div className="embedded">

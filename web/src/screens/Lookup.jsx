@@ -4,7 +4,7 @@ import { useApp, useT, useName, LevelBadge, Modal, useToast } from '../ui.jsx';
 import { usd } from '../format.js';
 
 export default function Lookup() {
-  const { me, store } = useApp(); const t = useT(); const nm = useName();
+  const { me, store, setStore } = useApp(); const t = useT(); const nm = useName();
   const [q, setQ] = useState(''); const [data, setData] = useState(null); const [req, setReq] = useState(null);
   const [toast, show] = useToast();
   useEffect(() => { const h = setTimeout(() => { if (q.trim().length >= 2) api.get(`/stock/lookup${qs({ store_id: store.id, q })}`).then(setData).catch(() => setData(null)); else setData(null); }, 250); return () => clearTimeout(h); }, [q, store.id]);
@@ -13,6 +13,10 @@ export default function Lookup() {
     <div>
       <h1>{t('lookup')}</h1>
       <p className="muted small" style={{ margin: '4px 0 0' }}>Search every branch and warehouse. You can only look here; to receive or adjust stock, use “Stock in this branch”.</p>
+      {me.stores.length > 1 && me.perms.includes('transfer.request') && (
+        <div className="row wrap" style={{ gap: 8, marginTop: 10 }}><span className="small">Requests will be sent to:</span>
+          <select value={store.id} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 200 }} aria-label="Branch">{me.stores.map((s) => <option key={s.id} value={s.id}>{s.kind === 'warehouse' ? '🏬 ' : ''}{s.name}</option>)}</select></div>
+      )}
       <input className="scanbox" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a code, name or colour" style={{ marginTop: 12 }} />
       {data && !data.items.length && <p className="muted">Nothing found.</p>}
       <div className="col" style={{ marginTop: 14 }}>

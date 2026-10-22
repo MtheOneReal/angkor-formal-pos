@@ -122,3 +122,6 @@ td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middl
 .pcard .ph svg, .tile .ph svg { width:70%; height:auto; max-height:82%; }
 .pcard .ph img, .tile .ph img { position:relative; z-index:1; }
 
+
+/* On the all-branches search the shop is chosen inside the page, so the top switcher is hidden. */
+body[data-inv-tab="find"] .topbar { display:none; }
