@@ -14,18 +14,25 @@ service cloud.firestore {
     function isManager() { return active() && me().role == 'manager'; }
     function isCashier() { return active() && me().role == 'cashier'; }
     function isPartner() { return active() && me().role == 'shareholder'; }
+    // The super admin is the very first person set up. /setup/state can never be changed, so this cannot be moved to anyone else from inside the app.
+    function superUid() { return get(/databases/$(database)/documents/setup/state).data.firstOwner; }
+    function isSuper() { return active() && request.auth.uid == superUid(); }
     function isLead() { return isOwner() || isManager(); }
     function inStore(sid) { return isOwner() || (active() && (sid in me().storeIds)); }
     function leadOf(sid) { return isOwner() || (isManager() && (sid in me().storeIds)); }
     // TESTING ONLY: lets the owner wipe test data while settings/testMode.enabled is true. Remove with the Reset button.
-    function testReset() { return isOwner() && exists(/databases/$(database)/documents/settings/testMode) && get(/databases/$(database)/documents/settings/testMode).data.enabled == true; }
+    function testReset() { return isSuper() && exists(/databases/$(database)/documents/settings/testMode) && get(/databases/$(database)/documents/settings/testMode).data.enabled == true; }
     function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
 
     // ---------- people ----------
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isOwner());
       // Only owners create or change people. Nobody deletes (deactivate instead).
-      allow create, update: if isOwner();
+      // Only the super admin creates owners or changes an owner. Other owners may manage managers, cashiers and shareholders, never the super admin.
+      allow create: if isSuper() || (isOwner() && request.resource.data.role != 'owner');
+      allow update: if isSuper()
+        || (isOwner() && uid != superUid() && resource.data.role != 'owner' && request.resource.data.role != 'owner')
+        || (isOwner() && request.auth.uid == uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active);
       // First owner only: allowed when /setup/state is created in the same batch by this very person.
       allow create: if signedIn() && request.auth.uid == uid
         && request.resource.data.role == 'owner' && request.resource.data.active == true
@@ -33,7 +40,7 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/setup/state)
         && getAfter(/databases/$(database)/documents/setup/state).data.firstOwner == uid;
       // An owner may remove someone (never themselves). The app only allows it when they have no history.
-      allow delete: if isOwner() && request.auth.uid != uid;
+      allow delete: if (isSuper() && request.auth.uid != uid) || (isOwner() && uid != superUid() && resource.data.role != 'owner');
     }
 
     // One-time setup: the very first person to sign in creates the first owner.
