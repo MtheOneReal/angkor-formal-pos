@@ -110,3 +110,7 @@ td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middl
 
 .embedded > div > h1, .embedded > div > .row > h1 { display:none; }
 .embedded > div > .row.between.wrap:has(> h1:only-child) { display:none; }
+
+.kan { display:grid; grid-template-columns:repeat(4,minmax(220px,1fr)); gap:12px; overflow-x:auto; align-items:start; }
+.kcol { min-width:220px; }
+@media (max-width:860px) { .kan { grid-template-columns:repeat(4,80vw); scroll-snap-type:x mandatory; } .kcol { scroll-snap-align:start; } }

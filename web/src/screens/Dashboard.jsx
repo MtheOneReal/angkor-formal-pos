@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api, qs } from '../api.js';
-import { useApp, useT, StoreSelect, Spinner } from '../ui.jsx';
+import { useApp, useT, StoreSelect, Spinner, Modal } from '../ui.jsx';
 import { usd, usdShort, day } from '../format.js';
 
 const PERIODS = [['today', 'today'], ['7d', 'week'], ['month', 'month'], ['year', 'year']];
@@ -26,6 +26,22 @@ function HBars({ rows, label, value, fmt }) {
     <div key={label(r)}><div className="row between small"><span>{label(r)}</span><b className="num">{fmt(value(r))}</b></div><div className="hbar" style={{ width: `${(value(r) / max) * 100}%`, background: COLORS[i % COLORS.length] }} /></div>))}</div>;
 }
 
+function DailySummary() {
+  const [open, setOpen] = useState(false); const [s, setS] = useState(null); const [err, setErr] = useState(''); const [copied, setCopied] = useState(false);
+  const show = async () => { setOpen(true); setErr(''); try { setS(await api.get('/summary/daily')); } catch (e) { setErr(e.message); } };
+  const link = () => `https://t.me/share/url?url=${encodeURIComponent(location.origin + location.pathname)}&text=${encodeURIComponent(s.text)}`;
+  return (<>
+    <button className="btn" onClick={show}>✈️ Telegram summary</button>
+    {open && <Modal title="Today's summary" onClose={() => setOpen(false)}>
+      {err && <div className="error">{err}</div>}
+      {s && <><pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', background: 'var(--surface2)', padding: 12, borderRadius: 10 }}>{s.text}</pre>
+        <div className="row wrap"><a className="btn primary" href={link()} target="_blank" rel="noreferrer">Send in Telegram</a>
+          <button className="btn" onClick={async () => { try { await navigator.clipboard.writeText(s.text); setCopied(true); } catch { setErr('Could not copy.'); } }}>{copied ? 'Copied' : 'Copy text'}</button></div>
+        <p className="muted small">Telegram opens so you can pick the group or person. Today’s figures update as sales are made.</p></>}
+    </Modal>}
+  </>);
+}
+
 export default function Dashboard() {
   const { me } = useApp(); const t = useT();
   const [sel, setSel] = useState(me.perms.includes('dashboard.all_stores') ? 'all' : String(me.store_id));
@@ -36,6 +52,7 @@ export default function Dashboard() {
     <div>
       <div className="topbar"><h1 className="grow">{t('dashboard')}</h1>
         <StoreSelect value={sel} onChange={setSel} stores={me.stores} all={me.perms.includes('dashboard.all_stores')} />
+        {me.perms.includes('dashboard.view') && <DailySummary />}
         <div className="row">{PERIODS.map(([k, lab]) => <button key={k} className={`chip ${period === k ? 'on' : ''}`} onClick={() => setPeriod(k)}>{t(lab)}</button>)}</div></div>
       {err && <div className="error">{err}</div>}
       {!d ? <Spinner /> : (<>

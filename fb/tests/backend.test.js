@@ -284,5 +284,35 @@ test('capital: shareholders, payments, reversal, totals; shareholder login sees 
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'inv@x.com', password: 'Investor-123' });
   assert.equal((await api.get('/capital')).can_edit, false);
   await fails(api.post('/capital/shareholders', { name: 'X', agreed_by_store: {} }), 'FORBIDDEN');
-  const me = await api.get('/me'); assert.deepEqual(me.perms, ['capital.view']);
+  const me = await api.get('/me'); assert.deepEqual(me.perms, ['capital.view', 'report.view']);
+});
+
+test('deposit sale, balance collection, alteration job, stock count, report, summary, export', async () => {
+  const { api, d } = await setup();
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 5 }], reference: 'd' });
+  await api.post('/shifts/open', { store_id: 1, open_usd: 0, open_khr: 0 });
+  const line = [{ item_id: item.id, qty: 1, entry: 'scan' }];
+  await fails(api.post('/sales', { store_id: 1, lines: line, deposit: true, payments: [{ method: 'cash', currency: 'USD', amount: 5000 }] }), 'CUSTOMER_REQUIRED');
+  await fails(api.post('/sales', { store_id: 1, lines: line, deposit: true, customer_name: 'Sok', customer_phone: '012', payments: [{ method: 'cash', currency: 'USD', amount: 20000 }] }), 'DEPOSIT_RANGE');
+  const sale = await api.post('/sales', { store_id: 1, lines: line, deposit: true, alteration: true, alteration_note: 'Hem trousers', due_date: '2026-10-30', customer_name: 'Sok', customer_phone: '012', payments: [{ method: 'cash', currency: 'USD', amount: 5000 }] });
+  assert.equal(sale.balance_cents, 15000);
+  let bal = await api.get('/balances?store_id=1'); assert.equal(bal.length, 1); assert.equal(bal[0].balance_cents, 15000);
+  let jobs = await api.get('/alterations?store_id=1'); assert.equal(jobs.length, 1); assert.equal(jobs[0].status, 'received');
+  await fails(api.post(`/alterations/${jobs[0].id}`, { status: 'collected' }), 'BALANCE_DUE');
+  await fails(api.post(`/balances/${bal[0].id}/collect`, { method: 'cash', currency: 'USD', amount: 20000 }), 'TOO_MUCH');
+  await api.post(`/balances/${bal[0].id}/collect`, { method: 'cash', currency: 'USD', amount: 10000 });
+  assert.equal((await api.get('/balances?store_id=1'))[0].balance_cents, 5000);
+  await api.post(`/balances/${bal[0].id}/collect`, { method: 'khqr', currency: 'USD', amount: 5000 });
+  assert.equal((await api.get('/balances?store_id=1')).length, 0);
+  await api.post(`/alterations/${jobs[0].id}`, { status: 'ready' }); await api.post(`/alterations/${jobs[0].id}`, { status: 'collected' });
+  jobs = await api.get('/alterations?store_id=1'); assert.equal(jobs[0].status, 'collected'); assert.equal(jobs[0].balance_cents, 0);
+  // stock count: 4 expected, 3 counted -> 1 missing; applying fixes the stock
+  const r = await api.post('/stocktake', { store_id: 1, apply: true, lines: [{ item_id: item.id, counted: 3 }] });
+  assert.equal(r.missing, 1); assert.equal((await api.get(`/items/code/${d.skus[0]}?store_id=1`)).on_hand, 3);
+  assert.equal((await api.get('/stocktake?store_id=1'))[0].missing, 1);
+  // report: sales 200, cost 90 -> gross 110
+  const rep = await api.get('/report?store_id=1'); assert.equal(rep.rows[0].sales_cents, 20000); assert.equal(rep.rows[0].cogs_cents, 9000); assert.equal(rep.rows[0].net_cents, 11000);
+  const sum = await api.get('/summary/daily'); assert.ok(sum.text.includes('Angkor') && sum.total_cents === 20000);
+  const ex = await api.get('/export'); assert.equal(ex.sheets.Sales.length, 1); assert.ok(ex.sheets['Sale lines'].length === 1 && ex.sheets.Stock.length >= 1);
 });

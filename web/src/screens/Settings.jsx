@@ -17,9 +17,9 @@ export default function Settings() {
     <div>
       <h1>{t('settings')}</h1>
       <div className="tabs" style={{ margin: '12px 0' }}>
-        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['categories', 'Expense categories'], ['audit', 'Activity log'], ...(owner ? [['reset', '🧪 Test reset']] : [])].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
+        {[['stores', 'Stores & rules'], ['users', 'Staff'], ['rate', 'Exchange rate'], ['categories', 'Expense categories'], ['audit', 'Activity log'], ...(owner ? [['backup', '💾 Download all data'], ['reset', '🧪 Test reset']] : [])].map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>)}
       </div>
-      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'categories' && owner && <Categories />}{tab === 'audit' && <Audit />}{tab === 'reset' && owner && <TestReset />}
+      {tab === 'stores' && owner && <Stores />}{tab === 'users' && <Users />}{tab === 'rate' && <Rate />}{tab === 'categories' && owner && <Categories />}{tab === 'audit' && <Audit />}{tab === 'backup' && owner && <Backup />}{tab === 'reset' && owner && <TestReset />}
     </div>
   );
 }
@@ -167,6 +167,26 @@ function TestReset() {
       <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="RESET" />
       {err && <div className="error">{err}</div>}{ok && <p style={{ color: 'var(--ok)' }}>{ok}</p>}
       <button className="btn danger" style={{ marginTop: 12 }} disabled={word !== 'RESET' || busy} onClick={go}>{busy ? 'Clearing…' : 'Reset now'}</button>
+    </div>
+  );
+}
+
+function Backup() {
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [ok, setOk] = useState('');
+  const go = async () => {
+    setBusy(true); setErr(''); setOk('');
+    try {
+      const { sheets } = await api.get('/export'); const XLSX = await import('xlsx'); const wb = XLSX.utils.book_new();
+      for (const [name, rows] of Object.entries(sheets)) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length ? rows : [{ Info: 'No records' }]), name.slice(0, 31));
+      const file = `angkor-formal-backup-${new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)}.xlsx`; XLSX.writeFile(wb, file); setOk(`Saved ${file}`);
+    } catch (e) { setErr(e.message || 'Could not export.'); } finally { setBusy(false); }
+  };
+  return (
+    <div className="card" style={{ maxWidth: 520 }}>
+      <h3>Download everything</h3>
+      <p className="muted">One Excel file with sales, sale lines, stock, products with cost, expenses, attendance, customers, shareholders, capital payments, balances, alterations and stock counts. Keep a copy somewhere safe, for example once a week. Only the owner sees this.</p>
+      {err && <div className="error">{err}</div>}{ok && <p style={{ color: 'var(--ok)' }}>{ok}</p>}
+      <button className="btn primary" disabled={busy} onClick={go}>{busy ? 'Preparing…' : '⬇ Download Excel file'}</button>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 // Maps the screens' API calls (same URLs as the Node server) onto Firestore.
 import { createExtras } from './extras.js';
+import { createMore } from './more.js';
 import { ApiErr, SWITCH_DEFAULTS, ROLE_PERMS, khrToUsdCents, usdCentsToKhr, khrTolerance, level, dateOf } from './backend.js';
 
 export function createApi(B, extra = {}) {
@@ -8,6 +9,7 @@ export function createApi(B, extra = {}) {
   const { bad, forbidden, notFound, approval, need, can, assertStore, read, list, audit, auditIn, wrap, now } = B;
   const S = () => B.S();
   const X = createExtras(B);
+  const M = createMore(B);
   const sid = (n) => String(n);
   const txt = (v, n) => String(v ?? '').slice(0, n);
   const ts = () => now();
@@ -49,7 +51,7 @@ export function createApi(B, extra = {}) {
     need('settings.manage'); if (S().user.role !== 'owner') throw forbidden('Only the owner can reset.');
     if (b.confirm !== 'RESET') throw bad('CONFIRM', 'Type RESET to confirm.');
     await setDoc(ref('settings', 'testMode'), { enabled: true, ts: ts(), by: S().uid });
-    const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), ...(b.capital ? ['capitalPayments', 'shareholders'] : []), 'auditLog'];
+    const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), ...(b.capital ? ['capitalPayments', 'shareholders'] : []), 'balances', 'balancePayments', 'alterations', 'stocktakes', 'auditLog'];
     let n = 0;
     for (const c of cols) {
       let docs; try { docs = (await getDocs(collection(db, c))).docs; } catch { throw bad('RESET_FAILED', `Could not read ${c}.`); }
@@ -256,6 +258,8 @@ export function createApi(B, extra = {}) {
     const sales = (await getDocs(salesQ(sh.storeId, where('shiftId', '==', String(sh.id))))).docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => s.status === 'completed');
     let cashUsd = 0; let cashKhr = 0;
     for (const s of sales) for (const p of s.payments || []) if (p.method === 'cash') { const sign = p.kind === 'change' ? -1 : 1; if (p.currency === 'USD') cashUsd += sign * p.amount; else cashKhr += sign * p.amount; }
+    const bp = await list('balancePayments', where('storeId', '==', Number(sh.storeId)), where('shiftId', '==', String(sh.id)), where('userId', '==', String(sh.userId)));
+    for (const p of bp) if (p.method === 'cash') { if (p.currency === 'USD') cashUsd += p.amount; else cashKhr += p.amount; }
     const rets = S().user.role === 'cashier' ? [] : (await list('returns', where('storeId', '==', Number(sh.storeId)), where('shiftId', '==', String(sh.id)))).filter((r) => r.refundMethod === 'cash');
     const refunds = rets.reduce((a, r) => a + r.refundCents, 0);
     return { sales_count: sales.length, sales_total_cents: sales.reduce((a, s) => a + s.totalCents, 0), expected_usd_cents: (sh.openUsdCents || 0) + cashUsd - refunds, expected_khr: (sh.openKhr || 0) + cashKhr };
@@ -308,7 +312,7 @@ export function createApi(B, extra = {}) {
   // ---------- sales ----------
   const saleView = (s, returns = []) => {
     const lines = (s.lines || []).map((l, i) => { const r = returns.filter((x) => x.saleId === s.id).flatMap((x) => x.lines).filter((x) => x.lineIndex === i); return { id: i, item_id: l.itemId, qty: l.qty, unit_price_cents: l.unitCents, discount_cents: l.discountCents, line_total_cents: l.totalCents, entry: l.entry, sku: l.sku, size: l.size, name_en: l.nameEn, name_km: l.nameKm, colour_en: l.colourEn, colour_km: l.colourKm, returned_qty: r.reduce((a, x) => a + x.qty, 0), returned_cents: r.reduce((a, x) => a + x.refundCents, 0) }; });
-    return { id: s.id, store_id: s.storeId, seq: s.seq, receipt_no: s.receiptNo, ts: s.ts, cashier_id: s.cashierId, cashier_name: s.cashierName, status: s.status, subtotal_cents: s.subtotalCents, discount_cents: s.discountCents, total_cents: s.totalCents, rate_khr_per_usd: s.rate, discount_reason: s.discountReason || null, approved_by_name: s.approvedByName || null, customer_name: s.customerName || null, customer_phone: s.customerPhone || null, alteration: !!s.alteration, store_name: s.storeName, store_code: s.storeCode, receipt_footer: s.receiptFooter, lines, payments: (s.payments || []).map((p) => ({ kind: p.kind, method: p.method, currency: p.currency, amount: p.amount, usd_cents: p.usd })), total_khr: usdCentsToKhr(s.totalCents, s.rate) };
+    return { id: s.id, store_id: s.storeId, seq: s.seq, receipt_no: s.receiptNo, ts: s.ts, cashier_id: s.cashierId, cashier_name: s.cashierName, status: s.status, subtotal_cents: s.subtotalCents, discount_cents: s.discountCents, total_cents: s.totalCents, rate_khr_per_usd: s.rate, discount_reason: s.discountReason || null, approved_by_name: s.approvedByName || null, customer_name: s.customerName || null, customer_phone: s.customerPhone || null, alteration: !!s.alteration, deposit: !!s.deposit, balance_cents: s.balanceCents || 0, due_date: s.dueDate || null, store_name: s.storeName, store_code: s.storeCode, receipt_footer: s.receiptFooter, lines, payments: (s.payments || []).map((p) => ({ kind: p.kind, method: p.method, currency: p.currency, amount: p.amount, usd_cents: p.usd })), total_khr: usdCentsToKhr(s.totalCents, s.rate) };
   };
   async function getSale(id) {
     const s = await read('sales', id); if (!s) throw notFound('Receipt not found.');
@@ -392,7 +396,14 @@ export function createApi(B, extra = {}) {
     const cashIn = tender.filter((p) => p.method === 'cash').reduce((a, p) => a + p.usd, 0);
     if (given > cashIn) throw bad('BAD_CHANGE', 'Change cannot be more than the cash received.');
     const tol = [...tender, ...change].some((p) => p.currency === 'KHR') ? khrTolerance(rate) : 0;
-    if (Math.abs(paid - given - total) > tol) throw bad('PAYMENT_MISMATCH', 'Payment minus change does not match the total.', { total_cents: total, paid_cents: paid, change_cents: given });
+    const deposit = !!b.deposit; const net = paid - given;
+    const custName = customer?.name || (b.customer_name ? txt(b.customer_name, 100).trim() : null) || null; const custPhone = customer?.phone || (b.customer_phone ? txt(b.customer_phone, 30).trim() : null) || null;
+    if (deposit) {
+      if (!(net > 0 && net < total - tol)) throw bad('DEPOSIT_RANGE', 'A deposit must be more than zero and less than the total.');
+      if (!custName || !custPhone) throw bad('CUSTOMER_REQUIRED', 'A deposit needs the customer name and phone number.');
+    } else if (Math.abs(net - total) > tol) throw bad('PAYMENT_MISMATCH', 'Payment minus change does not match the total.', { total_cents: total, paid_cents: paid, change_cents: given });
+    const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(b.due_date || '')) ? b.due_date : null;
+    const balance = deposit ? total - net : 0;
 
     const saleRef = doc(collection(db, 'sales'));
     const date = dateOf(ts());
@@ -410,11 +421,14 @@ export function createApi(B, extra = {}) {
       const saleLines = calc.map((c) => { const x = items.get(c.item_id); return { itemId: c.item_id, sku: x.it.sku, size: x.it.size, nameEn: x.d.nameEn, nameKm: x.d.nameKm || null, colourEn: x.c?.nameEn || x.it.colourCode, colourKm: x.c?.nameKm || null, qty: c.qty, unitCents: c.unit, discountCents: c.disc, totalCents: c.gross - c.disc, entry: c.entry }; });
       t.set(saleRef, {
         storeId, seq, receiptNo: `${store.code}-${String(seq).padStart(6, '0')}`, ts: ts(), dayKey: `${storeId}_${date}`, cashierId: S().uid, cashierName: S().user.name, shiftId: String(shift.id),
-        customerId: customer ? customer.id : null, customerName: customer?.name || (b.customer_name ? txt(b.customer_name, 100).trim() : null) || null, customerPhone: customer?.phone || (b.customer_phone ? txt(b.customer_phone, 30).trim() : null) || null, alteration: !!b.alteration, subtotalCents: subtotal, discountCents: discount,
+        customerId: customer ? customer.id : null, customerName: custName, customerPhone: custPhone, alteration: !!b.alteration, deposit, balanceCents: balance, dueDate, subtotalCents: subtotal, discountCents: discount,
         totalCents: total, rate, discountReason: dsc?.reason ? txt(dsc.reason, 200) : null, approvalId, approvedByName: approver?.name || null, status: 'completed',
         storeName: store.name, storeCode: store.code, receiptFooter: store.receiptFooter || '', lines: saleLines,
         payments: [...tender, ...change], note: b.note ? txt(b.note, 200) : null,
       });
+      const receiptNo = `${store.code}-${String(seq).padStart(6, '0')}`;
+      if (deposit) t.set(ref('balances', saleRef.id), { storeId, saleId: saleRef.id, receiptNo, customerName: custName, customerPhone: custPhone, totalCents: total, paidCents: net, balanceCents: balance, dueDate, settled: false, createdBy: S().uid, createdByName: S().user.name, createdTs: ts() });
+      if (b.alteration) t.set(doc(collection(db, 'alterations')), { storeId, saleId: saleRef.id, receiptNo, customerName: custName, customerPhone: custPhone, summary: saleLines.map((l) => `${l.qty}× ${l.nameEn} ${l.colourEn} ${l.size}`).join(', ').slice(0, 300), notes: txt(b.alteration_note, 300), dueDate, status: 'received', balanceCents: balance, createdBy: S().uid, createdByName: S().user.name, createdTs: ts(), updatedTs: ts() });
       for (const [id, q] of want) {
         const cur = stockSnaps.get(id).data();
         t.update(ref('stock', `${storeId}_${id}`), { storeId, itemId: id, onHand: cur.onHand - q, reserved: cur.reserved || 0, returned: cur.returned || 0, damaged: cur.damaged || 0, lastSaleId: saleRef.id });
@@ -891,6 +905,28 @@ export function createApi(B, extra = {}) {
     return { ok: true };
   }
 
+  // ---------- monthly stock count ----------
+  async function stocktakeSave(b) {
+    need('stock.adjust'); const storeId = assertStore(b.store_id);
+    const lines = (b.lines || []).map((l) => ({ itemId: Number(l.item_id), counted: Math.floor(Number(l.counted)) })).filter((l) => l.itemId && l.counted >= 0);
+    if (!lines.length) throw bad('NO_LINES', 'Enter at least one counted item.');
+    const sm = await B.stockOfStore(storeId); const rows = new Map((await B.itemRows('', 3000)).map((r) => [r.id, r]));
+    const done = new Set(lines.map((l) => l.itemId));
+    // Anything the system expects in the shop but was not counted counts as zero found.
+    for (const [id, st] of sm) if (!done.has(Number(id)) && (st.onHand || 0) > 0 && b.not_counted_is_zero) lines.push({ itemId: Number(id), counted: 0 });
+    let missing = 0; let extra = 0;
+    const out = lines.map((l) => { const exp = Math.max(0, B.quant(sm.get(l.itemId)).on_hand); const diff = l.counted - exp; if (diff < 0) missing -= diff; else extra += diff; return { itemId: l.itemId, sku: rows.get(l.itemId)?.sku || String(l.itemId), expected: exp, counted: l.counted, diff }; });
+    const ref2 = doc(collection(db, 'stocktakes')); const applied = !!b.apply;
+    await setDoc(ref2, { storeId, ts: ts(), date: dateOf(ts()), by: S().uid, byName: S().user.name, lines: out, missing, extra, applied, createdBy: S().uid, note: txt(b.note, 200) });
+    await audit(storeId, 'stocktake', 'stocktake', ref2.id, { missing, extra, applied });
+    if (applied) for (const l of out) if (l.diff) await stockAdjust({ store_id: storeId, item_id: l.itemId, qty_delta: l.diff, reason: 'Stock count' });
+    return { id: ref2.id, missing, extra, lines: out.filter((l) => l.diff) };
+  }
+  async function stocktakeList(q) {
+    need('stock.adjust'); const storeId = assertStore(q.store_id);
+    return (await list('stocktakes', where('storeId', '==', storeId))).sort((a, b) => b.ts - a.ts).slice(0, 30).map((r) => ({ id: r.id, ts: r.ts, date: r.date, by: r.byName, missing: r.missing, extra: r.extra, applied: !!r.applied, lines: (r.lines || []).filter((l) => l.diff) }));
+  }
+
   // ---------- router ----------
   const parse = (url) => { const [path, qs] = url.split('?'); const q = {}; for (const [k, v] of new URLSearchParams(qs || '')) q[k] = v; return { path, q }; };
   async function route(method, url, body) {
@@ -962,6 +998,9 @@ export function createApi(B, extra = {}) {
       if (method === 'POST' && (m = path.match(/^\/admin\/users\/([^/]+)\/delete$/))) return await adminUserDelete(m[1]);
       if (method === 'GET' && path === '/admin/audit') return await auditList(q);
       { const r = await X.route(method, path, q, b); if (r !== undefined) return r; }
+      { const r = await M.route(method, path, q, b); if (r !== undefined) return r; }
+      if (method === 'POST' && path === '/stocktake') return await stocktakeSave(b);
+      if (method === 'GET' && path === '/stocktake') return await stocktakeList(q);
       if (extra.route) { const r = await extra.route(method, path, q, b); if (r !== undefined) return r; }
       throw notFound('Not found.');
     } catch (e) { return wrap('Something went wrong')(e); }

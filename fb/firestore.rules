@@ -69,7 +69,7 @@ service cloud.firestore {
     match /designs/{id} { allow read: if active(); allow write: if isOwner(); }
     match /items/{id}   { allow read: if active(); allow write: if isOwner(); }
     // Cost lives apart so cashiers can never read it.
-    match /costs/{id}   { allow read: if isLead(); allow write: if isOwner(); }
+    match /costs/{id}   { allow read: if isLead() || isPartner(); allow write: if isOwner(); }
 
     // ---------- stock ----------
     // Document id: <storeId>_<itemId>
@@ -157,7 +157,7 @@ service cloud.firestore {
 
     // Monthly totals (for the year view).
     match /monthStats/{key} {
-      allow read: if active() && isLead() && inStore(resource.data.storeId);
+      allow read: if active() && (isPartner() || (isLead() && inStore(resource.data.storeId)));
       allow create, update: if active() && inStore(request.resource.data.storeId);
       allow delete: if testReset();
     }
@@ -242,6 +242,35 @@ service cloud.firestore {
     match /capitalPayments/{id} {
       allow read: if isOwner() || isPartner();
       allow create: if isOwner() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if false;
+      allow delete: if testReset();
+    }
+
+    // ---------- deposits, alteration jobs, stock counts ----------
+    match /balances/{id} {
+      allow read: if active() && inStore(resource.data.storeId);
+      allow create: if active() && inStore(request.resource.data.storeId) && request.resource.data.createdBy == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/sales/$(request.resource.data.saleId));
+      allow update: if active() && inStore(resource.data.storeId) && !resource.data.settled
+        && onlyChanges(['paidCents', 'balanceCents', 'settled', 'settledTs', 'lastTs'])
+        && request.resource.data.balanceCents >= 0 && request.resource.data.balanceCents < resource.data.balanceCents;
+      allow delete: if testReset();
+    }
+    match /balancePayments/{id} {
+      allow read: if active() && inStore(resource.data.storeId) && (isLead() || resource.data.userId == request.auth.uid);
+      allow create: if active() && inStore(request.resource.data.storeId) && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if testReset();
+    }
+    match /alterations/{id} {
+      allow read: if active() && inStore(resource.data.storeId);
+      allow create: if active() && inStore(request.resource.data.storeId) && request.resource.data.createdBy == request.auth.uid;
+      allow update: if active() && inStore(resource.data.storeId) && request.resource.data.storeId == resource.data.storeId;
+      allow delete: if testReset();
+    }
+    match /stocktakes/{id} {
+      allow read: if leadOf(resource.data.storeId);
+      allow create: if leadOf(request.resource.data.storeId) && request.resource.data.createdBy == request.auth.uid;
       allow update: if false;
       allow delete: if testReset();
     }

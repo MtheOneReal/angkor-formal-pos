@@ -46,6 +46,8 @@ function Receipt({ sale, onDone }) {
         {sale.discount_cents > 0 && <div className="l"><span>{t('discount')}</span><span>-{usd(sale.discount_cents)}</span></div>}
         <div className="l"><b>{t('total')}</b><b>{usd(sale.total_cents)}</b></div>
         <div className="l"><span></span><span>{riel(sale.total_khr)}</span></div>
+        {sale.deposit && <><div className="l"><span>Deposit paid</span><span>{usd(sale.total_cents - sale.balance_cents)}</span></div><div className="l"><b>Balance to pay</b><b>{usd(sale.balance_cents)}</b></div>{sale.due_date && <div className="small">Pickup: {sale.due_date}</div>}</>}
+        {sale.customer_name && <div className="small">{sale.customer_name} {sale.customer_phone || ''}</div>}
         <div className="small">Rate: {sale.rate_khr_per_usd} ៛ / $1</div>
         <hr /><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you'}</div>
       </div>
@@ -67,20 +69,22 @@ function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose
   const [cur, setCur] = useState('USD');
   const [tendered, setTendered] = useState('');
   const [chg, setChg] = useState('KHR');
-  const [pinFor, setPinFor] = useState(null);
+  const [pinFor, setPinFor] = useState(null); const [dep, setDep] = useState(false); const [due, setDue] = useState('');
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const totalKhr = toRiel(total, rate);
   const tend = Number(tendered) || 0;
-  const tendCents = cur === 'USD' ? Math.round(tend * 100) : Math.round((tend / rate) * 100);
-  const exact = method === 'khqr';
+  const curE = method === 'khqr' ? 'USD' : cur;
+  const tendCents = curE === 'USD' ? Math.round(tend * 100) : Math.round((tend / rate) * 100);
+  const exact = method === 'khqr' && !dep;
+  const hasCust = !!(extra?.customer_name || '').trim() && !!(extra?.customer_phone || '').trim();
   const paidCents = exact ? total : tendCents;
   const over = paidCents - total;
 
   const submit = async (pin) => {
     setBusy(true); setErr('');
-    const payments = exact ? [{ method: 'khqr', currency: 'USD', amount: total }] : [{ method: 'cash', currency: cur, amount: cur === 'USD' ? Math.round(tend * 100) : Math.round(tend) }];
+    const payments = exact ? [{ method: 'khqr', currency: 'USD', amount: total }] : [{ method: method === 'khqr' ? 'khqr' : 'cash', currency: curE, amount: curE === 'USD' ? Math.round(tend * 100) : Math.round(tend) }];
     let change;
-    if (!exact && over > 0) {
+    if (!exact && !dep && over > 0) {
       change = chg === 'USD' ? [{ currency: 'USD', amount: over }] : [{ currency: 'KHR', amount: toRiel(over, rate) }];
       if (cur === 'KHR') change = [{ currency: 'KHR', amount: Math.round(tend) - totalKhr }];
     }
@@ -90,6 +94,7 @@ function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose
       payments, ...(change ? { change } : {}),
       ...(discCents > 0 ? { discount: { type: disc.type, value: dv, reason: disc.reason } } : {}),
       ...(pin ? { manager_pin: pin } : {}),
+      ...(dep ? { deposit: true, due_date: due || null } : {}),
     };
     try { const sale = await api.post('/sales', body); setPinFor(null); onPaid(sale); }
     catch (e) {
@@ -99,7 +104,7 @@ function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose
     } finally { setBusy(false); }
   };
 
-  const ok = total > 0 && (exact || paidCents >= total - 100);
+  const ok = total > 0 && (dep ? (paidCents > 0 && paidCents < total - 100 && hasCust) : (exact || paidCents >= total - 100));
   return (
     <Modal title={t('pay')} onClose={onClose}>
       <div className="row between"><span className="muted">{t('subtotal')}</span><b className="num">{usd(subtotal)}</b></div>
@@ -114,28 +119,38 @@ function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose
         <div className="kpi"><div className="l">{t('total')}</div><div className="v">{usd(total)}</div><div className="muted num">{riel(totalKhr)}</div></div>
       </div>
       <div className="tabs">
+        <button className={`chip ${!dep ? 'on' : ''}`} onClick={() => setDep(false)}>{t('pay_full')}</button>
+        <button className={`chip ${dep ? 'on' : ''}`} onClick={() => setDep(true)}>{t('deposit')}</button>
+      </div>
+      {dep && <div className="card" style={{ marginBottom: 10 }}>
+        <p className="small muted" style={{ margin: 0 }}>{t('deposit_help')}</p>
+        {!hasCust && <div className="error">{t('deposit_need_cust')}</div>}
+        <label>{t('pickup_date')}</label><input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+        {paidCents > 0 && paidCents < total && <p style={{ margin: '8px 0 0' }}><b>{t('balance_due')}: {usd(total - paidCents)}</b></p>}
+      </div>}
+      <div className="tabs">
         <button className={`chip ${method === 'cash' ? 'on' : ''}`} onClick={() => setMethod('cash')}>{t('cash')}</button>
         <button className={`chip ${method === 'khqr' ? 'on' : ''}`} onClick={() => setMethod('khqr')}>{t('khqr')}</button>
       </div>
-      {method === 'cash' ? (
+      {method === 'cash' || dep ? (
         <>
           <div className="row">
-            <button className={`chip ${cur === 'USD' ? 'on' : ''}`} onClick={() => setCur('USD')}>USD $</button>
-            <button className={`chip ${cur === 'KHR' ? 'on' : ''}`} onClick={() => setCur('KHR')}>KHR ៛</button>
+            {method === 'cash' && <><button className={`chip ${cur === 'USD' ? 'on' : ''}`} onClick={() => setCur('USD')}>USD $</button>
+            <button className={`chip ${cur === 'KHR' ? 'on' : ''}`} onClick={() => setCur('KHR')}>KHR ៛</button></>}
             <input className="grow scanbox" style={{ fontSize: 22 }} inputMode="decimal" autoFocus placeholder="Received" value={tendered} onChange={(e) => setTendered(e.target.value)} />
           </div>
           <div className="row wrap" style={{ marginTop: 8 }}>
             <button className="chip" onClick={() => setTendered(cur === 'USD' ? (total / 100).toFixed(2) : String(totalKhr))}>Exact</button>
             {(cur === 'USD' ? [20, 50, 100, 200, 500] : [50000, 100000, 200000, 500000]).map((v) => <button key={v} className="chip" onClick={() => setTendered(String(v))}>{v.toLocaleString()}</button>)}
           </div>
-          {over > 0 && cur === 'USD' && (
+          {!dep && over > 0 && cur === 'USD' && (
             <div className="row" style={{ marginTop: 10 }}>
               <b>{t('change')}: {chg === 'USD' ? usd(over) : riel(toRiel(over, rate))}</b>
               <button className={`chip ${chg === 'USD' ? 'on' : ''}`} onClick={() => setChg('USD')}>USD</button>
               <button className={`chip ${chg === 'KHR' ? 'on' : ''}`} onClick={() => setChg('KHR')}>KHR</button>
             </div>
           )}
-          {cur === 'KHR' && tend > totalKhr && <b className="num" style={{ display: 'block', marginTop: 10 }}>{t('change')}: {riel(tend - totalKhr)}</b>}
+          {!dep && cur === 'KHR' && method === 'cash' && tend > totalKhr && <b className="num" style={{ display: 'block', marginTop: 10 }}>{t('change')}: {riel(tend - totalKhr)}</b>}
         </>
       ) : <p className="muted">Show the customer the KHQR code and confirm the payment arrived in the bank app before you continue.</p>}
       {err && <div className="error">{err}</div>}
@@ -292,6 +307,7 @@ export default function Register() {
       <div className="card cart" ref={cartRef}>
         <div className="grid g2" style={{ gap: 8 }}><input placeholder={t('cust_name')} value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} /><input inputMode="tel" placeholder={t('cust_phone')} value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></div>
         <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)', margin: '10px 0' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={cust.alteration} onChange={(e) => setCust({ ...cust, alteration: e.target.checked })} />✂️ {t('alteration')}</label>
+        {cust.alteration && <input style={{ marginBottom: 8 }} placeholder={t('alteration_note')} value={cust.note || ''} onChange={(e) => setCust({ ...cust, note: e.target.value })} />}
         <h3>{t('cart')} {pieces > 0 && <span className="muted small">({pieces})</span>}</h3>
         <div className="cartlines">
           {!cart.length && <p className="muted">{t('empty_cart')}</p>}
@@ -327,7 +343,7 @@ export default function Register() {
         </Modal>
       )}
       {cam && <CameraScan onClose={() => setCam(false)} onCode={(c) => { setCam(false); search(c, 'scan'); }} />}
-      {pay && <PayModal cart={cart} subtotal={subtotal} rate={rate} store={store} sw={sw} canDiscount={me.perms.includes('pos.discount')} extra={{ customer_name: cust.name, customer_phone: cust.phone, alteration: cust.alteration }} onClose={() => setPay(false)}
+      {pay && <PayModal cart={cart} subtotal={subtotal} rate={rate} store={store} sw={sw} canDiscount={me.perms.includes('pos.discount')} extra={{ customer_name: cust.name, customer_phone: cust.phone, alteration: cust.alteration, alteration_note: cust.note || '' }} onClose={() => setPay(false)}
         onPaid={async (s) => { setPay(false); setCart([]); setCust({ name: '', phone: '', alteration: false }); setDone(await api.get(`/sales/${s.id}`)); }} />}
       {done && <Receipt sale={done} onDone={() => setDone(null)} />}
       {toast}

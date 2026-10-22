@@ -3,6 +3,7 @@ import { useApp } from '../ui.jsx';
 import Lookup from './Lookup.jsx';
 import StockScreen from './Stock.jsx';
 import Catalogue from './Catalogue.jsx';
+import StockCount from './StockCount.jsx';
 
 // One place for everything about the goods: where they are, receiving and counting, and the product list.
 export default function Inventory() {
@@ -11,6 +12,7 @@ export default function Inventory() {
   const tabs = [
     ['find', km ? '🔎 រកស្តុកគ្រប់សាខា' : '🔎 Find in all stores', 'stock.view', Lookup],
     ['stock', km ? '📦 ស្តុកសាខានេះ' : '📦 This store’s stock', 'stock.in', StockScreen],
+    ['count', km ? '🧮 រាប់ស្តុក' : '🧮 Stock count', 'stock.adjust', StockCount],
     ['catalogue', km ? '👔 កាតាឡុក & ស្លាក' : '👔 Catalogue & labels', 'catalog.edit', Catalogue],
   ].filter((x) => me.perms.includes(x[2]));
   const [cur, setCur] = useState(tabs[0]?.[0]);

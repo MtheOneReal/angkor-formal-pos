@@ -4,6 +4,8 @@ import { Ctx, useApp, useT, PinPad, Modal, Spinner } from './ui.jsx';
 import { tr } from './i18n.js';
 import Register from './screens/Register.jsx';
 import Capital from './screens/Capital.jsx';
+import Jobs from './screens/Jobs.jsx';
+import Report from './screens/Report.jsx';
 import Account from './screens/Account.jsx';
 import Inventory from './screens/Inventory.jsx';
 import Transfers from './screens/Transfers.jsx';
@@ -16,10 +18,10 @@ import Attendance from './screens/Attendance.jsx';
 import Payroll from './screens/Payroll.jsx';
 
 const NAV = [
-  ['register', 'pos.sell', '🧾'], ['inventory', 'stock.view', '📦'], ['transfers', 'transfer.request', '🔁'],
-  ['sales', 'sales.view', '📄'], ['customers', 'customers.manage', '👥'], ['expenses', 'expenses.manage', '💸'], ['attendance', 'attendance.use', '🕘'], ['payroll', 'payroll.view', '💰'], ['capital', 'capital.view', '🤝'], ['dashboard', 'dashboard.view', '📊'], ['settings', 'users.manage', '⚙️'],
+  ['register', 'pos.sell', '🧾'], ['inventory', 'stock.view', '📦'], ['jobs', 'pos.sell', '✂️'], ['transfers', 'transfer.request', '🔁'],
+  ['sales', 'sales.view', '📄'], ['customers', 'customers.manage', '👥'], ['expenses', 'expenses.manage', '💸'], ['attendance', 'attendance.use', '🕘'], ['payroll', 'payroll.view', '💰'], ['report', 'report.view', '📈'], ['capital', 'capital.view', '🤝'], ['dashboard', 'dashboard.view', '📊'], ['settings', 'users.manage', '⚙️'],
 ];
-const SCREENS = { register: Register, inventory: Inventory, account: Account, capital: Capital, transfers: Transfers, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
+const SCREENS = { register: Register, inventory: Inventory, account: Account, jobs: Jobs, report: Report, capital: Capital, transfers: Transfers, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
 
 function Login({ onDone }) {
   const [mode, setMode] = useState('till');
