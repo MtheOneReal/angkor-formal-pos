@@ -72,7 +72,7 @@ function Login({ onDone }) {
             <div><div className="row between"><h3>{t('who_are_you')}</h3><button className="btn" onClick={() => setStore(null)}>{t('back')}</button></div>
               <div className="grid g2" style={{ marginTop: 10 }}>{staff.map((u) => <button key={u.id} className="stafftile" onClick={() => setWho(u)}>{u.name}</button>)}</div></div>
           ) : (
-            <div><div className="row between"><h3>{who.name}</h3><button className="btn" onClick={() => { setWho(null); setErr(''); }}>{t('back')}</button></div>
+            <div><div className="row between"><h3>{who.name}</h3>{who.pin_length ? null : <button className="btn" onClick={() => { setWho(null); setErr(''); }}>{t('back')}</button>}</div>
               <p className="muted" style={{ textAlign: 'center' }}>{t('enter_pin')}</p>
               <PinPad key={who.id} length={who.pin_length || 0} corner={who.pin_length ? <button className="btn primary" onClick={() => { setWho(null); setErr(''); }} style={{ fontSize: 13, lineHeight: 1.1, padding: 4 }}>←<br />{t('back')}</button> : null} onDone={pinLogin} error={err} busy={busy} /></div>
           )}
