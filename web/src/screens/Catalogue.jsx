@@ -1,3 +1,4 @@
+import GarmentIcon from '../GarmentIcon.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import JsBarcode from 'jsbarcode';
 import { api } from '../api.js';
@@ -26,7 +27,7 @@ export default function Catalogue() {
       <div className="results" style={{ marginTop: 14 }}>
         {rows.map((d) => (
           <div key={d.id} className="tile">
-            <div className="ph">{photo(d.photo) ? <img src={photo(d.photo)} alt="" /> : d.type_code}</div>
+            <div className="ph">{photo(d.photo) ? <img src={photo(d.photo)} alt="" /> : <GarmentIcon code={d.type_code} name={meta?.types?.find((x) => x.code === d.type_code)?.name_en} nameKm={meta?.types?.find((x) => x.code === d.type_code)?.name_km} size={56} />}</div>
             <div className="in"><b style={{ fontSize: 13 }}>{nm(d)}</b><div className="small muted">{d.brand_code}-{d.type_code}{String(d.number).padStart(2, '0')} · {d.items.length} variants</div>
               <div className="row between"><b className="num">{usd(d.price_cents)}</b>{canCost && <span className="small muted">cost {usd(d.cost_cents)}</span>}</div>
               <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={() => setLabels(d)}>Print labels</button>

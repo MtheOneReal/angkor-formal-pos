@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { api, qs } from '../api.js';
+import GarmentIcon from '../GarmentIcon.jsx';
 import { useApp, useT, Modal, PinPad, ManagerPin, useToast, useName, LevelBadge } from '../ui.jsx';
 import { usd, riel, toRiel } from '../format.js';
 
@@ -296,7 +297,7 @@ export default function Register() {
             const cols = [...new Map(g.items.map((i) => [i.colour_code, i.colour_hex])).values()];
             return (
               <div className="pcard" key={g.id}>
-                <div className="ph">{photo(g.d.photo) ? <img src={photo(g.d.photo)} alt="" loading="lazy" /> : g.d.type_code}<span className="code">{g.d.sku.split('-').slice(0, 2).join('-')}</span><span className="dots2">{cols.slice(0, 4).map((c, k) => <i key={k} style={{ background: c }} />)}</span></div>
+                <div className="ph">{photo(g.d.photo) ? <img src={photo(g.d.photo)} alt="" loading="lazy" /> : <GarmentIcon code={g.d.type_code} name={g.d.type_name_en} nameKm={g.d.type_name_km} size={64} />}<span className="code">{g.d.sku.split('-').slice(0, 2).join('-')}</span><span className="dots2">{cols.slice(0, 4).map((c, k) => <i key={k} style={{ background: c }} />)}</span></div>
                 <div className="row between small"><span className="muted">{nm({ name_en: g.d.type_name_en, name_km: g.d.type_name_km })}</span><span className="muted">{g.d.brand_code}</span></div>
                 <b style={{ fontSize: 14, lineHeight: 1.3 }}>{nm(g.d)}</b>
                 <div className="stockbox"><div><span>{t('this_store')}:</span><b>{here} pcs</b></div>{oth != null && <div><span>{t('other_stores')}:</span><b>{oth} pcs</b></div>}</div>
