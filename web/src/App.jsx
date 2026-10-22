@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { setKhmerDom } from './kmdom.js';
 import { api } from './api.js';
 import { Ctx, useApp, useT, PinPad, Modal, Spinner } from './ui.jsx';
 import { tr } from './i18n.js';
@@ -142,7 +143,7 @@ export default function App() {
   useEffect(() => { const r = () => load(); window.addEventListener('af-reload-me', r); return () => window.removeEventListener('af-reload-me', r); }, [load]);
   useEffect(() => { load(); const h = () => setMe(null); window.addEventListener('af-logged-out', h); return () => window.removeEventListener('af-logged-out', h); }, [load]);
   useEffect(() => { const h = () => setRoute(location.hash.slice(2)); window.addEventListener('hashchange', h); return () => window.removeEventListener('hashchange', h); }, []);
-  useEffect(() => { document.documentElement.lang = lang; document.documentElement.className = lang === 'km' ? 'km' : ''; localStorage.setItem('af_lang', lang); }, [lang]);
+  useEffect(() => { document.documentElement.lang = lang; document.documentElement.className = lang === 'km' ? 'km' : ''; localStorage.setItem('af_lang', lang); setKhmerDom(lang === 'km'); }, [lang]);
 
   // Auto-lock the till after a few quiet minutes (the setting is per store).
   useEffect(() => {
