@@ -107,3 +107,6 @@ td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middl
   @page { margin:4mm; }
 }
 .theme-ivory, .theme-dark { background:var(--bg); color:var(--text); }
+
+.embedded > div > h1, .embedded > div > .row > h1 { display:none; }
+.embedded > div > .row.between.wrap:has(> h1:only-child) { display:none; }

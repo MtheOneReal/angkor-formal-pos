@@ -3,10 +3,8 @@ import { api } from './api.js';
 import { Ctx, useApp, useT, PinPad, Modal, Spinner } from './ui.jsx';
 import { tr } from './i18n.js';
 import Register from './screens/Register.jsx';
-import Lookup from './screens/Lookup.jsx';
-import StockScreen from './screens/Stock.jsx';
+import Inventory from './screens/Inventory.jsx';
 import Transfers from './screens/Transfers.jsx';
-import Catalogue from './screens/Catalogue.jsx';
 import Sales from './screens/Sales.jsx';
 import Customers from './screens/Customers.jsx';
 import Dashboard from './screens/Dashboard.jsx';
@@ -16,10 +14,10 @@ import Attendance from './screens/Attendance.jsx';
 import Payroll from './screens/Payroll.jsx';
 
 const NAV = [
-  ['register', 'pos.sell', '🧾'], ['lookup', 'stock.view', '🔎'], ['stock', 'stock.in', '📦'], ['transfers', 'transfer.request', '🔁'],
-  ['catalogue', 'catalog.edit', '👔'], ['sales', 'sales.view', '📄'], ['customers', 'customers.manage', '👥'], ['expenses', 'expenses.manage', '💸'], ['attendance', 'attendance.use', '🕘'], ['payroll', 'payroll.view', '💰'], ['dashboard', 'dashboard.view', '📊'], ['settings', 'users.manage', '⚙️'],
+  ['register', 'pos.sell', '🧾'], ['inventory', 'stock.view', '📦'], ['transfers', 'transfer.request', '🔁'],
+  ['sales', 'sales.view', '📄'], ['customers', 'customers.manage', '👥'], ['expenses', 'expenses.manage', '💸'], ['attendance', 'attendance.use', '🕘'], ['payroll', 'payroll.view', '💰'], ['dashboard', 'dashboard.view', '📊'], ['settings', 'users.manage', '⚙️'],
 ];
-const SCREENS = { register: Register, lookup: Lookup, stock: StockScreen, transfers: Transfers, catalogue: Catalogue, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
+const SCREENS = { register: Register, inventory: Inventory, transfers: Transfers, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
 
 function Login({ onDone }) {
   const [mode, setMode] = useState('till');
