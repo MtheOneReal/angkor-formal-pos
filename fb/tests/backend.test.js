@@ -264,13 +264,17 @@ test('test reset clears activity and keeps staff, stores and catalogue unless as
 
 test('capital: shareholders, payments, reversal, totals; shareholder login sees capital only', async () => {
   const { api } = await setup();
-  const a = await api.post('/capital/shareholders', { name: 'Partner A', agreed_usd: 10000 });
-  await api.post('/capital/shareholders', { name: 'Partner B', agreed_usd: 5000 });
-  await api.post('/capital/payments', { shareholder_id: a.id, date: '2026-10-01', amount_usd: 4000, note: 'ABA' });
-  const p2 = await api.post('/capital/payments', { shareholder_id: a.id, date: '2026-10-02', amount_usd: 1000 });
-  await fails(api.post('/capital/payments', { shareholder_id: a.id, date: '2026-10-02', amount_usd: 0 }), 'BAD_INPUT');
+  const a = await api.post('/capital/shareholders', { name: 'Partner A', agreed_by_store: { 1: 6000, 2: 4000 } });
+  await api.post('/capital/shareholders', { name: 'Partner B', agreed_by_store: { 1: 5000 } });
+  await api.post('/capital/payments', { shareholder_id: a.id, store_id: 1, date: '2026-10-01', amount_usd: 4000, note: 'ABA' });
+  const p2 = await api.post('/capital/payments', { shareholder_id: a.id, store_id: 2, date: '2026-10-02', amount_usd: 1000 });
+  await fails(api.post('/capital/payments', { shareholder_id: a.id, store_id: 2, date: '2026-10-02', amount_usd: 0 }), 'BAD_INPUT');
   let c = await api.get('/capital');
   assert.equal(c.totals.agreed_cents, 1500000); assert.equal(c.totals.paid_cents, 500000); assert.equal(c.totals.outstanding_cents, 1000000);
+  const c1 = await api.get('/capital?store_id=1'); assert.equal(c1.totals.agreed_cents, 1100000); assert.equal(c1.totals.paid_cents, 400000); assert.equal(c1.shareholders.length, 2);
+  const c2 = await api.get('/capital?store_id=2'); assert.equal(c2.totals.agreed_cents, 400000); assert.equal(c2.totals.paid_cents, 100000); assert.equal(c2.shareholders.length, 1);
+  assert.equal(c.by_store.find((x) => x.store_id === 2).paid_cents, 100000);
+  await fails(api.post('/capital/payments', { shareholder_id: a.id, date: '2026-10-02', amount_usd: 5 }), 'BAD_INPUT');
   await fails(api.post(`/capital/payments/${p2.id}/reverse`, { reason: '' }), 'REASON');
   await api.post(`/capital/payments/${p2.id}/reverse`, { reason: 'Wrong person' });
   await fails(api.post(`/capital/payments/${p2.id}/reverse`, { reason: 'again' }), 'ALREADY');
@@ -279,6 +283,6 @@ test('capital: shareholders, payments, reversal, totals; shareholder login sees 
   const u = await api.post('/admin/users', { name: 'Investor', role: 'shareholder', email: 'inv@x.com', password: 'Investor-123' });
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'inv@x.com', password: 'Investor-123' });
   assert.equal((await api.get('/capital')).can_edit, false);
-  await fails(api.post('/capital/shareholders', { name: 'X', agreed_usd: 1 }), 'FORBIDDEN');
+  await fails(api.post('/capital/shareholders', { name: 'X', agreed_by_store: {} }), 'FORBIDDEN');
   const me = await api.get('/me'); assert.deepEqual(me.perms, ['capital.view']);
 });
