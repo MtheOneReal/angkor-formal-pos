@@ -12,6 +12,7 @@ export default function Lookup() {
   return (
     <div>
       <h1>{t('lookup')}</h1>
+      <p className="muted small" style={{ margin: '4px 0 0' }}>Search every branch and warehouse. You can only look here; to receive or adjust stock, use “Stock in this branch”.</p>
       <input className="scanbox" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a code, name or colour" style={{ marginTop: 12 }} />
       {data && !data.items.length && <p className="muted">Nothing found.</p>}
       <div className="col" style={{ marginTop: 14 }}>
@@ -22,7 +23,7 @@ export default function Lookup() {
               {it.stores.map((s) => {
                 const info = stores.find((x) => x.id === s.store_id);
                 return <div key={s.store_id} className="card" style={{ padding: 10, minWidth: 140, borderColor: s.store_id === store.id ? 'var(--accent)' : undefined }}>
-                  <div className="small muted">{info?.name || s.store_id}</div>
+                  <div className="small muted">{info?.name || s.store_id}{s.store_id === store.id && <> · <span>you are here</span></>}</div>
                   <div className="row"><LevelBadge level={s.level} />{s.qty !== undefined && <b className="num">{s.qty}</b>}</div></div>;
               })}
               {it.incoming > 0 && <span className="small muted">+{it.incoming} on the way</span>}

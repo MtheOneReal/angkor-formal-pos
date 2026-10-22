@@ -1,6 +1,8 @@
 // Khmer wording for screens that still have English text written directly in the code.
 // Matched exactly against the text on screen. Khmer has not been checked by a native reader yet.
 export const KM = {
+"you are here": "អ្នកនៅទីនេះ",
+"Search every branch and warehouse. You can only look here; to receive or adjust stock, use “Stock in this branch”.": "ស្វែងរកគ្រប់សាខា និងឃ្លាំង។ នៅទីនេះអាចមើលបានតែប៉ុណ្ណោះ។ ដើម្បីទទួលទំនិញ ឬកែស្តុក សូមប្រើ «ស្តុកក្នុងសាខានេះ»។",
 "— untick to remove it from the lists (history is kept)": "— ដកធីកដើម្បីដកចេញពីបញ្ជី (ប្រវត្តិនៅរក្សាទុក)",
 "+ Add a warehouse": "+ បន្ថែមឃ្លាំង",
 "+ Add a store": "+ បន្ថែមហាង",

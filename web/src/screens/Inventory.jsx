@@ -10,8 +10,8 @@ export default function Inventory() {
   const { me, lang } = useApp();
   const km = lang === 'km';
   const tabs = [
-    ['find', km ? '🔎 រកស្តុកគ្រប់សាខា' : '🔎 Find in all stores', 'stock.view', Lookup],
-    ['stock', km ? '📦 ស្តុកសាខានេះ' : '📦 This store’s stock', 'stock.in', StockScreen],
+    ['find', km ? '🔎 ស្វែងរកគ្រប់សាខា' : '🔎 Search all branches', 'stock.view', Lookup],
+    ['stock', km ? '📦 ស្តុកក្នុងសាខានេះ' : '📦 Stock in this branch', 'stock.in', StockScreen],
     ['count', km ? '🧮 រាប់ស្តុក' : '🧮 Stock count', 'stock.adjust', StockCount],
     ['catalogue', km ? '👔 កាតាឡុក & ស្លាក' : '👔 Catalogue & labels', 'catalog.edit', Catalogue],
   ].filter((x) => me.perms.includes(x[2]));
