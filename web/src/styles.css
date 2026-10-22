@@ -119,7 +119,6 @@ td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middl
 .theme-dark { --icon-ink:#efe6d3; --icon-paper:#2a2118; }
 .theme-ivory { --icon-ink:#1c1814; --icon-paper:#ffffff; }
 .pcard .ph, .tile .ph { background:linear-gradient(145deg,var(--surface2),var(--surface)); box-shadow:inset 0 0 0 1px rgba(200,162,90,.22); }
-.pcard .ph svg, .tile .ph svg { width:72%; height:auto; max-height:88%; }
+.pcard .ph svg, .tile .ph svg { width:70%; height:auto; max-height:82%; }
 .pcard .ph img, .tile .ph img { position:relative; z-index:1; }
 
-.pcard .ph svg.art, .tile .ph svg.art { width:100%; height:100%; max-height:none; position:absolute; inset:0; }

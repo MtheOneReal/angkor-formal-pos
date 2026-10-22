@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../api.js';
 import { useApp, useToast } from '../ui.jsx';
-import GarmentArt, { ART_STYLES, getArtStyle, setArtStyle } from '../GarmentArt.jsx';
 
 export default function Account() {
   const { me, lang } = useApp(); const km = lang === 'km'; const [toast, show] = useToast();
@@ -26,16 +25,6 @@ export default function Account() {
           <button className="btn primary big" disabled={busy || !f.current_password || !f.new_password} style={{ width: '100%', marginTop: 14 }}>{km ? 'រក្សាទុក' : 'Save new password'}</button>
         </form>
       )}
-      <div className="card" style={{ maxWidth: 640, marginTop: 14 }}>
-        <h3>{km ? 'រូបភាពផលិតផលពេលមិនទាន់មានរូប' : 'Picture for products without a photo'}</h3>
-        <div className="row wrap" style={{ gap: 10, marginTop: 8 }}>
-          {[['swatch', km ? 'សំឡីក្រណាត់' : 'Fabric swatch'], ['studio', km ? 'រូបថតស្ទូឌីយោ' : 'Studio shot'], ['monogram', km ? 'ឡូហ្គោ' : 'Monogram']].map(([v, l]) => (
-            <button key={v} className={`chip ${getArtStyle() === v ? 'on' : ''}`} style={{ padding: 6, width: 170, height: 'auto', display: 'block', textAlign: 'center' }} onClick={() => { setArtStyle(v); window.location.reload(); }}>
-              <div style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 6, overflow: 'hidden' }}><GarmentArt kind="blazer" variant={v} tint="#27385f" /></div>{l}
-            </button>))}
-        </div>
-        <p className="muted small">{km ? 'ប្រើលើឧបករណ៍នេះ។' : 'Applies on this device.'}</p>
-      </div>
       {toast}
     </div>
   );
