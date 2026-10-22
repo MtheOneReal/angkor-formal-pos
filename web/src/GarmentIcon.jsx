@@ -2,8 +2,9 @@ import React from 'react';
 
 // Default pictures for products that have no photo yet.
 // Each drawing has a body (the garment) and detail lines. Three looks are drawn from the same shapes:
-//   line  = thin outline        solid = filled shape with cut-out details        duo = soft tint, outline and gold details
-export const ICON_STYLES = ['line', 'solid', 'duo'];
+//   colour = flat colour illustration in realistic fabric colours   sketch = fashion technical drawing with stitching
+//   emblem = gold seal with the garment inside                       line   = plain thin outline
+export const ICON_STYLES = ['colour', 'sketch', 'emblem', 'line'];
 
 const G = {
   suit: { body: ['M24 6L12 11 7 46l8 2 3-22v32h28V26l3 22 8-2-5-35-12-5-8 6z'], detail: ['M32 12L25 32l7 10 7-10z', 'M32 14l-2 3 2 3 2-3z', 'M30 20l-2 20 4 4 4-4-2-20z', 'M32 44v14', 'M22 48h6M36 48h6'] },
@@ -36,23 +37,47 @@ export function garmentKey(code, nameEn, nameKm) {
 }
 export const GARMENT_KEYS = Object.keys(G);
 
-let chosen = 'duo';
-try { chosen = globalThis.localStorage?.getItem('af_icon_style') || 'duo'; } catch { /* ignore */ }
-export const setIconStyle = (s) => { chosen = ICON_STYLES.includes(s) ? s : 'duo'; try { globalThis.localStorage?.setItem('af_icon_style', chosen); } catch { /* ignore */ } };
+// Realistic colours for the flat style: [fabric, shadow, detail]
+const COL = {
+  suit: ['#25345a', '#16203a', '#e8ecf5'], blazer: ['#454851', '#2b2d33', '#d9dbe0'], trousers: ['#b89f72', '#8d7650', '#6e5a38'], shirt: ['#f3f4f1', '#d3d6d0', '#8fa6c8'],
+  tie: ['#8a2433', '#5e1622', '#d9b25f'], bowtie: ['#1f2022', '#0f1011', '#d9b25f'], socks: ['#2f3f66', '#1f2b48', '#e8ecf5'], belt: ['#6b4423', '#47290f', '#d9b25f'],
+  shoes: ['#6b4423', '#3f2410', '#2a170a'], waistcoat: ['#5b606b', '#3c4049', '#d9dbe0'], coat: ['#b58b5a', '#8a6638', '#5e4524'], cufflink: ['#d9b25f', '#a8832f', '#fff3cf'],
+  pocket: ['#f3f4f1', '#d3d6d0', '#b3303f'], hanger: ['#a9794a', '#7c5530', '#5b3d20'],
+};
+let chosen = 'colour';
+try { chosen = globalThis.localStorage?.getItem('af_icon_style') || 'colour'; } catch { /* ignore */ }
+export const setIconStyle = (s) => { chosen = ICON_STYLES.includes(s) ? s : 'colour'; try { globalThis.localStorage?.setItem('af_icon_style', chosen); } catch { /* ignore */ } };
+let uid = 0;
 
-export default function GarmentIcon({ code, name, nameKm, kind, size = 56, variant, style }) {
-  const g = G[kind || garmentKey(code, name, nameKm)];
-  const v = variant || chosen;
-  const common = { strokeLinecap: 'round', strokeLinejoin: 'round' };
-  const body = g.body.map((d, i) => v === 'line'
-    ? <path key={`b${i}`} d={d} fill="none" stroke="currentColor" strokeWidth="2" {...common} />
-    : v === 'solid'
-      ? <path key={`b${i}`} d={d} fill="currentColor" stroke="currentColor" strokeWidth="1" {...common} />
-      : <path key={`b${i}`} d={d} fill="currentColor" fillOpacity=".16" stroke="currentColor" strokeWidth="2" {...common} />);
-  const detail = g.detail.map((d, i) => <path key={`d${i}`} d={d} fill="none" strokeWidth={v === 'solid' ? 2 : 1.8} stroke={v === 'solid' ? 'var(--icon-cut, #1c1a17)' : v === 'duo' ? 'var(--icon-accent, currentColor)' : 'currentColor'} {...common} />);
-  return (
-    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" style={style}>
-      {body}{detail}
-    </svg>
-  );
+export default function GarmentIcon({ code, name, nameKm, kind, size = 56, variant, style, tint }) {
+  const key = kind || garmentKey(code, name, nameKm);
+  const g = G[key]; const v = variant || chosen; const rnd = React.useRef(++uid).current;
+  const c = { strokeLinecap: 'round', strokeLinejoin: 'round' };
+  const lineLook = (k = 2) => (<>
+    {g.body.map((d, i) => <path key={`b${i}`} d={d} fill="none" stroke="currentColor" strokeWidth={k} {...c} />)}
+    {g.detail.map((d, i) => <path key={`d${i}`} d={d} fill="none" stroke="currentColor" strokeWidth="1.8" {...c} />)}
+  </>);
+  let inner;
+  if (v === 'colour') {
+    const [f, sh, dt] = COL[key]; const main = tint || f; const clip = `gi${rnd}`;
+    inner = (<>
+      <defs><clipPath id={clip}>{g.body.map((d, i) => <path key={i} d={d} />)}</clipPath></defs>
+      {g.body.map((d, i) => <path key={`b${i}`} d={d} fill={main} stroke={sh} strokeWidth="1.2" {...c} />)}
+      <g clipPath={`url(#${clip})`}><rect x="33" y="0" width="40" height="64" fill={sh} opacity=".28" /><rect x="0" y="56" width="64" height="12" fill={sh} opacity=".22" /></g>
+      {g.detail.map((d, i) => <path key={`d${i}`} d={d} fill="none" stroke={key === 'shirt' || key === 'pocket' || key === 'trousers' || key === 'shoes' ? dt : dt} strokeWidth="1.6" opacity=".95" {...c} />)}
+    </>);
+  } else if (v === 'sketch') {
+    inner = (<g stroke="#2a2723" {...c}>
+      {g.body.map((d, i) => <path key={`b${i}`} d={d} fill="#fbfaf7" strokeWidth="1.8" />)}
+      {g.body.map((d, i) => <path key={`s${i}`} d={d} fill="none" strokeWidth=".9" strokeDasharray="1.6 2.2" transform="translate(32 32) scale(.9) translate(-32 -32)" />)}
+      {g.detail.map((d, i) => <path key={`d${i}`} d={d} fill="none" strokeWidth="1.4" />)}
+    </g>);
+  } else if (v === 'emblem') {
+    inner = (<>
+      <circle cx="32" cy="32" r="30" fill="currentColor" fillOpacity=".08" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" strokeWidth=".8" strokeDasharray="1 2.4" />
+      <g transform="translate(32 33) scale(.62) translate(-32 -32)">{lineLook(2.6)}</g>
+    </>);
+  } else inner = lineLook(2);
+  return <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" style={style}>{inner}</svg>;
 }
