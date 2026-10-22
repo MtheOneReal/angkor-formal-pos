@@ -786,7 +786,8 @@ export function createApi(B, extra = {}) {
     const batch = writeBatch(db);
     batch.update(ref('users', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, perms: b.perms ?? u.perms ?? {}, lang: b.lang ?? u.lang ?? 'en', storeIds: ['owner', 'shareholder'].includes(role) ? [] : storeIds, salaryCents: b.salary_usd == null ? (u.salaryCents || 0) : Math.max(0, Math.round(Number(b.salary_usd) * 100)) });
     const dir = await read('staffDirectory', id);
-    if (dir) batch.update(ref('staffDirectory', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, storeIds: ['owner', 'shareholder'].includes(role) ? [] : storeIds });
+    const pl = Math.floor(Number(b.pin_length)); const plOk = role === 'cashier' && pl >= 4 && pl <= 6;
+    if (dir) batch.update(ref('staffDirectory', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, storeIds: ['owner', 'shareholder'].includes(role) ? [] : storeIds, ...(plOk ? { pinLength: pl } : {}) });
     auditIn(batch, null, 'user.update', 'user', id, { role, active }); await batch.commit(); return { ok: true };
   }
   async function adminUserDelete(id) {
