@@ -210,7 +210,8 @@ export default function Register() {
   const box = useRef(); const entry = useRef('typed');
   const rate = me.rate;
 
-  const loadShift = useCallback(async () => setShift(await api.get(`/shifts/current${qs({ store_id: store.id })}`)), [store.id]);
+  const [shiftErr, setShiftErr] = useState('');
+  const loadShift = useCallback(async () => { try { setShiftErr(''); setShift(await api.get(`/shifts/current${qs({ store_id: store.id })}`)); } catch (e) { setShiftErr(e.message || 'Could not load.'); } }, [store.id]);
   useEffect(() => { loadShift(); }, [loadShift]);
   const loadCat = useCallback(() => api.get(`/pos/catalog${qs({ store_id: store.id })}`).then((d) => setCatalog(d.items)).catch(() => {}), [store.id]);
   useEffect(() => { if (shift) loadCat(); }, [shift, loadCat, done]);
@@ -268,6 +269,7 @@ export default function Register() {
   const subtotal = cart.reduce((a, l) => a + l.qty * l.item.price_cents, 0);
   const pieces = cart.reduce((a, l) => a + l.qty, 0);
 
+  if (shiftErr) return <div className="card" style={{ maxWidth: 480, margin: '40px auto' }}><div className="error">{shiftErr}</div><button className="btn" style={{ marginTop: 12 }} onClick={loadShift}>Try again</button></div>;
   if (shift === undefined) return null;
   if (!shift) return <ShiftBar shift={null} reload={loadShift} store={store} />;
 

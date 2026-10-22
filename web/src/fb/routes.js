@@ -258,7 +258,7 @@ export function createApi(B, extra = {}) {
     const sales = (await getDocs(salesQ(sh.storeId, where('shiftId', '==', String(sh.id))))).docs.map((d) => ({ id: d.id, ...d.data() })).filter((s) => s.status === 'completed');
     let cashUsd = 0; let cashKhr = 0;
     for (const s of sales) for (const p of s.payments || []) if (p.method === 'cash') { const sign = p.kind === 'change' ? -1 : 1; if (p.currency === 'USD') cashUsd += sign * p.amount; else cashKhr += sign * p.amount; }
-    const bp = await list('balancePayments', where('storeId', '==', Number(sh.storeId)), where('shiftId', '==', String(sh.id)), where('userId', '==', String(sh.userId)));
+    const bp = await list('balancePayments', where('storeId', '==', Number(sh.storeId)), where('shiftId', '==', String(sh.id)), where('userId', '==', String(sh.userId))).catch(() => []);
     for (const p of bp) if (p.method === 'cash') { if (p.currency === 'USD') cashUsd += p.amount; else cashKhr += p.amount; }
     const rets = S().user.role === 'cashier' ? [] : (await list('returns', where('storeId', '==', Number(sh.storeId)), where('shiftId', '==', String(sh.id)))).filter((r) => r.refundMethod === 'cash');
     const refunds = rets.reduce((a, r) => a + r.refundCents, 0);
