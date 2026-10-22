@@ -68,6 +68,16 @@ export function createApi(B, extra = {}) {
     const sm = await B.stockOfStore(storeId);
     return rows.map((r) => ({ ...r, ...B.quant(sm.get(r.id)), incoming: 0 }));
   }
+  async function posCatalog(q) {
+    need('catalog.view'); const my = assertStore(q.store_id);
+    const sw = await switchesOf(my); const cashier = S().user.role === 'cashier';
+    const canOther = can('stock.view_other') && (!cashier || sw.cashier_see_other_stock);
+    const rows = (await B.itemRows('', 3000)); const mine = await B.stockOfStore(my);
+    const all = canOther ? await B.stockOfAll() : [];
+    const other = new Map(); for (const x of all) if (Number(x.storeId) !== my) other.set(Number(x.itemId), (other.get(Number(x.itemId)) || 0) + Math.max(0, B.quant(x).available));
+    const types = new Map((await B.loadCatalog()).typesList.map((t) => [t.code, t]));
+    return { items: rows.map(({ cost_cents, ...r }) => ({ ...r, available: Math.max(0, B.quant(mine.get(r.id)).available), others: canOther ? (other.get(r.id) || 0) : null, type_name_en: types.get(r.type_code)?.nameEn || r.type_code, type_name_km: types.get(r.type_code)?.nameKm || null })) };
+  }
   async function designsList() {
     need('catalog.view');
     const cat = await B.loadCatalog(); const costs = B.can('cost.view') ? await B.loadCosts() : null;
@@ -270,7 +280,7 @@ export function createApi(B, extra = {}) {
   // ---------- sales ----------
   const saleView = (s, returns = []) => {
     const lines = (s.lines || []).map((l, i) => { const r = returns.filter((x) => x.saleId === s.id).flatMap((x) => x.lines).filter((x) => x.lineIndex === i); return { id: i, item_id: l.itemId, qty: l.qty, unit_price_cents: l.unitCents, discount_cents: l.discountCents, line_total_cents: l.totalCents, entry: l.entry, sku: l.sku, size: l.size, name_en: l.nameEn, name_km: l.nameKm, colour_en: l.colourEn, colour_km: l.colourKm, returned_qty: r.reduce((a, x) => a + x.qty, 0), returned_cents: r.reduce((a, x) => a + x.refundCents, 0) }; });
-    return { id: s.id, store_id: s.storeId, seq: s.seq, receipt_no: s.receiptNo, ts: s.ts, cashier_id: s.cashierId, cashier_name: s.cashierName, status: s.status, subtotal_cents: s.subtotalCents, discount_cents: s.discountCents, total_cents: s.totalCents, rate_khr_per_usd: s.rate, discount_reason: s.discountReason || null, approved_by_name: s.approvedByName || null, customer_name: s.customerName || null, customer_phone: s.customerPhone || null, store_name: s.storeName, store_code: s.storeCode, receipt_footer: s.receiptFooter, lines, payments: (s.payments || []).map((p) => ({ kind: p.kind, method: p.method, currency: p.currency, amount: p.amount, usd_cents: p.usd })), total_khr: usdCentsToKhr(s.totalCents, s.rate) };
+    return { id: s.id, store_id: s.storeId, seq: s.seq, receipt_no: s.receiptNo, ts: s.ts, cashier_id: s.cashierId, cashier_name: s.cashierName, status: s.status, subtotal_cents: s.subtotalCents, discount_cents: s.discountCents, total_cents: s.totalCents, rate_khr_per_usd: s.rate, discount_reason: s.discountReason || null, approved_by_name: s.approvedByName || null, customer_name: s.customerName || null, customer_phone: s.customerPhone || null, alteration: !!s.alteration, store_name: s.storeName, store_code: s.storeCode, receipt_footer: s.receiptFooter, lines, payments: (s.payments || []).map((p) => ({ kind: p.kind, method: p.method, currency: p.currency, amount: p.amount, usd_cents: p.usd })), total_khr: usdCentsToKhr(s.totalCents, s.rate) };
   };
   async function getSale(id) {
     const s = await read('sales', id); if (!s) throw notFound('Receipt not found.');
@@ -372,7 +382,7 @@ export function createApi(B, extra = {}) {
       const saleLines = calc.map((c) => { const x = items.get(c.item_id); return { itemId: c.item_id, sku: x.it.sku, size: x.it.size, nameEn: x.d.nameEn, nameKm: x.d.nameKm || null, colourEn: x.c?.nameEn || x.it.colourCode, colourKm: x.c?.nameKm || null, qty: c.qty, unitCents: c.unit, discountCents: c.disc, totalCents: c.gross - c.disc, entry: c.entry }; });
       t.set(saleRef, {
         storeId, seq, receiptNo: `${store.code}-${String(seq).padStart(6, '0')}`, ts: ts(), dayKey: `${storeId}_${date}`, cashierId: S().uid, cashierName: S().user.name, shiftId: String(shift.id),
-        customerId: customer ? customer.id : null, customerName: customer?.name || null, customerPhone: customer?.phone || null, subtotalCents: subtotal, discountCents: discount,
+        customerId: customer ? customer.id : null, customerName: customer?.name || (b.customer_name ? txt(b.customer_name, 100).trim() : null) || null, customerPhone: customer?.phone || (b.customer_phone ? txt(b.customer_phone, 30).trim() : null) || null, alteration: !!b.alteration, subtotalCents: subtotal, discountCents: discount,
         totalCents: total, rate, discountReason: dsc?.reason ? txt(dsc.reason, 200) : null, approvalId, approvedByName: approver?.name || null, status: 'completed',
         storeName: store.name, storeCode: store.code, receiptFooter: store.receiptFooter || '', lines: saleLines,
         payments: [...tender, ...change], note: b.note ? txt(b.note, 200) : null,
@@ -875,6 +885,7 @@ export function createApi(B, extra = {}) {
       // catalogue and stock
       if (method === 'GET' && path === '/meta') return await meta();
       if (method === 'GET' && path === '/items') return await itemsList(q);
+      if (method === 'GET' && path === '/pos/catalog') return await posCatalog(q);
       if (method === 'GET' && (m = path.match(/^\/items\/code\/(.+)$/))) { need('catalog.view'); return await itemByCode({ ...q, code: decodeURIComponent(m[1]) }); }
       if (method === 'GET' && path === '/designs') return await designsList();
       if (method === 'POST' && path === '/designs') return await createDesign(b);

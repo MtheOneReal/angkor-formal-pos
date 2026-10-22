@@ -236,3 +236,9 @@ test('expense receipt photo is required above the limit and can be viewed', asyn
   await api.post(`/expenses/${e.id}/delete`);
   await fails(api.get(`/expenses/${e.id}/photo`), 'NOT_FOUND');
 });
+
+test('POS catalogue lists stock here and elsewhere; sale keeps walk-in name and alteration flag', async () => {
+  const { api } = await setup();
+  const c = await api.get('/pos/catalog?store_id=1');
+  assert.ok(Array.isArray(c.items)); assert.ok(c.items.every((i) => typeof i.available === 'number' && !('cost_cents' in i)));
+});

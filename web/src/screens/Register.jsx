@@ -57,7 +57,7 @@ function Receipt({ sale, onDone }) {
   );
 }
 
-function PayModal({ cart, subtotal, rate, store, sw, canDiscount, onClose, onPaid }) {
+function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose, onPaid }) {
   const t = useT();
   const [disc, setDisc] = useState({ type: 'percent', value: '', reason: '' });
   const dv = Number(disc.value) || 0;
@@ -85,7 +85,7 @@ function PayModal({ cart, subtotal, rate, store, sw, canDiscount, onClose, onPai
       if (cur === 'KHR') change = [{ currency: 'KHR', amount: Math.round(tend) - totalKhr }];
     }
     const body = {
-      store_id: store.id, entry_default: true,
+      store_id: store.id, entry_default: true, ...(extra || {}),
       lines: cart.map((l) => ({ item_id: l.item.id, qty: l.qty, entry: l.entry })),
       payments, ...(change ? { change } : {}),
       ...(discCents > 0 ? { discount: { type: disc.type, value: dv, reason: disc.reason } } : {}),
@@ -189,12 +189,29 @@ export default function Register() {
   const [cart, setCart] = useState([]); const [msg, setMsg] = useState('');
   const [cam, setCam] = useState(false); const [pay, setPay] = useState(false); const [done, setDone] = useState(null);
   const [kb, setKb] = useState(true);
+  const [catalog, setCatalog] = useState([]); const [flt, setFlt] = useState({ type: '', brand: '', size: '' }); const [pick, setPick] = useState(null);
+  const [cust, setCust] = useState({ name: '', phone: '', alteration: false }); const cartRef = useRef();
   const [toast, show] = useToast();
   const box = useRef(); const entry = useRef('typed');
   const rate = me.rate;
 
   const loadShift = useCallback(async () => setShift(await api.get(`/shifts/current${qs({ store_id: store.id })}`)), [store.id]);
   useEffect(() => { loadShift(); }, [loadShift]);
+  const loadCat = useCallback(() => api.get(`/pos/catalog${qs({ store_id: store.id })}`).then((d) => setCatalog(d.items)).catch(() => {}), [store.id]);
+  useEffect(() => { if (shift) loadCat(); }, [shift, loadCat, done]);
+  const groups = useMemo(() => {
+    const m = new Map();
+    for (const it of catalog) { if (!m.has(it.design_id)) m.set(it.design_id, { id: it.design_id, d: it, items: [] }); m.get(it.design_id).items.push(it); }
+    const term = q.trim().toLowerCase();
+    return [...m.values()].filter((g) => (!flt.type || g.d.type_code === flt.type) && (!flt.brand || g.d.brand_code === flt.brand)
+      && (!flt.size || g.items.some((i) => i.size === flt.size))
+      && (!term || g.items.some((i) => `${i.sku} ${i.name_en} ${i.name_km || ''} ${i.colour_en}`.toLowerCase().includes(term)))).sort((a, b) => String(a.d.sku).localeCompare(b.d.sku));
+  }, [catalog, flt, q]);
+  const opts = useMemo(() => ({
+    types: [...new Map(catalog.map((i) => [i.type_code, i])).values()].map((i) => ({ v: i.type_code, l: `${nm({ name_en: i.type_name_en, name_km: i.type_name_km })}` })),
+    brands: [...new Set(catalog.map((i) => i.brand_code))].sort(),
+    sizes: [...new Set(catalog.map((i) => i.size))].sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || String(a).localeCompare(b)),
+  }), [catalog]); // eslint-disable-line react-hooks/exhaustive-deps
   const focus = () => setTimeout(() => box.current?.focus(), 50);
   useEffect(() => { if (shift) focus(); }, [shift, done, pay]);
 
@@ -205,7 +222,7 @@ export default function Register() {
       if (i >= 0) { const n = [...c]; n[i] = { ...n[i], qty: Math.min(n[i].qty + 1, item.available ?? 99), entry: how === 'scan' ? n[i].entry : 'typed' }; return n; }
       return [...c, { item, qty: 1, entry: how }];
     });
-    setMsg(''); setQ(''); setRes([]); focus();
+    setMsg(''); setQ(''); setPick(null); focus();
   };
 
   const search = async (text, how) => {
@@ -215,10 +232,7 @@ export default function Register() {
       // An exact code (scanner or typed) adds straight to the cart.
       const hit = await api.get(`/items/code/${encodeURIComponent(v)}${qs({ store_id: store.id })}`).catch(() => null);
       if (hit && !Array.isArray(hit)) { addItem(hit, how); return; }
-      const rows = await api.get(`/items${qs({ store_id: store.id, q: v })}`);
-      if (Array.isArray(hit) && hit.length) { setRes(hit); return; }
-      setRes(rows.filter((r) => r.active !== false));
-      if (!rows.length) setMsg('Nothing found. Try the lookup screen to check other stores.');
+      setMsg(groups.length ? '' : t('no_match'));
     } catch (e) { setMsg(e.message); }
   };
 
@@ -253,17 +267,31 @@ export default function Register() {
         </div>
         {sw.require_scan_to_sell && <div className="small muted" style={{ marginTop: 6 }}>Scan-to-sell is on: typed items will need a manager PIN.</div>}
         {msg && <div className="error">{msg}</div>}
-        <div className="results">
-          {res.map((it) => (
-            <button key={it.id} className="tile" onClick={() => addItem(it, 'typed')} disabled={it.available <= 0}>
-              <div className="ph">{photo(it.photo) ? <img src={photo(it.photo)} alt="" /> : it.type_code}</div>
-              <div className="in"><b style={{ fontSize: 13 }}>{nm(it)}</b><div className="small muted"><span className="swatch" style={{ background: it.colour_hex }} />{it.colour_en} · {it.size}</div>
-                <div className="row between"><b className="num">{usd(it.price_cents)}</b><span className="small muted">{it.available} left</span></div></div>
-            </button>
-          ))}
+        <div className="filters">
+          <select value={flt.type} onChange={(e) => setFlt({ ...flt, type: e.target.value })}><option value="">{t('all_types')}</option>{opts.types.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select>
+          <select value={flt.brand} onChange={(e) => setFlt({ ...flt, brand: e.target.value })}><option value="">{t('all_brands')}</option>{opts.brands.map((o) => <option key={o} value={o}>{o}</option>)}</select>
+          <select value={flt.size} onChange={(e) => setFlt({ ...flt, size: e.target.value })}><option value="">{t('all_sizes')}</option>{opts.sizes.map((o) => <option key={o} value={o}>{o}</option>)}</select>
+        </div>
+        {!groups.length && <p className="muted">{t('no_match')}</p>}
+        <div className="pgrid">
+          {groups.map((g) => {
+            const here = g.items.reduce((n, i) => n + i.available, 0); const oth = g.items.some((i) => i.others == null) ? null : g.items.reduce((n, i) => n + i.others, 0);
+            const cols = [...new Map(g.items.map((i) => [i.colour_code, i.colour_hex])).values()];
+            return (
+              <div className="pcard" key={g.id}>
+                <div className="ph">{photo(g.d.photo) ? <img src={photo(g.d.photo)} alt="" loading="lazy" /> : g.d.type_code}<span className="code">{g.d.sku.split('-').slice(0, 2).join('-')}</span><span className="dots2">{cols.slice(0, 4).map((c, k) => <i key={k} style={{ background: c }} />)}</span></div>
+                <div className="row between small"><span className="muted">{nm({ name_en: g.d.type_name_en, name_km: g.d.type_name_km })}</span><span className="muted">{g.d.brand_code}</span></div>
+                <b style={{ fontSize: 14, lineHeight: 1.3 }}>{nm(g.d)}</b>
+                <div className="stockbox"><div><span>{t('this_store')}:</span><b>{here} pcs</b></div>{oth != null && <div><span>{t('other_stores')}:</span><b>{oth} pcs</b></div>}</div>
+                <div className="row between" style={{ marginTop: 'auto', paddingTop: 6 }}><b className="num" style={{ fontSize: 18 }}>{usd(g.d.price_cents)}</b><button className="btn primary" style={{ minHeight: 38, padding: '6px 12px' }} onClick={() => setPick(g)}>{t('select_size')} →</button></div>
+              </div>
+            );
+          })}
         </div>
       </div>
-      <div className="card cart">
+      <div className="card cart" ref={cartRef}>
+        <div className="grid g2" style={{ gap: 8 }}><input placeholder={t('cust_name')} value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} /><input inputMode="tel" placeholder={t('cust_phone')} value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></div>
+        <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)', margin: '10px 0' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={cust.alteration} onChange={(e) => setCust({ ...cust, alteration: e.target.checked })} />✂️ {t('alteration')}</label>
         <h3>{t('cart')} {pieces > 0 && <span className="muted small">({pieces})</span>}</h3>
         <div className="cartlines">
           {!cart.length && <p className="muted">{t('empty_cart')}</p>}
@@ -280,12 +308,27 @@ export default function Register() {
           ))}
         </div>
         <div className="kpi" style={{ padding: '10px 0' }}><div className="l">{t('total')}</div><div className="v">{usd(subtotal)}</div><div className="muted num">{riel(toRiel(subtotal, rate))}</div></div>
-        <div className="row"><button className="btn" disabled={!cart.length} onClick={() => setCart([])}>{t('cancel')}</button>
+        <div className="row"><button className="btn" disabled={!cart.length} onClick={() => { setCart([]); setCust({ name: '', phone: '', alteration: false }); }}>{t('cancel')}</button>
           <button className="btn primary big grow" disabled={!cart.length} onClick={() => setPay(true)}>{t('pay')}</button></div>
       </div>
+      {cart.length > 0 && <button className="cartbar" onClick={() => cartRef.current?.scrollIntoView({ behavior: 'smooth' })}><span>{t('view_cart')} ({pieces})</span><span className="num">{usd(subtotal)}</span></button>}
+      {pick && (
+        <Modal title={nm(pick.d)} onClose={() => setPick(null)}>
+          <p className="muted small">{t('pick_size')}</p>
+          {[...new Set(pick.items.map((i) => i.colour_code))].map((cc) => {
+            const its = pick.items.filter((i) => i.colour_code === cc).sort((a, b) => (parseFloat(a.size) || 0) - (parseFloat(b.size) || 0) || String(a.size).localeCompare(b.size));
+            return (
+              <div key={cc} style={{ marginBottom: 12 }}>
+                <div style={{ marginBottom: 6 }}><span className="swatch" style={{ background: its[0].colour_hex }} /><b>{nm({ name_en: its[0].colour_en, name_km: its[0].colour_km })}</b></div>
+                <div className="row wrap">{its.map((i) => <button key={i.id} className="chip" disabled={i.available <= 0} style={i.available <= 0 ? { opacity: .4 } : undefined} onClick={() => addItem(i, 'typed')}>{i.size} <span className="small muted">({i.available})</span></button>)}</div>
+              </div>
+            );
+          })}
+        </Modal>
+      )}
       {cam && <CameraScan onClose={() => setCam(false)} onCode={(c) => { setCam(false); search(c, 'scan'); }} />}
-      {pay && <PayModal cart={cart} subtotal={subtotal} rate={rate} store={store} sw={sw} canDiscount={me.perms.includes('pos.discount')} onClose={() => setPay(false)}
-        onPaid={async (s) => { setPay(false); setCart([]); setDone(await api.get(`/sales/${s.id}`)); }} />}
+      {pay && <PayModal cart={cart} subtotal={subtotal} rate={rate} store={store} sw={sw} canDiscount={me.perms.includes('pos.discount')} extra={{ customer_name: cust.name, customer_phone: cust.phone, alteration: cust.alteration }} onClose={() => setPay(false)}
+        onPaid={async (s) => { setPay(false); setCart([]); setCust({ name: '', phone: '', alteration: false }); setDone(await api.get(`/sales/${s.id}`)); }} />}
       {done && <Receipt sale={done} onDone={() => setDone(null)} />}
       {toast}
     </div>
