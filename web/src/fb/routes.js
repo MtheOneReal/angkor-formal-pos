@@ -36,6 +36,14 @@ export function createApi(B, extra = {}) {
     await audit(Number(b.store_id), 'login', 'user', S().uid, { via: 'pin' });
     return { ok: true };
   }
+  async function changePassword(b) {
+    if (S().user.role === 'cashier') throw forbidden('Cashiers change their PIN with the owner or a manager.');
+    const next = String(b.new_password || '');
+    if (next.length < 8) throw bad('WEAK_PASSWORD', 'The new password needs at least 8 characters.');
+    if (next === b.current_password) throw bad('SAME_PASSWORD', 'The new password must be different.');
+    try { await auth.changePassword(String(b.current_password || ''), next); } catch { throw new ApiErr(401, 'BAD_LOGIN', 'Your current password is not correct.'); }
+    await audit(S().storeId, 'password.change', 'user', S().uid, {}); return { ok: true };
+  }
   async function emailLogin(b) {
     if (!b.email || !b.password) throw bad('MISSING', 'Enter email and password.');
     try { await auth.signIn(String(b.email).trim().toLowerCase(), b.password); } catch { throw new ApiErr(401, 'BAD_LOGIN', 'Email or password is not correct.'); }
@@ -872,6 +880,7 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && path === '/public/stores') return await publicStores();
       if (method === 'GET' && (m = path.match(/^\/public\/stores\/(\d+)\/staff$/))) return await publicStaff(m[1]);
       if (method === 'POST' && path === '/auth/login') return await emailLogin(b);
+      if (method === 'POST' && path === '/auth/change-password') return await changePassword(b);
       if (method === 'POST' && path === '/auth/pin-login') return await pinLogin(b);
       if (method === 'POST' && path === '/auth/logout') { await auth.signOut(); B.setSession(null); B.clearCaches(); return { ok: true }; }
       if (method === 'GET' && path === '/setup/status') return { needed: !(await getDoc(ref('setup', 'state'))).exists() };

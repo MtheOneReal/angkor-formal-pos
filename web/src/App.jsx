@@ -3,6 +3,7 @@ import { api } from './api.js';
 import { Ctx, useApp, useT, PinPad, Modal, Spinner } from './ui.jsx';
 import { tr } from './i18n.js';
 import Register from './screens/Register.jsx';
+import Account from './screens/Account.jsx';
 import Inventory from './screens/Inventory.jsx';
 import Transfers from './screens/Transfers.jsx';
 import Sales from './screens/Sales.jsx';
@@ -17,7 +18,7 @@ const NAV = [
   ['register', 'pos.sell', '🧾'], ['inventory', 'stock.view', '📦'], ['transfers', 'transfer.request', '🔁'],
   ['sales', 'sales.view', '📄'], ['customers', 'customers.manage', '👥'], ['expenses', 'expenses.manage', '💸'], ['attendance', 'attendance.use', '🕘'], ['payroll', 'payroll.view', '💰'], ['dashboard', 'dashboard.view', '📊'], ['settings', 'users.manage', '⚙️'],
 ];
-const SCREENS = { register: Register, inventory: Inventory, transfers: Transfers, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
+const SCREENS = { register: Register, inventory: Inventory, account: Account, transfers: Transfers, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
 
 function Login({ onDone }) {
   const [mode, setMode] = useState('till');
@@ -156,7 +157,7 @@ export default function App() {
   if (me.role === 'owner' && me.stores.length === 0) return <FinishSetup onDone={load} />;
   const allowed = NAV.filter(([k, p]) => me.perms.includes(p) && !(k === 'settings' && !me.perms.includes('settings.manage') && !me.perms.includes('users.manage')));
   const first = allowed[0]?.[0] || 'register';
-  const cur = allowed.find(([k]) => k === route) ? route : first;
+  const cur = (allowed.find(([k]) => k === route) || route === 'account') ? route : first;
   const Screen = SCREENS[cur];
   const effTheme = theme === 'dark' ? 'dark' : theme === 'light' ? 'ivory' : (me.role === 'cashier' ? 'ivory' : 'dark');
   const go = (k) => { location.hash = '/' + k; };
@@ -175,7 +176,7 @@ export default function App() {
             <img className="logo" src={`./brand/angkor-formal-logo-${effTheme === 'dark' ? 'gold' : 'bronze'}.svg`} alt="Angkor Formal" />
             {allowed.map(([k, , ic]) => <button key={k} className={`nav ${cur === k ? 'on' : ''}`} onClick={() => go(k)}><span>{ic}</span>{t(k)}</button>)}
             <div style={{ flex: 1 }} />
-            <div className="small muted" style={{ padding: '0 8px' }}>{me.name} · {me.role}</div>
+            <button className={`nav ${cur === 'account' ? 'on' : ''}`} onClick={() => go('account')} style={{ fontSize: 13 }}>👤 {me.name} · {me.role}</button>
             <div className="row" style={{ padding: 8 }}>
               <button className="chip" onClick={() => prefs({ lang: lang === 'en' ? 'km' : 'en' })}>{lang === 'en' ? 'ខ្មែរ' : 'EN'}</button>
               <button className="chip" onClick={() => prefs({ theme: effTheme === 'dark' ? 'light' : 'dark' })} aria-label={t('theme')}>{effTheme === 'dark' ? '☀' : '☾'}</button>
@@ -191,7 +192,8 @@ export default function App() {
           </main>
         </div>
         <nav className="bottomnav">
-          {allowed.slice(0, 6).map(([k, , ic]) => <button key={k} className={cur === k ? 'on' : ''} onClick={() => go(k)}><div style={{ fontSize: 20 }}>{ic}</div>{t(k)}</button>)}
+          {allowed.map(([k, , ic]) => <button key={k} className={cur === k ? 'on' : ''} onClick={() => go(k)}><div style={{ fontSize: 20 }}>{ic}</div>{t(k)}</button>)}
+          <button className={cur === 'account' ? 'on' : ''} onClick={() => go('account')}><div style={{ fontSize: 20 }}>👤</div>{lang === 'km' ? 'គណនី' : 'Account'}</button>
           <button onClick={logout}><div style={{ fontSize: 20 }}>⎋</div>{t('logout')}</button>
         </nav>
         {locked && <LockScreen onUnlock={() => { idle.current = Date.now(); setLocked(false); }} onLogout={logout} />}

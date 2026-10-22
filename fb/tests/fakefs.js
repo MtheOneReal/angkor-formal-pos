@@ -73,6 +73,7 @@ export function createFakeAuth() {
   const auth = {
     current: () => current,
     signOut: async () => { current = null; },
+    changePassword: async (cur, next) => { const a = accounts.get(current.email); if (a.password !== cur) throw new Error('bad'); a.password = next; },
     signIn: async (e, p) => { const a = accounts.get(e); if (!a || a.password !== p) throw new Error('bad'); current = { uid: a.uid, email: e }; },
     createAndSignIn: async (e, p) => { if (accounts.has(e)) throw new Error('dup'); const uid = `u${++n}`; accounts.set(e, { uid, password: p }); current = { uid, email: e }; return uid; },
   };

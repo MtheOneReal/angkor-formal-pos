@@ -242,3 +242,9 @@ test('POS catalogue lists stock here and elsewhere; sale keeps walk-in name and 
   const c = await api.get('/pos/catalog?store_id=1');
   assert.ok(Array.isArray(c.items)); assert.ok(c.items.every((i) => typeof i.available === 'number' && !('cost_cents' in i)));
 });
+
+test('owner can change own password; wrong current password is refused', async () => {
+  const { api } = await setup();
+  await fails(api.post('/auth/change-password', { current_password: 'nope', new_password: 'Brand-new-123' }), 'BAD_LOGIN');
+  await fails(api.post('/auth/change-password', { current_password: 'x', new_password: 'short' }), 'WEAK_PASSWORD');
+});
