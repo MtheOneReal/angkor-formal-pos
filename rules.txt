@@ -158,7 +158,7 @@ service cloud.firestore {
     // Pieces sold per product per day, no money. Every active person in the branch can read it so the
     // best-seller ranking works for cashiers too.
     match /itemStats/{key} {
-      allow read: if active() && inStore(resource.data.storeId);
+      allow read: if active() && (inStore(resource.data.storeId) || isPartner());
       allow create, update: if active() && inStore(request.resource.data.storeId);
       allow delete: if testReset();
     }
