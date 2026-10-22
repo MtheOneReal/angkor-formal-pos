@@ -1,83 +1,77 @@
 import React from 'react';
 
 // Default pictures for products that have no photo yet.
-// "Atelier" style: fine monoline tailoring drawings in champagne gold (dark theme) or bronze ink (light theme),
-// drawn as left half + mirror so every garment is perfectly symmetric. No clip-art colours, no thick strokes.
-// Keys per drawing: s = outline (mirrored), f = fine detail (mirrored), t = stitching (mirrored),
-// S / F = outline / detail drawn once (not mirrored), D = small round buttons [x, y, r].
+// Bold, even-weight outline icons (one line weight, rounded ends, light fill), the look used by classic menswear icon sets.
+// Each drawing is a left half + mirror so garments are perfectly symmetric.
+//   s = outline (mirrored)   f = inner detail lines (mirrored)   S / F = outline / detail drawn once   D = round buttons [x, y, r]
+const JACKET = 'M40 10L25 15Q21 17 20 22L14 70Q14 73 17 73L26 74L30 38L31 78Q31 82 34 83.5Q38 86 40 86';
 const G = {
   blazer: {
-    s: ['M41 11L26 17Q21 19 20 25L14 71Q14 74 17 74.5L27 76L31 42Q34 56 34 63L33 84Q33 86 36 86H48'],
-    f: ['M41 11L33 25L37 28L29 31L40 46L48 52', 'M44 15L48 44', 'M34 63L30 62', 'M35 66H43V69H35Z', 'M33 76H42', 'M17.5 66.5L26 68.5'],
-    t: ['M23 24L18 68', 'M33.5 70L33 82'],
-    S: [], F: ['M54 53H62V56H54Z'], D: [[48, 54, 1.5], [48, 66, 1.5]],
+    s: [JACKET],
+    f: ['M40 10L33 24L37 27L29 30L42 50L48 54', 'M43 13L47 44', 'M47 54Q47 74 40 86', 'M32.5 63H42V69H32.5Z'],
+    S: [], F: ['M54 35H63V39H54Z'], D: [[48, 58, 1.8]],
   },
   suit: {
-    s: ['M41 11L26 17Q21 19 20 25L14 71Q14 74 17 74.5L27 76L31 42Q34 56 34 63L33 84Q33 86 36 86H48'],
-    f: ['M41 11L33 25L37 28L29 31L40 46L48 52', 'M44 15L48 44', 'M35 66H43V69H35Z', 'M33 76H42', 'M17.5 66.5L26 68.5', 'M41 12L44 21L48 25'],
-    t: ['M23 24L18 68', 'M33.5 70L33 82'],
-    S: ['M45.5 26.5L48 24L50.5 26.5L49 30H47Z', 'M47 30L45 48L48 54L51 48L49 30'], F: [], D: [[48, 62, 1.5]],
+    s: [JACKET],
+    f: ['M40 10L33 24L37 27L29 30L42 50L48 54', 'M43 13L47 24', 'M47 54Q47 74 40 86', 'M32.5 63H42V69H32.5Z'],
+    S: ['M45.5 26L48 23L50.5 26L49 31H47Z', 'M47 31L45.5 46L48 52L50.5 46L49 31'], F: ['M54 35H63V39H54Z'], D: [[48, 60, 1.8]],
   },
   shirt: {
-    s: ['M38 11L25 19Q21 21 20 27L14 72L26 75L30 45L31 85Q31 88 35 88H48'],
-    f: ['M38 11L36 26L48 33', 'M38 11Q43 8 48 8.5', 'M45 34V88', 'M15.5 64.5L27.2 66.8'],
-    t: ['M31 32L30 44', 'M42.5 36V86'],
-    S: [], F: ['M33 49H42V59L37.5 61L33 59Z'], D: [[48, 41, 1.3], [48, 52, 1.3], [48, 63, 1.3], [48, 74, 1.3], [48, 84, 1.3]],
+    s: ['M39 12L26 18Q21 20 20 26L14 70Q14 73 17 73L27 75L31 42L31 82Q32 87 38 87Q43 88 48 88'],
+    f: ['M39 12L35 25L48 33', 'M39 12Q43 10 48 10.5', 'M44 34V88', 'M14.5 64L27 66.5'],
+    S: [], F: [], D: [[48, 42, 1.7], [48, 53, 1.7], [48, 64, 1.7], [48, 75, 1.7]],
   },
   trousers: {
-    s: ['M48 11H28L21 88H37L48 40'],
-    f: ['M28 11V20H48', 'M33 10V21', 'M48 20V38', 'M29 21Q34 25 37 34', 'M40 20Q40 27 38 31', 'M34 40L29.5 86'],
-    t: ['M30.5 22L29 85', 'M47 22V36'],
-    S: [], F: [], D: [[44.5, 15.5, 1.2]],
+    s: ['M48 11H27L22 88H38L48 38'],
+    f: ['M27 19H48', 'M44 19V30Q44 33 48 33', 'M28 20Q32 23 35 31', 'M35 46L33.5 86'],
+    S: [], F: [], D: [[44, 15, 1.4]],
   },
   tie: {
-    s: ['M48 9H40.5L38 14L41 24L34 68L48 88'],
-    f: ['M41 24H48', 'M48 24V88', 'M38.5 15H48', 'M39.5 38L48 43', 'M37 56L48 62'],
-    t: [], S: [], F: [], D: [],
+    s: ['M37 8L27 18L36 25L43 21', 'M48 17L43 21L45 30L38 70L48 87'],
+    f: ['M45 30H48'],
+    S: [], F: [], D: [],
   },
   bowtie: {
-    s: ['M43 38L21 28Q17 26.5 16.5 31L16 61Q17 65 21 63L43 54'],
-    f: ['M27 33Q24 46 27 58', 'M33 35Q30 46 33 56', 'M43 38V54'],
-    t: [], S: ['M43 39H53V53H43Z'], F: ['M44 42H52'], D: [],
+    s: ['M44 41Q32 31 18 31Q14 31 14 36V58Q14 63 18 63Q32 63 44 54'],
+    f: ['M41 44.5L28 42.5', 'M41 48H26', 'M41 51.5L28 53.5'],
+    S: ['M45 39H51Q53 39 53 41V53Q53 55 51 55H45Q43 55 43 53V41Q43 39 45 39Z'], F: [], D: [],
   },
   socks: {
-    s: [], f: [], t: [],
-    S: ['M34 9H58V50Q58 56 62 60L77 71Q83 77 79 83Q75 87 68 85L44 75Q34 71 34 60Z'],
-    F: ['M34 16H58', 'M34 21H58', 'M34 26H58', 'M37 62Q40 70 47 72', 'M70 77L74 72'], D: [],
+    s: [], f: [], 
+    S: ['M33 9H59V50Q59 56 63 60L77 71Q83 77 79 83Q75 87 68 85L44 76Q33 72 33 60Z'],
+    F: ['M33 18H59', 'M38 62Q41 70 48 73'], D: [],
   },
   belt: {
-    s: ['M6 41H36'], f: ['M6 55H36', 'M36 41V55'], t: ['M6 44H34', 'M6 52H34'],
-    S: ['M36 33H60Q62 33 62 35V61Q62 63 60 63H36Q34 63 34 61V35Q34 33 36 33Z', 'M42 39H56V57H42Z', 'M62 41H90V55H62'],
-    F: ['M42 48H55', 'M62 44H88', 'M62 52H88'], D: [[67, 48, 1.3], [74, 48, 1.3], [81, 48, 1.3]],
+    s: ['M6 40H34'], f: ['M6 56H34'],
+    S: ['M34 32H62V64H34Z', 'M62 40H90V56H62Z'],
+    F: ['M41 39H55V57H41Z', 'M41 48H56'], D: [[69, 48, 1.7], [76, 48, 1.7], [83, 48, 1.7]],
   },
   shoes: {
-    s: [], f: [], t: [],
-    S: ['M9 52L11 40Q11 36 15 36H23Q26 44 36 46L58 52Q72 56 82 62Q89 65 88 72V74Q88 77 85 77H12Q9 77 9 74Z'],
-    F: ['M9 70H88', 'M9 66V77', 'M31 42L35 48', 'M37 44L41 50', 'M43 46L47 51', 'M62 54Q68 62 70 70', 'M20 38H17'],
-    D: [[66, 60, .9], [71, 63, .9], [74, 67, .9], [63, 66, .9]],
+    s: [], f: [],
+    S: ['M9 56L10 40Q10 36 14 36H22Q25 44 34 46L56 51Q70 54 82 60Q88 63 88 69V72Q88 75 85 75H12Q9 75 9 72Z'],
+    F: ['M9 67H88', 'M26 67V75', 'M29 41L35 48', 'M35 43L41 50', 'M41 45L47 52', 'M61 52Q68 60 70 67', 'M14 38Q17 43 22 44'],
+    D: [[66, 58, 1.2], [72, 61, 1.2], [69, 64, 1.2], [75, 65, 1.2]],
   },
   waistcoat: {
-    s: ['M37 10L27 15Q24 28 25 40L27 76Q28 80 32 82L48 90'],
-    f: ['M37 10L48 44', 'M29 62H38', 'M29 70H38'],
-    t: ['M30 22Q29 34 30 42'], S: [], F: [], D: [[48, 52, 1.4], [48, 61, 1.4], [48, 70, 1.4], [48, 79, 1.4]],
+    s: ['M39 10L28 13Q25 27 26 42L28 74Q28 79 32 81L48 90'],
+    f: ['M39 10L48 44', 'M30 62H40V66H30Z'],
+    S: [], F: [], D: [[48, 52, 1.8], [48, 61, 1.8], [48, 70, 1.8], [48, 79, 1.8]],
   },
   coat: {
-    s: ['M41 9L26 15Q21 17 20 23L13 77L24 80L30 46L28 91H48'],
-    f: ['M41 9L35 22L28 24L34 33L42 52L48 58', 'M44 14L48 50', 'M31 68H42', 'M31 76H42', 'M14.5 70L25 72.5'],
-    t: ['M23 24L17 72'], S: [], F: [], D: [[48, 62, 1.6], [48, 74, 1.6]],
+    s: ['M40 9L25 14Q20 16 19 22L12 78Q12 81 15 81L25 83L30 40L29 90H48'],
+    f: ['M40 9L32 24L36 27L28 30L42 52L48 57', 'M43 12L47 46', 'M32 66H43V72H32Z'],
+    S: [], F: ['M54 36H63V40H54Z'], D: [[48, 62, 1.8], [48, 74, 1.8]],
   },
   cufflink: {
-    s: [], f: [], t: [], S: [], F: [],
-    D: [],
-    extra: true,
+    s: [], f: [], S: [], F: [], D: [], extra: true,
   },
   pocket: {
-    s: [], f: [], t: [],
+    s: [], f: [],
     S: ['M14 76V45Q14 43 16 43H80Q82 43 82 45V76Q82 78 80 78H16Q14 78 14 76Z', 'M20 43L31 27L39 43L48 24L57 43L65 27L76 43'],
-    F: ['M14 53H82', 'M20 70L28 60', 'M68 70L76 60'], D: [],
+    F: ['M14 54H82'], D: [],
   },
   hanger: {
-    s: [], f: [], t: [],
+    s: [], f: [],
     S: ['M48 31L9 57Q5 60 8 63Q9 64 11 64H85Q87 64 88 63Q91 60 87 57Z'],
     F: ['M48 31V27Q48 21 54 21Q59 21 59 15Q59 9 52 9Q46 9 46 15'], D: [],
   },
@@ -97,35 +91,33 @@ export function garmentKey(code, nameEn, nameKm) {
   return BY_CODE[String(code || '').toUpperCase()] || 'hanger';
 }
 
-let uid = 0;
+const INK = 'var(--icon-ink, currentColor)';
+const PAPER = 'var(--icon-paper, transparent)';
 export default function GarmentIcon({ code, name, nameKm, kind, size = 56, style }) {
-  const key = kind || garmentKey(code, name, nameKm); const g = G[key]; const id = React.useRef(`gi${++uid}`).current;
-  const base = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round', stroke: `url(#${id})` };
+  const key = kind || garmentKey(code, name, nameKm); const g = G[key];
+  const line = { stroke: INK, strokeLinecap: 'round', strokeLinejoin: 'round' };
   const half = (
     <>
-      {(g.s || []).map((d, i) => <path key={`s${i}`} d={d} {...base} strokeWidth="1.5" fill={`url(#${id}f)`} />)}
-      {(g.f || []).map((d, i) => <path key={`f${i}`} d={d} {...base} strokeWidth="1" />)}
-      {(g.t || []).map((d, i) => <path key={`t${i}`} d={d} {...base} strokeWidth=".8" strokeDasharray="1.6 1.8" />)}
+      {(g.s || []).map((d, i) => <path key={`s${i}`} d={d} {...line} fill={PAPER} strokeWidth="3.2" />)}
+      {(g.f || []).map((d, i) => <path key={`f${i}`} d={d} {...line} fill="none" strokeWidth="2.6" />)}
     </>
   );
-  const mirrored = (g.s?.length || g.f?.length || g.t?.length);
+  const mirrored = (g.s?.length || g.f?.length);
   return (
     <svg viewBox="0 0 96 96" width={size} height={size} aria-hidden="true" style={style}>
-      <defs>
-        <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="92"><stop offset="0" stopColor="var(--icon-hi, currentColor)" /><stop offset="1" stopColor="var(--icon-lo, currentColor)" /></linearGradient>
-        <linearGradient id={`${id}f`} gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="92"><stop offset="0" stopColor="var(--icon-hi, currentColor)" stopOpacity=".16" /><stop offset="1" stopColor="var(--icon-lo, currentColor)" stopOpacity=".04" /></linearGradient>
-      </defs>
       {mirrored ? (<><g>{half}</g><g transform="translate(96 0) scale(-1 1)">{half}</g></>) : null}
-      {(g.S || []).map((d, i) => <path key={`S${i}`} d={d} {...base} strokeWidth="1.5" fill={`url(#${id}f)`} />)}
-      {(g.F || []).map((d, i) => <path key={`F${i}`} d={d} {...base} strokeWidth="1" />)}
-      {(g.D || []).map(([x, y, r], i) => <circle key={`D${i}`} cx={x} cy={y} r={r} fill={`url(#${id})`} />)}
-      {g.extra && key === 'cufflink' && [[27, 48], [69, 48]].map(([x, y], i) => (
-        <g key={i}>
-          <circle cx={x} cy={y} r="14" {...base} strokeWidth="1.5" fill={`url(#${id}f)`} />
-          <circle cx={x} cy={y} r="9.5" {...base} strokeWidth="1" />
-          <circle cx={x} cy={y} r="3.2" {...base} strokeWidth="1" />
-          <path d={`M${x} ${y - 9.5}V${y - 3.2}M${x} ${y + 3.2}V${y + 9.5}M${x - 9.5} ${y}H${x - 3.2}M${x + 3.2} ${y}H${x + 9.5}`} {...base} strokeWidth=".8" />
-        </g>))}
+      {(g.S || []).map((d, i) => <path key={`S${i}`} d={d} {...line} fill={PAPER} strokeWidth="3.2" />)}
+      {(g.F || []).map((d, i) => <path key={`F${i}`} d={d} {...line} fill="none" strokeWidth="2.6" />)}
+      {(g.D || []).map(([x, y, r], i) => <circle key={`D${i}`} cx={x} cy={y} r={r} fill={INK} />)}
+      {key === 'cufflink' && (
+        <g>
+          <circle cx="32" cy="46" r="17" {...line} fill={PAPER} strokeWidth="3.2" />
+          <circle cx="32" cy="46" r="10" {...line} fill="none" strokeWidth="2.6" />
+          <circle cx="32" cy="46" r="3" fill={INK} />
+          <ellipse cx="62" cy="46" rx="5" ry="14" {...line} fill={PAPER} strokeWidth="3.2" />
+          <path d="M67 46H84M84 37V55" {...line} fill="none" strokeWidth="3.2" />
+        </g>
+      )}
     </svg>
   );
 }
