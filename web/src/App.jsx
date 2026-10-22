@@ -74,7 +74,7 @@ function Login({ onDone }) {
           ) : (
             <div><div className="row between"><h3>{who.name}</h3><button className="btn" onClick={() => { setWho(null); setErr(''); }}>{t('back')}</button></div>
               <p className="muted" style={{ textAlign: 'center' }}>{t('enter_pin')}</p>
-              <PinPad key={who.id} length={who.pin_length || 0} onDone={pinLogin} error={err} busy={busy} /></div>
+              <PinPad key={who.id} length={who.pin_length || 0} corner={who.pin_length ? <button className="btn primary" onClick={() => { setWho(null); setErr(''); }} style={{ fontSize: 13, lineHeight: 1.1, padding: 4 }}>←<br />{t('back')}</button> : null} onDone={pinLogin} error={err} busy={busy} /></div>
           )}
         </div>
       </div>
