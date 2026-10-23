@@ -19,7 +19,7 @@ export default function StockScreen() {
   return (
     <div>
       <div className="row between wrap"><h1>{t('stock')} — {store.name}</h1>
-        <div className="row"><button className="btn primary" onClick={() => setModal({ kind: 'in' })}>＋ Receive delivery</button></div></div>
+        <div className="row">{me.perms.includes('stock.in') && <button className="btn primary" onClick={() => setModal({ kind: 'in' })}>＋ Receive delivery</button>}</div></div>
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search code, name, colour" style={{ margin: '12px 0 0' }} />
       <FilterBar scope="stock" items={rows} sel={sel} setSel={setSel} cfg={fcfg} />
       {canCost && <p className="muted small">Stock value at cost (list shown): {usd(value)}</p>}

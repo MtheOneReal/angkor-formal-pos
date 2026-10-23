@@ -11,7 +11,7 @@ export default function Inventory() {
   const km = lang === 'km';
   const tabs = [
     ['find', km ? '🔎 ស្វែងរកគ្រប់សាខា' : '🔎 Search all branches', 'stock.view', Lookup],
-    ['stock', km ? '📦 ស្តុកក្នុងសាខានេះ' : '📦 Stock in this branch', 'stock.in', StockScreen],
+    ['stock', km ? '📦 ស្តុកក្នុងសាខានេះ' : '📦 Stock in this branch', 'stock.view', StockScreen],
     ['count', km ? '🧮 រាប់ស្តុក' : '🧮 Stock count', 'stock.adjust', StockCount],
     ['catalogue', km ? '👔 កាតាឡុក & ស្លាក' : '👔 Catalogue & labels', 'catalog.edit', Catalogue],
   ].filter((x) => me.perms.includes(x[2]));
