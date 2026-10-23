@@ -125,3 +125,9 @@ td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middl
 
 /* On the all-branches search the shop is chosen inside the page, so the top switcher is hidden. */
 body[data-inv-tab="find"] .topbar { display:none; }
+
+/* configurable filter chips under the search bar */
+.fbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0; }
+.fbar .fsel { width:auto; min-width:0; max-width:100%; min-height:38px; padding:6px 30px 6px 14px; border-radius:999px; font-size:14px; }
+.fbar .fsel.on { border-color:var(--gold, #b08d57); font-weight:600; }
+.fbar .chip.add { border-style:dashed; }

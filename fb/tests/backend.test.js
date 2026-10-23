@@ -392,3 +392,17 @@ test('super admin: only the first owner can add or change owners, and cannot be 
   await fails(api.post('/admin/reset-test', { confirm: 'RESET' }), 'FORBIDDEN');
   assert.ok(o2.id);
 });
+
+test('filters under the search bar: defaults, owner can change them, cashier cannot', async () => {
+  const { api } = await setup();
+  const f0 = await api.get('/filters');
+  assert.deepEqual(f0.stock, ['type', 'colour', 'size', 'brand', 'low']); assert.equal(f0.can_edit, true);
+  await api.post('/filters', { scope: 'pos', keys: ['size', 'price'] });
+  assert.deepEqual((await api.get('/filters')).pos, ['size', 'price']);
+  assert.deepEqual((await api.get('/filters')).stock, f0.stock);
+  await fails(api.post('/filters', { scope: 'pos', keys: ['low'] }), 'BAD_INPUT');
+  await fails(api.post('/filters', { scope: 'stock', keys: ['nope'] }), 'BAD_INPUT');
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'mgr@x.com', password: 'Mgr-pass-123' });
+  const fm = await api.get('/filters'); assert.equal(fm.can_edit, false); assert.deepEqual(fm.pos, ['size', 'price']);
+  await fails(api.post('/filters', { scope: 'pos', keys: [] }), 'FORBIDDEN');
+});

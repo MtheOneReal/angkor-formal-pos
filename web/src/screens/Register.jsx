@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { api, qs } from '../api.js';
 import GarmentArt from '../GarmentArt.jsx';
+import FilterBar, { useFilterConfig, passes } from './FilterBar.jsx';
 import { useApp, useT, Modal, PinPad, ManagerPin, useToast, useName, LevelBadge } from '../ui.jsx';
 import { usd, riel, toRiel } from '../format.js';
 
@@ -205,7 +206,7 @@ export default function Register() {
   const [cart, setCart] = useState([]); const [msg, setMsg] = useState('');
   const [cam, setCam] = useState(false); const [pay, setPay] = useState(false); const [done, setDone] = useState(null);
   const [kb, setKb] = useState(true);
-  const [catalog, setCatalog] = useState([]); const [flt, setFlt] = useState({ type: '', brand: '', size: '' }); const [pick, setPick] = useState(null);
+  const [catalog, setCatalog] = useState([]); const [flt, setFlt] = useState({}); const fcfg = useFilterConfig('pos'); const [pick, setPick] = useState(null);
   const [cust, setCust] = useState({ name: '', phone: '', alteration: false }); const cartRef = useRef();
   const [toast, show] = useToast();
   const box = useRef(); const entry = useRef('typed');
@@ -220,15 +221,9 @@ export default function Register() {
     const m = new Map();
     for (const it of catalog) { if (!m.has(it.design_id)) m.set(it.design_id, { id: it.design_id, d: it, items: [] }); m.get(it.design_id).items.push(it); }
     const term = q.trim().toLowerCase();
-    return [...m.values()].filter((g) => (!flt.type || g.d.type_code === flt.type) && (!flt.brand || g.d.brand_code === flt.brand)
-      && (!flt.size || g.items.some((i) => i.size === flt.size))
+    return [...m.values()].filter((g) => (!Object.values(flt).some(Boolean) || g.items.some((i) => passes(i, flt, i.available, fcfg.keys)))
       && (!term || g.items.some((i) => `${i.sku} ${i.name_en} ${i.name_km || ''} ${i.colour_en}`.toLowerCase().includes(term)))).sort((a, b) => String(a.d.sku).localeCompare(b.d.sku));
-  }, [catalog, flt, q]);
-  const opts = useMemo(() => ({
-    types: [...new Map(catalog.map((i) => [i.type_code, i])).values()].map((i) => ({ v: i.type_code, l: `${nm({ name_en: i.type_name_en, name_km: i.type_name_km })}` })),
-    brands: [...new Set(catalog.map((i) => i.brand_code))].sort(),
-    sizes: [...new Set(catalog.map((i) => i.size))].sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || String(a).localeCompare(b)),
-  }), [catalog]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [catalog, flt, q, fcfg.keys]);
   const focus = () => setTimeout(() => box.current?.focus(), 50);
   useEffect(() => { if (shift) focus(); }, [shift, done, pay]);
 
@@ -285,11 +280,7 @@ export default function Register() {
         </div>
         {sw.require_scan_to_sell && <div className="small muted" style={{ marginTop: 6 }}>Scan-to-sell is on: typed items will need a manager PIN.</div>}
         {msg && <div className="error">{msg}</div>}
-        <div className="filters">
-          <select value={flt.type} onChange={(e) => setFlt({ ...flt, type: e.target.value })}><option value="">{t('all_types')}</option>{opts.types.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select>
-          <select value={flt.brand} onChange={(e) => setFlt({ ...flt, brand: e.target.value })}><option value="">{t('all_brands')}</option>{opts.brands.map((o) => <option key={o} value={o}>{o}</option>)}</select>
-          <select value={flt.size} onChange={(e) => setFlt({ ...flt, size: e.target.value })}><option value="">{t('all_sizes')}</option>{opts.sizes.map((o) => <option key={o} value={o}>{o}</option>)}</select>
-        </div>
+        <FilterBar scope="pos" items={catalog} sel={flt} setSel={setFlt} cfg={fcfg} />
         {!groups.length && <p className="muted">{t('no_match')}</p>}
         <div className="pgrid">
           {groups.map((g) => {

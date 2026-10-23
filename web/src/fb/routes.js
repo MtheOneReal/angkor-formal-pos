@@ -162,11 +162,26 @@ export function createApi(B, extra = {}) {
   }
 
   // ---------- stock ----------
+  const FILTER_KEYS = ['type', 'colour', 'size', 'brand', 'price', 'instock', 'low'];
+  const FILTER_DEFAULTS = { stock: ['type', 'colour', 'size', 'brand', 'low'], pos: ['type', 'colour', 'size', 'brand'] };
+  async function filtersGet() {
+    const d = await getDoc(ref('settings', 'filters')); const x = d.exists() ? d.data() : {};
+    return { stock: Array.isArray(x.stock) ? x.stock : FILTER_DEFAULTS.stock, pos: Array.isArray(x.pos) ? x.pos : FILTER_DEFAULTS.pos, can_edit: can('settings.manage') };
+  }
+  async function filtersSave(b) {
+    need('settings.manage');
+    if (!['stock', 'pos'].includes(b.scope)) throw bad('BAD_INPUT', 'Choose Stock or POS.');
+    const keys = [...new Set((b.keys || []).map(String))]; if (keys.some((k) => !FILTER_KEYS.includes(k)) || (b.scope === 'pos' && keys.includes('low'))) throw bad('BAD_INPUT', 'Unknown filter.');
+    const cur = await filtersGet();
+    await setDoc(ref('settings', 'filters'), { stock: cur.stock, pos: cur.pos, [b.scope]: keys, updatedTs: ts(), updatedBy: S().uid });
+    await audit(null, 'filters.update', 'settings', 'filters', { scope: b.scope, keys }); return { ok: true };
+  }
   async function stockList(q) {
     need('stock.view');
     const storeId = assertStore(q.store_id);
     const rows = await B.itemRows(q.q, 300); const sm = await B.stockOfStore(storeId);
-    return rows.map((r) => ({ ...r, ...B.quant(sm.get(r.id)) })).filter((r) => q.only_stocked !== '1' || r.on_hand !== 0 || r.reserved !== 0);
+    const types = new Map((await B.loadCatalog()).typesList.map((t) => [t.code, t]));
+    return rows.map((r) => ({ ...r, type_name_en: types.get(r.type_code)?.nameEn || r.type_code, type_name_km: types.get(r.type_code)?.nameKm || null, ...B.quant(sm.get(r.id)) })).filter((r) => q.only_stocked !== '1' || r.on_hand !== 0 || r.reserved !== 0);
   }
   async function lookup(q) {
     need('stock.view');
@@ -994,6 +1009,8 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && (m = path.match(/^\/items\/code\/(.+)$/))) { need('catalog.view'); return await itemByCode({ ...q, code: decodeURIComponent(m[1]) }); }
       if (method === 'GET' && path === '/designs') return await designsList();
       if (method === 'POST' && path === '/designs') return await createDesign(b);
+      if (method === 'GET' && path === '/filters') { S(); return await filtersGet(); }
+      if (method === 'POST' && path === '/filters') return await filtersSave(b);
       if (method === 'GET' && path === '/stock') return await stockList(q);
       if (method === 'GET' && path === '/stock/lookup') return await lookup(q);
       if (method === 'GET' && path === '/stock/restock') return await restock(q);
