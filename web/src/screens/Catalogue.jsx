@@ -32,7 +32,7 @@ export default function Catalogue() {
             <div className="in"><b style={{ fontSize: 13 }}>{nm(d)}</b><div className="small muted">{d.code || `${d.brand_code}-${d.type_code}${String(d.number).padStart(2, '0')}`} · {d.items.length} {L('variants', 'ប្រភេទ')}</div>
               <div className="row between"><span>{d.discount_cents > 0 && <s className="small muted" style={{ marginRight: 6 }}>{usd(d.full_price_cents)}</s>}<b className="num">{usd(d.price_cents)}</b></span>{canCost && <span className="small muted">cost {usd(d.cost_cents)}</span>}</div>
               {stk?.designs[d.id] && (() => { const s = stk.designs[d.id]; return <div style={{ marginTop: 4 }}><div className="row between"><span className="small">{L('In stock here', 'ស្តុកនៅទីនេះ')}</span><b className="num" style={{ color: s.here <= 0 ? 'var(--bad)' : s.low || s.out ? 'var(--warn)' : 'var(--ok)' }}>{s.here}</b></div>{s.others != null && <div className="row between"><span className="small muted">{L('Other shops', 'សាខាផ្សេង')}</span><span className="small muted num">{s.others}</span></div>}{(s.out > 0 || s.low > 0) && s.here > 0 && <div className="small" style={{ color: 'var(--warn)' }}>{s.out ? `${s.out} ${L('sold out', 'អស់')}` : ''}{s.out && s.low ? ' · ' : ''}{s.low ? `${s.low} ${L('running low', 'ជិតអស់')}` : ''}</div>}</div>; })()}
-              {me.perms.includes('stock.in') && <button className="btn primary" style={{ marginTop: 6, width: '100%' }} onClick={() => setGrid(d)}>＋ {L('Add stock', 'បន្ថែមស្តុក')}</button>}
+              {me.perms.includes('stock.in') && <button className="btn primary" style={{ marginTop: 6, width: '100%' }} onClick={() => setGrid(d.id)}>＋ {L('Add stock', 'បន្ថែមស្តុក')}</button>}
               <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={() => setLabels(d)}>{L('Print labels', 'បោះពុម្ពស្លាក')}</button>
               {me.perms.includes('catalog.edit') && <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={async () => { if (!window.confirm(`Delete “${nm(d)}” and its ${d.items.length} variants for good?`)) return; try { await api.post(`/designs/${d.id}/delete`); show(L('Deleted', 'បានលុប')); load(); } catch (e) { window.alert(e.message); } }}>{L('Delete', 'លុប')}</button>}</div>
           </div>))}
@@ -40,7 +40,7 @@ export default function Catalogue() {
       {lists && <ListsManager start={lists} onClose={() => { setLists(null); reloadMeta(); load(); }} />}
       {add && meta && <NewDesign rows={rows} meta={meta} owner={me.role === 'owner'} editLists={(k) => { setAdd(false); setLists(k); }} onClose={() => setAdd(false)} onDone={() => { setAdd(false); show(L('Design added', 'បានបន្ថែមម៉ូដែល')); load(); }} />}
       {labels && <Labels design={labels} meta={meta} onClose={() => setLabels(null)} />}
-      {grid && <StockGrid design={grid} meta={meta} stk={stk} store={store} onClose={() => setGrid(null)} onDone={() => { setGrid(null); show(L('Stock added', 'បានបន្ថែមស្តុក')); loadStock(); }} />}
+      {grid && rows.find((r) => r.id === grid) && <StockGrid design={rows.find((r) => r.id === grid)} owner={me.perms.includes('catalog.edit')} editLists={(k) => { setGrid(null); setLists(k); }} reload={load} meta={meta} stk={stk} store={store} onClose={() => setGrid(null)} onDone={() => { setGrid(null); show(L('Stock added', 'បានបន្ថែមស្តុក')); loadStock(); }} />}
       {toast}
     </div>
   );
@@ -48,8 +48,7 @@ export default function Catalogue() {
 
 function NewDesign({ rows, meta, owner, editLists, onClose, onDone }) {
   const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
-  const sets = meta.size_sets || SIZE_SETS; const [custom, setCustom] = useState('');
-  const [f, setF] = useState({ brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', code: '', full: '', disc: '', price_usd: '', cost_usd: '', colours: [], sizes: [], photo: null });
+  const [f, setF] = useState({ brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', code: '', full: '', disc: '', price_usd: '', cost_usd: '', photo: null });
   const setPrices = ({ full, disc, sell }) => setF((x) => {
     const n = { ...x }; const num = (v) => (v === '' || isNaN(Number(v)) ? null : Number(v)); const r2 = (v) => String(Math.round(v * 100) / 100);
     if (full !== undefined) n.full = full; if (disc !== undefined) n.disc = disc; if (sell !== undefined) n.price_usd = sell;
@@ -58,17 +57,6 @@ function NewDesign({ rows, meta, owner, editLists, onClose, onDone }) {
     return n;
   });
   const [err, setErr] = useState('');
-  const isLen = (k) => /length|long|inseam|ប្រវែង/i.test(k);
-  const [gs, setGs] = useState({});
-  const gtoggle = (g, v) => setGs((x) => ({ ...x, [g]: (x[g] || []).includes(v) ? x[g].filter((y) => y !== v) : [...(x[g] || []), v] }));
-  const buildSizes = () => {
-    const base = [...new Set(Object.entries(gs).filter(([g]) => !isLen(g)).flatMap(([, v]) => v))];
-    const lens = [...new Set(Object.entries(gs).filter(([g]) => isLen(g)).flatMap(([, v]) => v))];
-    const own = base.length ? base : (lens.length ? [''] : []);
-    const combo = lens.length ? own.flatMap((b) => lens.map((l) => `${b} ${l}`.trim())) : own;
-    return [...new Set([...combo, ...f.sizes])];
-  };
-  const toggle = (k, v) => setF((x) => ({ ...x, [k]: x[k].includes(v) ? x[k].filter((y) => y !== v) : [...x[k], v] }));
   const pickPhoto = (file) => { if (!file) return; const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => { const s = Math.min(1, 480 / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = img.width * s; c.height = img.height * s; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); setF((x) => ({ ...x, photo: c.toDataURL('image/jpeg', 0.7) })); }; img.src = r.result; }; r.readAsDataURL(file); };
   return (
     <Modal title={L('New design', 'ម៉ូដែលថ្មី')} onClose={onClose} wide>
@@ -84,14 +72,39 @@ function NewDesign({ rows, meta, owner, editLists, onClose, onDone }) {
       </div>
       <label>{L('Photo', 'រូបភាព')}</label><input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files[0])} />
       {f.photo && <img src={f.photo} alt="" style={{ height: 120, borderRadius: 8, marginTop: 8 }} />}
+      {err && <div className="error">{err}</div>}
+      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { if (!f.code.trim()) { setErr(L('Enter a code.', 'សូមបំពេញកូដ។')); return; } try { await api.post('/designs', { ...f, full_price_usd: f.full || f.price_usd }); onDone(); } catch (e) { setErr(e.message); } }}>{L('Create design', 'បង្កើតម៉ូដែល')}</button>
+    </Modal>
+  );
+}
+
+function VariantPicker({ meta, owner, editLists, design, onAdded }) {
+  const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
+  const sets = meta.size_sets || SIZE_SETS; const [custom, setCustom] = useState(''); const [cols, setCols] = useState([]); const [extra, setExtra] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const f = { colours: cols, sizes: extra };
+  const toggle = (k, v) => (k === 'colours' ? setCols : setExtra)((x) => (x.includes(v) ? x.filter((y) => y !== v) : [...x, v]));
+  const isLen = (k) => /length|long|inseam|ប្រវែង/i.test(k);
+  const [gs, setGs] = useState({});
+  const gtoggle = (g, v) => setGs((x) => ({ ...x, [g]: (x[g] || []).includes(v) ? x[g].filter((y) => y !== v) : [...(x[g] || []), v] }));
+  const buildSizes = () => {
+    const base = [...new Set(Object.entries(gs).filter(([g]) => !isLen(g)).flatMap(([, v]) => v))];
+    const lens = [...new Set(Object.entries(gs).filter(([g]) => isLen(g)).flatMap(([, v]) => v))];
+    const own = base.length ? base : (lens.length ? [''] : []);
+    const combo = lens.length ? own.flatMap((b) => lens.map((l) => `${b} ${l}`.trim())) : own;
+    return [...new Set([...combo, ...f.sizes])];
+  };
+  const n = cols.length * buildSizes().length;
+  const save = async () => { setBusy(true); setErr(''); try { await api.post(`/designs/${design.id}/variants`, { colours: cols, sizes: buildSizes() }); setCols([]); setGs({}); setExtra([]); onAdded(); } catch (e) { setErr(e.message); } setBusy(false); };
+  return (
+    <div>
       <label>{L('Colours', 'ពណ៌')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('colours'); }} style={{ textTransform: 'none' }}>✎ {L('add / edit', 'បន្ថែម / កែ')}</a>}</label><div className="row wrap">{meta.colours.map((c) => <button key={c.code} className={`chip ${f.colours.includes(c.code) ? 'on' : ''}`} onClick={() => toggle('colours', c.code)}><span className="swatch" style={{ background: c.hex }} />{lang === 'km' && c.name_km ? c.name_km : c.name_en}</button>)}</div>
       <label>{L('Sizes', 'ទំហំ')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('sizes'); }} style={{ textTransform: 'none' }}>✎ {L('edit groups', 'កែក្រុម')}</a>}</label>
       {Object.entries(sets).map(([k, sizes]) => <div key={k} className="row wrap" style={{ marginBottom: 6 }}><span className="small muted" style={{ width: 60 }}>{k}</span>{sizes.map((s) => <button key={k + s} className={`chip ${(gs[k] || []).includes(s) ? 'on' : ''}`} onClick={() => gtoggle(k, s)}>{s}</button>)}</div>)}
       {Object.keys(sets).some(isLen) && <p className="muted small">{L('A group named “Length” is combined with the size: size 44 + length S makes “44 S”, its own stock item.', 'ក្រុមឈ្មោះ “Length” ត្រូវបានផ្សំជាមួយទំហំ៖ ទំហំ 44 + ប្រវែង S ជា “44 S” ដែលមានស្តុកផ្ទាល់ខ្លួន។')}</p>}
-      <div className="row" style={{ marginTop: 6 }}><input style={{ width: 160 }} placeholder={L('Other size (e.g. 58)', 'ទំហំផ្សេង (ឧ. 58)')} value={custom} onChange={(e) => setCustom(e.target.value)} /><button className="btn" onClick={() => { const v = custom.trim().toUpperCase(); if (v && !f.sizes.includes(v)) setF((x) => ({ ...x, sizes: [...x.sizes, v] })); setCustom(''); }}>{L('Add size', 'បន្ថែមទំហំ')}</button>{f.sizes.filter((z) => !Object.values(sets).flat().includes(z)).map((z) => <button key={z} className="chip on" onClick={() => toggle('sizes', z)}>{z} ✕</button>)}</div>
+      <div className="row" style={{ marginTop: 6 }}><input style={{ width: 160 }} placeholder={L('Other size (e.g. 58)', 'ទំហំផ្សេង (ឧ. 58)')} value={custom} onChange={(e) => setCustom(e.target.value)} /><button className="btn" onClick={() => { const v = custom.trim().toUpperCase(); if (v && !f.sizes.includes(v)) setExtra((x) => [...x, v]); setCustom(''); }}>{L('Add size', 'បន្ថែមទំហំ')}</button>{f.sizes.filter((z) => !Object.values(sets).flat().includes(z)).map((z) => <button key={z} className="chip on" onClick={() => toggle('sizes', z)}>{z} ✕</button>)}</div>
       {err && <div className="error">{err}</div>}
-      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { if (!f.code.trim()) { setErr(L('Enter a code.', 'សូមបំពេញកូដ។')); return; } try { await api.post('/designs', { ...f, full_price_usd: f.full || f.price_usd, sizes: buildSizes() }); onDone(); } catch (e) { setErr(e.message); } }}>{L('Create', 'បង្កើត')} {f.colours.length * buildSizes().length || ''} {L('variants', 'ប្រភេទ')}</button>
-    </Modal>
+      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} disabled={!n || busy} onClick={save}>{n ? `${L('Create', 'បង្កើត')} ${n} ${L('variants', 'ប្រភេទ')}` : L('Choose colours and sizes', 'ជ្រើសពណ៌ និងទំហំ')}</button>
+    </div>
   );
 }
 
@@ -118,7 +131,7 @@ function Labels({ design, meta, onClose }) {
 }
 
 // Type the pieces received for every colour and size of one design in a single table.
-function StockGrid({ design, meta, stk, store, onClose, onDone }) {
+function StockGrid({ design, owner, editLists, reload, meta, stk, store, onClose, onDone }) {
   const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
   const [qty, setQty] = useState({}); const [ref, setRef] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const colours = [...new Set(design.items.filter((i) => i.active).map((i) => i.colour_code))]; const sizes = [...new Set(design.items.filter((i) => i.active).map((i) => i.size))].sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || String(a).localeCompare(String(b)));
@@ -127,9 +140,11 @@ function StockGrid({ design, meta, stk, store, onClose, onDone }) {
   const save = async () => { setBusy(true); setErr(''); try { await api.post('/stock/in', { store_id: store.id, lines, reference: ref || 'Added from catalogue' }); onDone(); } catch (e) { setErr(e.message || 'Could not save.'); setBusy(false); } };
   return (
     <Modal title={`${L('Add stock', 'បន្ថែមស្តុក')}: ${design.name_en} (${store.name})`} onClose={onClose} wide>
+      {!colours.length && <><p className="muted small">{owner ? L('This design has no colours and sizes yet. Choose them to create its stock items.', 'ម៉ូដែលនេះមិនទាន់មានពណ៌ និងទំហំទេ។ សូមជ្រើសរើសដើម្បីបង្កើតទំនិញ។') : L('This design has no colours and sizes yet. Ask the owner to add them.', 'ម៉ូដែលនេះមិនទាន់មានពណ៌ និងទំហំទេ។ សូមស្នើម្ចាស់បន្ថែម។')}</p>{owner && <VariantPicker meta={meta} owner={owner} editLists={editLists} design={design} onAdded={reload} />}</>}
       <p className="muted small">{L('Type how many pieces arrived for each colour and size. Leave the rest empty. The small number under each box is what the shop has now.', 'វាយចំនួនដែលទទួលបានសម្រាប់ពណ៌ និងទំហំនីមួយៗ។ ទុកទទេសម្រាប់ផ្សេងទៀត។ លេខតូចក្រោមប្រអប់គឺស្តុកបច្ចុប្បន្ន។')}</p>
       <div className="tbl" style={{ overflow: 'auto' }}><table><thead><tr><th>{L('Colour', 'ពណ៌')}</th>{sizes.map((s) => <th key={s} className="right">{s}</th>)}</tr></thead>
         <tbody>{colours.map((c) => <tr key={c}><td><b>{cname(c)}</b></td>{sizes.map((s) => { const it = item(c, s); return <td key={s} className="right">{it ? <><input type="number" min="0" inputMode="numeric" value={qty[it.id] ?? ''} onChange={(e) => setQty({ ...qty, [it.id]: e.target.value })} style={{ width: 64, textAlign: 'right' }} /><div className="small muted">have {stk?.items?.[it.id]?.here ?? 0}</div></> : <span className="muted">—</span>}</td>; })}</tr>)}</tbody></table></div>
+      {colours.length > 0 && owner && <details style={{ marginTop: 10 }}><summary className="small" style={{ cursor: 'pointer' }}>＋ {L('Add more colours or sizes', 'បន្ថែមពណ៌ ឬទំហំ')}</summary><VariantPicker meta={meta} owner={owner} editLists={editLists} design={design} onAdded={reload} /></details>}
       <label>{L('Reference (optional)', 'កំណត់ចំណាំ (មិនបំពាន)')}</label><input value={ref} onChange={(e) => setRef(e.target.value)} placeholder={L('e.g. delivery 30 Oct, opening stock', 'ឧ. ដឹកចូល ៣០ តុលា, ស្តុកដំបូង')} />
       {err && <div className="error">{err}</div>}
       <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} disabled={!total || busy} onClick={save}>{total ? `${L('Add', 'បន្ថែម')} ${total} ${L('pieces', 'ដុំ')}` : L('Type quantities above', 'វាយចំនួនខាងលើ')}</button>

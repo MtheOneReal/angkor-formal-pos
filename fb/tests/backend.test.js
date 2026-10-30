@@ -448,3 +448,17 @@ test('catalogue stock: totals per design and per item, and adding stock for seve
   assert.equal(s.designs[items[0].design_id].here, 6); assert.equal(s.designs[items[0].design_id].low, 1); assert.equal(s.items[items[0].id].here, 5);
   assert.ok(d.skus.length === 2);
 });
+
+test('a design can be created without colours and sizes; variants are added later and skip duplicates', async () => {
+  const { api } = await setup();
+  const d = await api.post('/designs', { brand_id: 1, type_code: 'S', code: 'my code 1', name_en: 'Plain', price_usd: 100, full_price_usd: 120, cost_usd: 50 });
+  assert.equal(d.skus.length, 0);
+  await assert.rejects(api.post('/designs', { brand_id: 1, type_code: 'S', code: 'MY-CODE-1', name_en: 'Dup', price_usd: 100 }), /already used/);
+  const r1 = await api.post(`/designs/${d.id}/variants`, { colours: ['NVY'], sizes: ['48', '50'] });
+  assert.equal(r1.added, 2);
+  const r2 = await api.post(`/designs/${d.id}/variants`, { colours: ['NVY'], sizes: ['50', '52'] });
+  assert.equal(r2.added, 1);
+  const row = (await api.get('/designs')).find((x) => x.id === d.id);
+  assert.equal(row.items.length, 3); assert.equal(row.items[0].sku.startsWith('MY-CODE-1-NVY-'), true);
+  assert.equal(row.discount_cents, 2000);
+});

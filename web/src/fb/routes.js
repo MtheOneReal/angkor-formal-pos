@@ -157,14 +157,13 @@ export function createApi(B, extra = {}) {
     const price = Math.round(Number(b.price_usd) * 100); const fullP = Math.round(Number(b.full_price_usd || b.price_usd) * 100); const discC = Math.max(0, fullP - price); const cost = Math.round(Number(b.cost_usd || 0) * 100);
     if (!(price > 0)) throw bad('BAD_INPUT', 'Enter a selling price.');
     const colours = (b.colours || []).filter(Boolean); const sizes = (b.sizes || []).map(String).filter(Boolean);
-    if (!colours.length || !sizes.length) throw bad('BAD_INPUT', 'Choose at least one colour and one size.');
     let code = txt(b.code, 40).toUpperCase().replace(/\s+/g, '-');
     if (code && [...cat.designs.values()].some((d) => String(d.code || '').toUpperCase() === code)) throw bad('DUPLICATE', 'This code is already used by another design.');
     let number = Number(b.number);
     if (!number) number = Math.max(0, ...[...cat.designs.values()].filter((d) => Number(d.brandId) === Number(brand.id) && d.typeCode === type.code).map((d) => d.number)) + 1;
     if ([...cat.designs.values()].some((d) => Number(d.brandId) === Number(brand.id) && d.typeCode === type.code && d.number === number)) throw bad('DUPLICATE', 'This brand, type and number already exist.');
     const dId = await nextIds('design', 1);
-    const first = await nextIds('item', colours.length * sizes.length);
+    const first = colours.length * sizes.length ? await nextIds('item', colours.length * sizes.length) : 0;
     const batch = writeBatch(db);
     batch.set(ref('designs', dId), { id: dId, brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, number, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || null, code: code || null, photo: b.photo || null, priceCents: price, fullPriceCents: fullP, discountCents: discC, active: true, createdAt: ts() });
     batch.set(ref('costs', dId), { costCents: cost });
@@ -177,6 +176,21 @@ export function createApi(B, extra = {}) {
     await batch.commit();
     await B.loadCatalog(true);
     return { id: dId, skus };
+  }
+
+  async function designVariants(id, b) {
+    need('catalog.edit');
+    const cat = await B.loadCatalog(); const d = cat.designs.get(String(id)); if (!d) throw bad('NOT_FOUND', 'Design not found.');
+    const colours = (b.colours || []).filter(Boolean); const sizes = (b.sizes || []).map((x) => String(x).toUpperCase()).filter(Boolean);
+    if (!colours.length || !sizes.length) throw bad('BAD_INPUT', 'Choose at least one colour and one size.');
+    const have = new Set(cat.items.filter((i) => Number(i.designId) === Number(d.id)).map((i) => `${i.colourCode}|${i.size}`));
+    const todo = []; for (const c of colours) for (const s of sizes) if (!have.has(`${c}|${s}`)) todo.push([c, s]);
+    if (!todo.length) return { added: 0 };
+    const first = await nextIds('item', todo.length); const batch = writeBatch(db); const base = d.code || `${d.brandCode}-${d.typeCode}${String(d.number).padStart(2, '0')}`;
+    todo.forEach(([c, s], k) => { const iid = first + k; batch.set(ref('items', iid), { id: iid, sku: `${base}-${c}-${s}`, designId: Number(d.id), colourCode: c, size: s, lowStock: 2, active: true }); });
+    auditIn(batch, null, 'design.variants', 'design', Number(d.id), { added: todo.length });
+    await batch.commit(); await B.loadCatalog(true);
+    return { added: todo.length };
   }
 
   // ---------- stock ----------
@@ -1028,6 +1042,7 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && path === '/stock/by-design') return await stockByDesign(q);
       if (method === 'GET' && path === '/designs') return await designsList();
       if (method === 'POST' && path === '/designs') return await createDesign(b);
+      if (method === 'POST' && (m = path.match(/^\/designs\/([^/]+)\/variants$/))) return await designVariants(m[1], b);
       if (method === 'GET' && path === '/filters') { S(); return await filtersGet(); }
       if (method === 'POST' && path === '/filters') return await filtersSave(b);
       if (method === 'GET' && path === '/stock') return await stockList(q);
