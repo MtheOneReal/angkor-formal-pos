@@ -22,7 +22,7 @@ export default function Catalogue() {
   const load = () => { api.get('/designs').then(setRows); loadStock(); };
   useEffect(() => { load(); api.get('/meta').then(setMeta); }, [store.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const canCost = me.perms.includes('cost.view');
-  const [fType, setFType] = useState(''); const [fBrand, setFBrand] = useState(''); const [fText, setFText] = useState('');
+  const [editD, setEditD] = useState(null); const [fType, setFType] = useState(''); const [fBrand, setFBrand] = useState(''); const [fText, setFText] = useState('');
   const dcode = (d) => d.code || `${d.brand_code}-${d.type_code}${String(d.number).padStart(2, '0')}`;
   const shownRows = rows.filter((d) => (!fType || d.type_code === fType) && (!fBrand || String(d.brand_id) === fBrand) && (!fText.trim() || [dcode(d), d.name_en, d.name_km || '', ...d.items.map((i) => i.sku)].join(' ').toLowerCase().includes(fText.trim().toLowerCase())));
   return (
@@ -39,7 +39,7 @@ export default function Catalogue() {
           <thead><tr><th></th><th>{L('Code', 'កូដ')}</th><th>{L('Name', 'ឈ្មោះ')}</th><th>{L('Type', 'ប្រភេទ')}</th><th>{L('Brand', 'ម៉ាក')}</th><th className="right">{L('Full price', 'តម្លៃដើម')}</th><th className="right">{L('Discount', 'បញ្ចុះ')}</th><th className="right">{L('Selling price', 'តម្លៃលក់')}</th>{canCost && <th className="right">{L('Cost', 'តម្លៃទិញចូល')}</th>}<th className="right">{L('Variants', 'ប្រភេទ')}</th>{stk && <th className="right">{L('In stock here', 'ស្តុកនៅទីនេះ')}</th>}{stk && <th className="right">{L('Other shops', 'សាខាផ្សេង')}</th>}<th></th></tr></thead>
           <tbody>
             {shownRows.map((d) => { const sd = stk?.designs[d.id]; const ty = meta?.types.find((x) => x.code === d.type_code); const br = meta?.brands.find((x) => Number(x.id) === Number(d.brand_id)); return (
-              <tr key={d.id}>
+              <tr key={d.id} onClick={() => me.perms.includes('catalog.edit') && setEditD(d.id)} style={me.perms.includes('catalog.edit') ? { cursor: 'pointer' } : undefined} title={me.perms.includes('catalog.edit') ? L('Click to edit', 'ចុចដើម្បីកែ') : undefined}>
                 <td style={{ width: 54 }}><div style={{ width: 44, height: 56, borderRadius: 6, overflow: 'hidden' }}>{photo(d.photo) ? <img src={photo(d.photo)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <GarmentArt code={d.type_code} name={ty?.name_en} nameKm={ty?.name_km} />}</div></td>
                 <td><b>{dcode(d)}</b></td>
                 <td>{nm(d)}</td>
@@ -52,7 +52,7 @@ export default function Catalogue() {
                 <td className="right num">{d.items.length}</td>
                 {stk && <td className="right num"><b style={{ color: !sd || sd.here <= 0 ? 'var(--bad)' : sd.low || sd.out ? 'var(--warn)' : 'var(--ok)' }}>{sd ? sd.here : 0}</b></td>}
                 {stk && <td className="right num muted">{sd?.others ?? '—'}</td>}
-                <td className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                <td className="row" style={{ justifyContent: 'flex-end', gap: 6 }} onClick={(e) => e.stopPropagation()}>
                   {me.perms.includes('stock.in') && <button className="btn primary" onClick={() => setGrid(d.id)}>＋ {L('Add stock', 'បន្ថែមស្តុក')}</button>}
                   {me.perms.includes('catalog.edit') && <button className="btn" onClick={async () => { if (!window.confirm(`Delete “${nm(d)}” and its ${d.items.length} variants for good?`)) return; try { await api.post(`/designs/${d.id}/delete`); show(L('Deleted', 'បានលុប')); load(); } catch (e) { window.alert(e.message); } }}>{L('Delete', 'លុប')}</button>}
                 </td>
@@ -62,6 +62,7 @@ export default function Catalogue() {
         </table>
       </div>
       {lists && <ListsManager start={lists} onClose={() => { setLists(null); reloadMeta(); load(); }} />}
+      {editD && meta && rows.find((r) => r.id === editD) && <NewDesign design={rows.find((r) => r.id === editD)} dcode={dcode} rows={rows} meta={meta} owner={me.role === 'owner'} editLists={(k) => { setEditD(null); setLists(k); }} onClose={() => setEditD(null)} onDone={() => { setEditD(null); show(L('Saved', 'បានរក្សាទុក')); load(); }} />}
       {add && meta && <NewDesign rows={rows} meta={meta} owner={me.role === 'owner'} editLists={(k) => { setAdd(false); setLists(k); }} onClose={() => setAdd(false)} onDone={() => { setAdd(false); show(L('Design added', 'បានបន្ថែមម៉ូដែល')); load(); }} />}
       {labels && <Labels design={labels} meta={meta} onClose={() => setLabels(null)} />}
       {grid && rows.find((r) => r.id === grid) && <StockGrid design={rows.find((r) => r.id === grid)} owner={me.perms.includes('catalog.edit')} editLists={(k) => { setGrid(null); setLists(k); }} reload={load} meta={meta} stk={stk} store={store} onClose={() => setGrid(null)} onDone={() => { setGrid(null); show(L('Stock added', 'បានបន្ថែមស្តុក')); loadStock(); }} />}
@@ -70,9 +71,12 @@ export default function Catalogue() {
   );
 }
 
-function NewDesign({ rows, meta, owner, editLists, onClose, onDone }) {
+function NewDesign({ design, dcode, rows, meta, owner, editLists, onClose, onDone }) {
   const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
-  const [f, setF] = useState({ brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', code: '', full: '', disc: '', price_usd: '', cost_usd: '', photo: null });
+  const c2 = (v) => (v == null ? '' : String(Math.round(v) / 100));
+  const [f, setF] = useState(design
+    ? { brand_id: design.brand_id, type_code: design.type_code, name_en: design.name_en || '', name_km: design.name_km || '', code: dcode(design), full: c2(design.full_price_cents ?? design.price_cents), disc: design.discount_cents > 0 ? c2(design.discount_cents) : '', price_usd: c2(design.price_cents), cost_usd: design.cost_cents != null ? c2(design.cost_cents) : '', photo: design.photo || null }
+    : { brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', code: '', full: '', disc: '', price_usd: '', cost_usd: '', photo: null });
   const setPrices = ({ full, disc, sell }) => setF((x) => {
     const n = { ...x }; const num = (v) => (v === '' || isNaN(Number(v)) ? null : Number(v)); const r2 = (v) => String(Math.round(v * 100) / 100);
     if (full !== undefined) n.full = full; if (disc !== undefined) n.disc = disc; if (sell !== undefined) n.price_usd = sell;
@@ -83,21 +87,21 @@ function NewDesign({ rows, meta, owner, editLists, onClose, onDone }) {
   const [err, setErr] = useState('');
   const pickPhoto = (file) => { if (!file) return; const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => { const s = Math.min(1, 480 / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = img.width * s; c.height = img.height * s; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); setF((x) => ({ ...x, photo: c.toDataURL('image/jpeg', 0.7) })); }; img.src = r.result; }; r.readAsDataURL(file); };
   return (
-    <Modal title={L('New design', 'ម៉ូដែលថ្មី')} onClose={onClose} wide>
+    <Modal title={design ? L('Edit design', 'កែម៉ូដែល') : L('New design', 'ម៉ូដែលថ្មី')} onClose={onClose} wide>
       <div className="grid g2">
         <div><label>{L('Type', 'ប្រភេទ')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('types'); }} style={{ textTransform: 'none' }}>✎ {L('edit', 'កែ')}</a>}</label><select value={f.type_code} onChange={(e) => setF({ ...f, type_code: e.target.value })}>{meta.types.map((b) => <option key={b.code} value={b.code}>{b.name_en}</option>)}</select></div>
         <div><label>{L('Brand', 'ម៉ាក')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('brands'); }} style={{ textTransform: 'none' }}>✎ {L('edit', 'កែ')}</a>}</label><select value={f.brand_id} onChange={(e) => setF({ ...f, brand_id: Number(e.target.value) })}>{meta.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-        <div><label>{L('Code', 'កូដ')}</label><input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} /></div>
+        <div><label>{L('Code', 'កូដ')}</label><input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} />{design && f.code.trim().toUpperCase().replace(/\s+/g, '-') !== dcode(design).toUpperCase() && <div className="small" style={{ color: 'var(--warn)' }}>{L('Changing the code also changes the code of every colour and size of this design.', 'ការប្តូរកូដនឹងប្តូរកូដនៃគ្រប់ពណ៌ និងទំហំរបស់ម៉ូដែលនេះផងដែរ។')}</div>}</div>
         <div><label>{L('Name', 'ឈ្មោះ')}</label><input value={f.name_en} onChange={(e) => setF({ ...f, name_en: e.target.value })} /></div>
         <div><label>{L('Full price (USD)', 'តម្លៃដើម (USD)')}</label><input inputMode="decimal" value={f.full} onChange={(e) => setPrices({ full: e.target.value })} /></div>
         <div><label>{L('Discount (USD)', 'បញ្ចុះតម្លៃ (USD)')}</label><input inputMode="decimal" placeholder="0" value={f.disc} onChange={(e) => setPrices({ disc: e.target.value })} /></div>
         <div><label>{L('Selling price (USD)', 'តម្លៃលក់ (USD)')}</label><input inputMode="decimal" value={f.price_usd} onChange={(e) => setPrices({ sell: e.target.value })} /></div>
-        <div><label>{L('Cost (USD)', 'តម្លៃទិញចូល (USD)')}</label><input inputMode="decimal" value={f.cost_usd} onChange={(e) => setF({ ...f, cost_usd: e.target.value })} /></div>
+        {(!design || design.cost_cents != null) && <div><label>{L('Cost (USD)', 'តម្លៃទិញចូល (USD)')}</label><input inputMode="decimal" value={f.cost_usd} onChange={(e) => setF({ ...f, cost_usd: e.target.value })} /></div>}
       </div>
       <label>{L('Photo', 'រូបភាព')}</label><input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files[0])} />
       {f.photo && <img src={f.photo} alt="" style={{ height: 120, borderRadius: 8, marginTop: 8 }} />}
       {err && <div className="error">{err}</div>}
-      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { if (!f.code.trim()) { setErr(L('Enter a code.', 'សូមបំពេញកូដ។')); return; } try { await api.post('/designs', { ...f, full_price_usd: f.full || f.price_usd }); onDone(); } catch (e) { setErr(e.message); } }}>{L('Create design', 'បង្កើតម៉ូដែល')}</button>
+      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { if (!f.code.trim()) { setErr(L('Enter a code.', 'សូមបំពេញកូដ។')); return; } try { if (design) await api.post(`/designs/${design.id}/update`, { ...f, full_price_usd: f.full || f.price_usd, photo: f.photo === design.photo ? undefined : (f.photo || '') }); else await api.post('/designs', { ...f, full_price_usd: f.full || f.price_usd }); onDone(); } catch (e) { setErr(e.message); } }}>{design ? L('Save', 'រក្សាទុក') : L('Create design', 'បង្កើតម៉ូដែល')}</button>
     </Modal>
   );
 }

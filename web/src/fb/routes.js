@@ -178,6 +178,28 @@ export function createApi(B, extra = {}) {
     return { id: dId, skus };
   }
 
+  async function designUpdate(id, b) {
+    need('catalog.edit');
+    const cat = await B.loadCatalog(); const d = cat.designs.get(String(id)); if (!d) throw bad('NOT_FOUND', 'Design not found.');
+    const brand = cat.brandsList.find((x) => Number(x.id) === Number(b.brand_id)); const type = cat.typesList.find((x) => x.code === b.type_code);
+    if (!brand || !type) throw bad('BAD_INPUT', 'Choose a brand and a type.');
+    if (!b.name_en) throw bad('BAD_INPUT', 'Enter a name.');
+    const price = Math.round(Number(b.price_usd) * 100); if (!(price > 0)) throw bad('BAD_INPUT', 'Enter a selling price.');
+    const fullP = Math.round(Number(b.full_price_usd || b.price_usd) * 100);
+    const oldCode = d.code || `${d.brandCode}-${d.typeCode}${String(d.number).padStart(2, '0')}`;
+    const code = txt(b.code, 40).toUpperCase().replace(/\s+/g, '-') || oldCode;
+    if (code !== oldCode && [...cat.designs.values()].some((x) => Number(x.id) !== Number(d.id) && (x.code || `${x.brandCode}-${x.typeCode}${String(x.number).padStart(2, '0')}`).toUpperCase() === code)) throw bad('DUPLICATE', 'This code is already used by another design.');
+    const batch = writeBatch(db);
+    const upd = { brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, code, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || d.nameKm || null, priceCents: price, fullPriceCents: fullP, discountCents: Math.max(0, fullP - price) };
+    if (b.photo !== undefined) upd.photo = b.photo || null;
+    batch.set(ref('designs', d.id), upd, { merge: true });
+    if (b.cost_usd !== undefined && b.cost_usd !== '' && B.can('cost.view')) batch.set(ref('costs', d.id), { costCents: Math.round(Number(b.cost_usd || 0) * 100) });
+    if (code !== oldCode) for (const i of cat.items.filter((x) => Number(x.designId) === Number(d.id))) batch.set(ref('items', i.id), { sku: `${code}-${i.colourCode}-${i.size}` }, { merge: true });
+    auditIn(batch, null, 'design.update', 'design', Number(d.id), { name: b.name_en, code });
+    await batch.commit(); B.clearCaches(); await B.loadCatalog(true);
+    return { ok: true };
+  }
+
   async function designVariants(id, b) {
     need('catalog.edit');
     const cat = await B.loadCatalog(); const d = cat.designs.get(String(id)); if (!d) throw bad('NOT_FOUND', 'Design not found.');
@@ -1042,6 +1064,7 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && path === '/stock/by-design') return await stockByDesign(q);
       if (method === 'GET' && path === '/designs') return await designsList();
       if (method === 'POST' && path === '/designs') return await createDesign(b);
+      if (method === 'POST' && (m = path.match(/^\/designs\/([^/]+)\/update$/))) return await designUpdate(m[1], b);
       if (method === 'POST' && (m = path.match(/^\/designs\/([^/]+)\/variants$/))) return await designVariants(m[1], b);
       if (method === 'GET' && path === '/filters') { S(); return await filtersGet(); }
       if (method === 'POST' && path === '/filters') return await filtersSave(b);

@@ -462,3 +462,15 @@ test('a design can be created without colours and sizes; variants are added late
   assert.equal(row.items.length, 3); assert.equal(row.items[0].sku.startsWith('MY-CODE-1-NVY-'), true);
   assert.equal(row.discount_cents, 2000);
 });
+
+test('editing a design updates prices, cost and rewrites SKUs when the code changes', async () => {
+  const { api } = await setup();
+  const d = await api.post('/designs', { brand_id: 1, type_code: 'S', code: 'OLD-1', name_en: 'Before', price_usd: 100, cost_usd: 40, colours: ['NVY'], sizes: ['48'] });
+  const o = await api.post('/designs', { brand_id: 1, type_code: 'S', code: 'OTHER', name_en: 'Other', price_usd: 90 });
+  await assert.rejects(api.post(`/designs/${d.id}/update`, { brand_id: 1, type_code: 'S', code: 'OTHER', name_en: 'X', price_usd: 100 }), /already used/);
+  await api.post(`/designs/${d.id}/update`, { brand_id: 1, type_code: 'S', code: 'new 2', name_en: 'After', full_price_usd: 150, price_usd: 120, cost_usd: 55 });
+  const row = (await api.get('/designs')).find((x) => x.id === d.id);
+  assert.equal(row.name_en, 'After'); assert.equal(row.price_cents, 12000); assert.equal(row.discount_cents, 3000); assert.equal(row.cost_cents, 5500);
+  assert.equal(row.code, 'NEW-2'); assert.equal(row.items[0].sku, 'NEW-2-NVY-48');
+  assert.ok(o.id);
+});
