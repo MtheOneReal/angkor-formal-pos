@@ -51,7 +51,7 @@ function Sizes({ sets, run, done }) {
   const save = async () => { if (await run(() => api.post('/lists/sizes', { sets: Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, String(v).split(',').map((x) => x.trim()).filter(Boolean)])) }))) done(); };
   return (
     <div>
-      <p className="muted small">Each group is a row of size buttons in the New design form. Separate sizes with commas.</p>
+      <p className="muted small">Each group is a row of size buttons when you add colours and sizes to a design. Separate sizes with commas.</p>
       {Object.entries(draft).map(([k, v]) => <div key={k} className="row" style={{ marginBottom: 8 }}><b style={{ width: 90 }}>{k}</b><input className="grow" value={v} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} /><button className="btn danger" onClick={() => setDraft((d) => { const n = { ...d }; delete n[k]; return n; })}>✕</button></div>)}
       <div className="row"><input style={{ width: 160 }} placeholder="New group (e.g. Shoes)" value={newName} onChange={(e) => setNewName(e.target.value)} /><button className="btn" disabled={!newName.trim()} onClick={() => { setDraft({ ...draft, [newName.trim()]: '' }); setNewName(''); }}>Add group</button></div>
       <button className="btn primary" style={{ marginTop: 12 }} onClick={save}>Save sizes</button>
