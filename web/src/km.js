@@ -177,7 +177,7 @@ export const KM = {
 "On hand": "មានក្នុងដៃ",
 "Reserved": "ទុកជាមុន",
 "Adjust": "កែតម្រូវ",
-"Delivery note / reference": "ប័ណ្ណដឹកជញ្ជូន / លេខយោង",
+"e.g. from Bokor, 30 Oct": "ឧ. ពីបូកគោ ៣០ តុលា",
 "Search code, name, colour": "ស្វែងរកលេខកូដ ឈ្មោះ ពណ៌",
 "Receive delivery": "ទទួលទំនិញចូល",
 "Scan or type the code, press Enter": "ស្កែន ឬវាយលេខកូដ រួចចុច Enter",

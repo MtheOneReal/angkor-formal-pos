@@ -68,7 +68,7 @@ function StockIn({ onClose, onDone }) {
       <table style={{ marginTop: 10 }}><tbody>{lines.map((l, i) => <tr key={l.it.id}><td>{l.it.sku}<div className="small muted">{l.it.name_en} · {l.it.colour_en} · {l.it.size}</div></td>
         <td style={{ width: 110 }}><input type="number" min="1" value={l.qty} onChange={(e) => setLines((x) => x.map((y, j) => (j === i ? { ...y, qty: Number(e.target.value) } : y)))} /></td>
         <td><button className="btn" onClick={() => setLines((x) => x.filter((_, j) => j !== i))}>✕</button></td></tr>)}</tbody></table>
-      <label>Delivery note / reference</label><input value={ref} onChange={(e) => setRef(e.target.value)} />
+      <label>Note (optional)</label><input value={ref} placeholder="e.g. from Bokor, 30 Oct" onChange={(e) => setRef(e.target.value)} />
       <button className="btn primary big" disabled={!lines.length} style={{ width: '100%', marginTop: 12 }} onClick={async () => { try { await api.post('/stock/in', { store_id: store.id, reference: ref, lines: lines.map((l) => ({ item_id: l.it.id, qty: l.qty })) }); onDone(); } catch (e) { setErr(e.message); } }}>Add {lines.reduce((a, l) => a + l.qty, 0)} pieces to stock</button>
     </Modal>
   );
