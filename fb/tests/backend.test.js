@@ -439,3 +439,12 @@ test('profit share: draft statement, close month, payouts limited to what is owe
   await api.post('/capital/profit/reopen', { store_id: 1, month: '2026-09' });
   p = await api.get('/capital/profit?store_id=1&month=2026-09'); assert.equal(p.statement.closed, false); assert.equal(b.id.length > 0, true);
 });
+
+test('catalogue stock: totals per design and per item, and adding stock for several sizes at once', async () => {
+  const { api, d } = await setup();
+  const items = (await api.get('/designs'))[0].items;
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: items[0].id, qty: 5 }, { item_id: items[1].id, qty: 1 }], reference: 'grid' });
+  const s = await api.get('/stock/by-design?store_id=1');
+  assert.equal(s.designs[items[0].design_id].here, 6); assert.equal(s.designs[items[0].design_id].low, 1); assert.equal(s.items[items[0].id].here, 5);
+  assert.ok(d.skus.length === 2);
+});

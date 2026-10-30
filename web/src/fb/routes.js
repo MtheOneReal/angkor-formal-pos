@@ -108,6 +108,22 @@ export function createApi(B, extra = {}) {
     const types = new Map((await B.loadCatalog()).typesList.map((t) => [t.code, t]));
     return { items: rows.map(({ cost_cents, ...r }) => ({ ...r, available: Math.max(0, B.quant(mine.get(r.id)).available), others: canOther ? (other.get(r.id) || 0) : null, type_name_en: types.get(r.type_code)?.nameEn || r.type_code, type_name_km: types.get(r.type_code)?.nameKm || null })) };
   }
+  // how many of each design (and each size/colour) are in this shop, and elsewhere when the person may see that
+  async function stockByDesign(q) {
+    need('stock.view'); const my = assertStore(q.store_id);
+    const sw = await switchesOf(my); const cashier = S().user.role === 'cashier';
+    const canOther = can('stock.view_other') && (!cashier || sw.cashier_see_other_stock);
+    const rows = await B.itemRows('', 5000); const mine = await B.stockOfStore(my); const all = canOther ? await B.stockOfAll() : [];
+    const other = new Map(); for (const x of all) if (Number(x.storeId) !== my) other.set(Number(x.itemId), (other.get(Number(x.itemId)) || 0) + Math.max(0, B.quant(x).available));
+    const items = {}; const designs = {};
+    for (const r of rows) {
+      const here = B.quant(mine.get(r.id)).on_hand; const oth = canOther ? (other.get(r.id) || 0) : null;
+      items[r.id] = { here, others: oth };
+      const d = designs[r.design_id] || (designs[r.design_id] = { here: 0, others: canOther ? 0 : null, variants: 0, out: 0, low: 0 });
+      d.here += Math.max(0, here); if (canOther) d.others += oth; d.variants += 1; if (here <= 0) d.out += 1; else if (here <= (r.low_stock ?? 2)) d.low += 1;
+    }
+    return { items, designs };
+  }
   async function designsList() {
     need('catalog.view');
     const cat = await B.loadCatalog(); const costs = B.can('cost.view') ? await B.loadCosts() : null;
@@ -1007,6 +1023,7 @@ export function createApi(B, extra = {}) {
       if (method === 'GET' && path === '/items') return await itemsList(q);
       if (method === 'GET' && path === '/pos/catalog') return await posCatalog(q);
       if (method === 'GET' && (m = path.match(/^\/items\/code\/(.+)$/))) { need('catalog.view'); return await itemByCode({ ...q, code: decodeURIComponent(m[1]) }); }
+      if (method === 'GET' && path === '/stock/by-design') return await stockByDesign(q);
       if (method === 'GET' && path === '/designs') return await designsList();
       if (method === 'POST' && path === '/designs') return await createDesign(b);
       if (method === 'GET' && path === '/filters') { S(); return await filtersGet(); }

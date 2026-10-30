@@ -16,10 +16,11 @@ function Barcode({ value }) {
 }
 
 export default function Catalogue() {
-  const { me } = useApp(); const t = useT(); const nm = useName();
+  const { me, store } = useApp(); const t = useT(); const nm = useName(); const [stk, setStk] = useState(null); const [grid, setGrid] = useState(null);
   const [rows, setRows] = useState([]); const [meta, setMeta] = useState(null); const [lists, setLists] = useState(null); const reloadMeta = () => api.get('/meta').then(setMeta); const [add, setAdd] = useState(false); const [labels, setLabels] = useState(null); const [toast, show] = useToast();
-  const load = () => api.get('/designs').then(setRows);
-  useEffect(() => { load(); api.get('/meta').then(setMeta); }, []);
+  const loadStock = () => (me.perms.includes('stock.view') ? api.get(`/stock/by-design?store_id=${store.id}`).then(setStk).catch(() => setStk(null)) : null);
+  const load = () => { api.get('/designs').then(setRows); loadStock(); };
+  useEffect(() => { load(); api.get('/meta').then(setMeta); }, [store.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const canCost = me.perms.includes('cost.view');
   return (
     <div>
@@ -30,6 +31,8 @@ export default function Catalogue() {
             <div className="ph">{photo(d.photo) ? <img src={photo(d.photo)} alt="" /> : <GarmentArt code={d.type_code} name={meta?.types?.find((x) => x.code === d.type_code)?.name_en} nameKm={meta?.types?.find((x) => x.code === d.type_code)?.name_km} />}</div>
             <div className="in"><b style={{ fontSize: 13 }}>{nm(d)}</b><div className="small muted">{d.brand_code}-{d.type_code}{String(d.number).padStart(2, '0')} · {d.items.length} variants</div>
               <div className="row between"><b className="num">{usd(d.price_cents)}</b>{canCost && <span className="small muted">cost {usd(d.cost_cents)}</span>}</div>
+              {stk?.designs[d.id] && (() => { const s = stk.designs[d.id]; return <div style={{ marginTop: 4 }}><div className="row between"><span className="small">In stock here</span><b className="num" style={{ color: s.here <= 0 ? 'var(--bad)' : s.low || s.out ? 'var(--warn)' : 'var(--ok)' }}>{s.here}</b></div>{s.others != null && <div className="row between"><span className="small muted">Other shops</span><span className="small muted num">{s.others}</span></div>}{(s.out > 0 || s.low > 0) && s.here > 0 && <div className="small" style={{ color: 'var(--warn)' }}>{s.out ? `${s.out} sold out` : ''}{s.out && s.low ? ' · ' : ''}{s.low ? `${s.low} running low` : ''}</div>}</div>; })()}
+              {me.perms.includes('stock.in') && <button className="btn primary" style={{ marginTop: 6, width: '100%' }} onClick={() => setGrid(d)}>＋ Add stock</button>}
               <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={() => setLabels(d)}>Print labels</button>
               {me.perms.includes('catalog.edit') && <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={async () => { if (!window.confirm(`Delete “${nm(d)}” and its ${d.items.length} variants for good?`)) return; try { await api.post(`/designs/${d.id}/delete`); show('Deleted'); load(); } catch (e) { window.alert(e.message); } }}>Delete</button>}</div>
           </div>))}
@@ -37,6 +40,7 @@ export default function Catalogue() {
       {lists && <ListsManager start={lists} onClose={() => { setLists(null); reloadMeta(); load(); }} />}
       {add && meta && <NewDesign meta={meta} owner={me.role === 'owner'} editLists={(k) => { setAdd(false); setLists(k); }} onClose={() => setAdd(false)} onDone={() => { setAdd(false); show('Design added'); load(); }} />}
       {labels && <Labels design={labels} meta={meta} onClose={() => setLabels(null)} />}
+      {grid && <StockGrid design={grid} meta={meta} stk={stk} store={store} onClose={() => setGrid(null)} onDone={() => { setGrid(null); show('Stock added'); loadStock(); }} />}
       {toast}
     </div>
   );
@@ -87,6 +91,25 @@ function Labels({ design, meta, onClose }) {
             <div style={{ fontSize: 18, fontWeight: 600 }}>{usd(design.price_cents)}</div>
           </div>))}
       </div>
+    </Modal>
+  );
+}
+
+// Type the pieces received for every colour and size of one design in a single table.
+function StockGrid({ design, meta, stk, store, onClose, onDone }) {
+  const [qty, setQty] = useState({}); const [ref, setRef] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const colours = [...new Set(design.items.filter((i) => i.active).map((i) => i.colour_code))]; const sizes = [...new Set(design.items.filter((i) => i.active).map((i) => i.size))].sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || String(a).localeCompare(String(b)));
+  const cname = (c) => meta?.colours.find((x) => x.code === c)?.name_en || c; const item = (c, s) => design.items.find((i) => i.active && i.colour_code === c && i.size === s);
+  const lines = Object.entries(qty).map(([id, q]) => ({ item_id: Number(id), qty: Math.floor(Number(q)) })).filter((l) => l.qty > 0); const total = lines.reduce((a, l) => a + l.qty, 0);
+  const save = async () => { setBusy(true); setErr(''); try { await api.post('/stock/in', { store_id: store.id, lines, reference: ref || 'Added from catalogue' }); onDone(); } catch (e) { setErr(e.message || 'Could not save.'); setBusy(false); } };
+  return (
+    <Modal title={`Add stock: ${design.name_en} (${store.name})`} onClose={onClose} wide>
+      <p className="muted small">Type how many pieces arrived for each colour and size. Leave the rest empty. The small number under each box is what the shop has now.</p>
+      <div className="tbl" style={{ overflow: 'auto' }}><table><thead><tr><th>Colour</th>{sizes.map((s) => <th key={s} className="right">{s}</th>)}</tr></thead>
+        <tbody>{colours.map((c) => <tr key={c}><td><b>{cname(c)}</b></td>{sizes.map((s) => { const it = item(c, s); return <td key={s} className="right">{it ? <><input type="number" min="0" inputMode="numeric" value={qty[it.id] ?? ''} onChange={(e) => setQty({ ...qty, [it.id]: e.target.value })} style={{ width: 64, textAlign: 'right' }} /><div className="small muted">have {stk?.items?.[it.id]?.here ?? 0}</div></> : <span className="muted">—</span>}</td>; })}</tr>)}</tbody></table></div>
+      <label>Reference (optional)</label><input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. delivery 30 Oct, opening stock" />
+      {err && <div className="error">{err}</div>}
+      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} disabled={!total || busy} onClick={save}>{total ? `Add ${total} pieces` : 'Type quantities above'}</button>
     </Modal>
   );
 }
