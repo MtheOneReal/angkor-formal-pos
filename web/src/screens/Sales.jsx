@@ -34,7 +34,7 @@ function SaleDetail({ id, onClose }) {
     try {
       if (mode === 'void') await api.post(`/sales/${id}/void`, { reason, manager_pin: pinVal });
       else await api.post(`/sales/${id}/return`, { reason, manager_pin: pinVal, lines: Object.entries(pick).filter(([, q]) => Number(q) > 0).map(([k, q]) => ({ sale_line_id: Number(k), qty: Number(q) })) });
-      setPin(false); setMode(null); show('Done'); await load();
+      setPin(false); setMode(null); show('Done'); onClose();
     } catch (e) { if (e.code === 'APPROVAL_REQUIRED') setPin(true); else { setPin(false); setErr(e.message); } if (pinVal) throw e; }
   };
   return (

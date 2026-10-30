@@ -10,7 +10,7 @@ export function Modal({ title, onClose, children, wide }) {
   return (
     <div className="modal-bg" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
       <div className="modal" style={wide ? { width: 'min(860px,100%)' } : null} role="dialog" aria-modal="true">
-        {title && <div className="row between" style={{ marginBottom: 12 }}><h2>{title}</h2><button className="btn" onClick={onClose} aria-label="Close">✕</button></div>}
+        <div className="row between" style={{ marginBottom: 12 }}><h2>{title || ''}</h2><button className="btn" onClick={onClose} aria-label="Close">✕</button></div>
         {children}
       </div>
     </div>

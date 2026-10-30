@@ -31,7 +31,7 @@ function Detail({ id, onClose, show }) {
   const load = () => api.get(`/transfers/${id}`).then((x) => { setTr(x); setRecv(Object.fromEntries(x.lines.map((l) => [l.id, l.qty_requested]))); });
   useEffect(() => { load(); }, [id]);
   if (!tr) return null;
-  const act = async (path, body) => { setErr(''); try { await api.post(`/transfers/${id}/${path}`, body); show('Done'); await load(); } catch (e) { setErr(e.message); } };
+  const act = async (path, body) => { setErr(''); try { await api.post(`/transfers/${id}/${path}`, body); show('Done'); onClose(); } catch (e) { setErr(e.message); } };
   const p = (x) => me.perms.includes(x);
   const inFrom = me.stores.some((s) => s.id === tr.from_store_id); const inTo = me.stores.some((s) => s.id === tr.to_store_id);
   return (
