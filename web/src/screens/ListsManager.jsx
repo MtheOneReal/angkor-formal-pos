@@ -16,15 +16,15 @@ export default function ListsManager({ start = 'brands', onClose }) {
       <p className="muted small">Names can be changed any time. Codes cannot, because they are part of every product code and barcode. An entry can be deleted only when no product uses it.</p>
       <div className="tabs">{TABS.map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => { setTab(k); setErr(''); }}>{l}</button>)}</div>
       {err && <div className="error">{err}</div>}
-      {tab === 'brands' && <Simple kind="brands" rows={meta.brands.map((b) => ({ key: b.id, code: b.code, name_en: b.name }))} fields={['name_en']} codeHint="Code (2–5 letters, e.g. AF)" run={run} />}
-      {tab === 'types' && <Simple kind="types" rows={meta.types.map((b) => ({ key: b.code, code: b.code, name_en: b.name_en, name_km: b.name_km || '' }))} fields={['name_en', 'name_km']} codeHint="Code (1–3 letters, e.g. S)" run={run} />}
-      {tab === 'colours' && <Simple kind="colours" rows={meta.colours.map((b) => ({ key: b.code, code: b.code, name_en: b.name_en, name_km: b.name_km || '', hex: b.hex }))} fields={['name_en', 'name_km', 'hex']} codeHint="Code (2–4 letters, e.g. NVY)" run={run} />}
-      {tab === 'sizes' && <Sizes sets={meta.size_sets || { Suit: meta.suit_sizes, Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] }} run={run} />}
+      {tab === 'brands' && <Simple kind="brands" rows={meta.brands.map((b) => ({ key: b.id, code: b.code, name_en: b.name }))} fields={['name_en']} codeHint="Code (2–5 letters, e.g. AF)" run={run} done={onClose} />}
+      {tab === 'types' && <Simple kind="types" rows={meta.types.map((b) => ({ key: b.code, code: b.code, name_en: b.name_en, name_km: b.name_km || '' }))} fields={['name_en', 'name_km']} codeHint="Code (1–3 letters, e.g. S)" run={run} done={onClose} />}
+      {tab === 'colours' && <Simple kind="colours" rows={meta.colours.map((b) => ({ key: b.code, code: b.code, name_en: b.name_en, name_km: b.name_km || '', hex: b.hex }))} fields={['name_en', 'name_km', 'hex']} codeHint="Code (2–4 letters, e.g. NVY)" run={run} done={onClose} />}
+      {tab === 'sizes' && <Sizes sets={meta.size_sets || { Suit: meta.suit_sizes, Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] }} run={run} done={onClose} />}
     </Modal>
   );
 }
 
-function Simple({ kind, rows, fields, codeHint, run }) {
+function Simple({ kind, rows, fields, codeHint, run, done }) {
   const [add, setAdd] = useState({ code: '', name_en: '', name_km: '', hex: '#1f2a44' }); const [edit, setEdit] = useState({});
   const label = { name_en: 'Name', name_km: 'Khmer name', hex: 'Colour' };
   const field = (f, v, on) => (f === 'hex' ? <input type="color" style={{ width: 54, padding: 2 }} value={v || '#999999'} onChange={(e) => on(e.target.value)} /> : <input style={{ minWidth: 120 }} placeholder={label[f]} value={v ?? ''} onChange={(e) => on(e.target.value)} />);
@@ -35,20 +35,20 @@ function Simple({ kind, rows, fields, codeHint, run }) {
           return (<tr key={r.key}><td style={{ width: 70 }}><b>{r.code}</b></td>
             {fields.map((f) => <td key={f}>{field(f, v[f], (x) => setEdit({ ...edit, [r.key]: { ...(edit[r.key] || {}), [f]: x } }))}</td>)}
             <td className="row" style={{ justifyContent: 'flex-end' }}>
-              <button className="btn" disabled={!dirty} onClick={async () => { if (await run(() => api.post(`/lists/${kind}/${r.key}`, { name_en: v.name_en, name_km: v.name_km, hex: v.hex }))) setEdit((e) => { const n = { ...e }; delete n[r.key]; return n; }); }}>Save</button>
+              <button className="btn" disabled={!dirty} onClick={async () => { if (await run(() => api.post(`/lists/${kind}/${r.key}`, { name_en: v.name_en, name_km: v.name_km, hex: v.hex }))) done(); }}>Save</button>
               <button className="btn danger" onClick={() => { if (window.confirm(`Delete ${r.code} (${r.name_en})?`)) run(() => api.post(`/lists/${kind}/${r.key}/delete`)); }}>Delete</button></td></tr>); })}
         <tr><td><input style={{ width: 70 }} placeholder="Code" title={codeHint} value={add.code} onChange={(e) => setAdd({ ...add, code: e.target.value.toUpperCase() })} /></td>
           {fields.map((f) => <td key={f}>{field(f, add[f], (x) => setAdd({ ...add, [f]: x }))}</td>)}
-          <td style={{ textAlign: 'right' }}><button className="btn primary" disabled={!add.code || !add.name_en} onClick={async () => { if (await run(() => api.post(`/lists/${kind}`, add))) setAdd({ code: '', name_en: '', name_km: '', hex: '#1f2a44' }); }}>＋ Add</button></td></tr>
+          <td style={{ textAlign: 'right' }}><button className="btn primary" disabled={!add.code || !add.name_en} onClick={async () => { if (await run(() => api.post(`/lists/${kind}`, add))) done(); }}>＋ Add</button></td></tr>
       </tbody></table>
       <p className="muted small">{codeHint}</p>
     </div>
   );
 }
 
-function Sizes({ sets, run }) {
+function Sizes({ sets, run, done }) {
   const [draft, setDraft] = useState(() => Object.fromEntries(Object.entries(sets).map(([k, v]) => [k, v.join(', ')]))); const [newName, setNewName] = useState('');
-  const save = () => run(() => api.post('/lists/sizes', { sets: Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, String(v).split(',').map((x) => x.trim()).filter(Boolean)])) }));
+  const save = async () => { if (await run(() => api.post('/lists/sizes', { sets: Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, String(v).split(',').map((x) => x.trim()).filter(Boolean)])) }))) done(); };
   return (
     <div>
       <p className="muted small">Each group is a row of size buttons in the New design form. Separate sizes with commas.</p>
