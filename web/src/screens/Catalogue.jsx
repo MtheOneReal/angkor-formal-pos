@@ -53,7 +53,6 @@ export default function Catalogue() {
                 {stk && <td className="right num"><b style={{ color: !sd || sd.here <= 0 ? 'var(--bad)' : sd.low || sd.out ? 'var(--warn)' : 'var(--ok)' }}>{sd ? sd.here : 0}</b></td>}
                 {stk && <td className="right num muted">{sd?.others ?? '—'}</td>}
                 <td className="row" style={{ justifyContent: 'flex-end', gap: 6 }} onClick={(e) => e.stopPropagation()}>
-                  {me.perms.includes('stock.in') && <button className="btn primary" onClick={() => setGrid(d.id)}>＋ {L('Add stock', 'បន្ថែមស្តុក')}</button>}
                   {me.perms.includes('catalog.edit') && <button className="btn" onClick={async () => { if (!window.confirm(`Delete “${nm(d)}” and its ${d.items.length} variants for good?`)) return; try { await api.post(`/designs/${d.id}/delete`); show(L('Deleted', 'បានលុប')); load(); } catch (e) { window.alert(e.message); } }}>{L('Delete', 'លុប')}</button>}
                 </td>
               </tr>); })}
@@ -62,8 +61,8 @@ export default function Catalogue() {
         </table>
       </div>
       {lists && <ListsManager start={lists} onClose={() => { setLists(null); reloadMeta(); load(); }} />}
-      {editD && meta && rows.find((r) => r.id === editD) && <NewDesign design={rows.find((r) => r.id === editD)} dcode={dcode} rows={rows} meta={meta} owner={me.role === 'owner'} editLists={(k) => { setEditD(null); setLists(k); }} onClose={() => setEditD(null)} onDone={() => { setEditD(null); show(L('Saved', 'បានរក្សាទុក')); load(); }} />}
-      {add && meta && <NewDesign rows={rows} meta={meta} owner={me.role === 'owner'} editLists={(k) => { setAdd(false); setLists(k); }} onClose={() => setAdd(false)} onDone={() => { setAdd(false); show(L('Design added', 'បានបន្ថែមម៉ូដែល')); load(); }} />}
+      {editD && meta && rows.find((r) => r.id === editD) && <NewDesign reload={load} design={rows.find((r) => r.id === editD)} dcode={dcode} rows={rows} meta={meta} owner={me.role === 'owner'} editLists={(k) => { setEditD(null); setLists(k); }} onClose={() => setEditD(null)} onDone={() => { setEditD(null); show(L('Saved', 'បានរក្សាទុក')); load(); }} />}
+      {add && meta && <NewDesign rows={rows} meta={meta} owner={me.role === 'owner'} editLists={(k) => { setAdd(false); setLists(k); }} onClose={() => setAdd(false)} onDone={(id) => { setAdd(false); show(L('Design added. Now add its sizes.', 'បានបន្ថែមម៉ូដែល។ សូមបន្ថែមទំហំ។')); load(); if (id) setEditD(id); }} />}
       {labels && <Labels design={labels} meta={meta} onClose={() => setLabels(null)} />}
       {grid && rows.find((r) => r.id === grid) && <StockGrid design={rows.find((r) => r.id === grid)} owner={me.perms.includes('catalog.edit')} editLists={(k) => { setGrid(null); setLists(k); }} reload={load} meta={meta} stk={stk} store={store} onClose={() => setGrid(null)} onDone={() => { setGrid(null); show(L('Stock added', 'បានបន្ថែមស្តុក')); loadStock(); }} />}
       {toast}
@@ -71,7 +70,7 @@ export default function Catalogue() {
   );
 }
 
-function NewDesign({ design, dcode, rows, meta, owner, editLists, onClose, onDone }) {
+function NewDesign({ reload, design, dcode, rows, meta, owner, editLists, onClose, onDone }) {
   const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
   const c2 = (v) => (v == null ? '' : String(Math.round(v) / 100));
   const [f, setF] = useState(design
@@ -100,8 +99,11 @@ function NewDesign({ design, dcode, rows, meta, owner, editLists, onClose, onDon
       </div>
       <label>{L('Photo', 'រូបភាព')}</label><input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files[0])} />
       {f.photo && <img src={f.photo} alt="" style={{ height: 120, borderRadius: 8, marginTop: 8 }} />}
+      {design && <div style={{ marginTop: 12 }}><label>{L('Sizes', 'ទំហំ')}</label>
+        <div className="row wrap">{design.items.filter((i) => i.active).map((i) => <span key={i.id} className="chip on">{i.size}</span>)}{!design.items.some((i) => i.active) && <span className="muted small">{L('No sizes yet.', 'មិនទាន់មានទំហំទេ។')}</span>}</div>
+        <details style={{ marginTop: 8 }} open={!design.items.some((i) => i.active)}><summary className="small" style={{ cursor: 'pointer' }}>＋ {L('Add sizes', 'បន្ថែមទំហំ')}</summary><VariantPicker meta={meta} owner={owner} editLists={editLists} design={design} onAdded={reload} /></details></div>
       {err && <div className="error">{err}</div>}
-      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { if (!f.code.trim()) { setErr(L('Enter a code.', 'សូមបំពេញកូដ។')); return; } try { if (design) await api.post(`/designs/${design.id}/update`, { ...f, full_price_usd: f.full || f.price_usd, photo: f.photo === design.photo ? undefined : (f.photo || '') }); else await api.post('/designs', { ...f, full_price_usd: f.full || f.price_usd }); onDone(); } catch (e) { setErr(e.message); } }}>{design ? L('Save', 'រក្សាទុក') : L('Create design', 'បង្កើតម៉ូដែល')}</button>
+      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { if (!f.code.trim()) { setErr(L('Enter a code.', 'សូមបំពេញកូដ។')); return; } try { if (design) await api.post(`/designs/${design.id}/update`, { ...f, full_price_usd: f.full || f.price_usd, photo: f.photo === design.photo ? undefined : (f.photo || '') }); else { const r = await api.post('/designs', { ...f, full_price_usd: f.full || f.price_usd }); onDone(r.id); return; } onDone(); } catch (e) { setErr(e.message); } }}>{design ? L('Save', 'រក្សាទុក') : L('Create design', 'បង្កើតម៉ូដែល')}</button>
     </Modal>
   );
 }
