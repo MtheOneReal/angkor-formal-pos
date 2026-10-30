@@ -5,6 +5,7 @@ import { api } from '../api.js';
 import { useApp, useT, useName, Modal, useToast } from '../ui.jsx';
 import { usd } from '../format.js';
 import ListsManager from './ListsManager.jsx';
+import { groupsFor } from '../sizeGroups.js';
 
 const photo = (p) => (p ? ((p.startsWith('/') || p.startsWith('data:')) ? p : '/uploads/' + p) : null);
 const SIZE_SETS = { Suit: ['44', '46', '48', '50', '52', '54', '56'], Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] };
@@ -110,7 +111,8 @@ function NewDesign({ reload, design, dcode, rows, meta, owner, editLists, onClos
 
 function VariantPicker({ meta, owner, editLists, design, onAdded }) {
   const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
-  const sets = meta.size_sets || SIZE_SETS; const [custom, setCustom] = useState(''); const [extra, setExtra] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const allSets = meta.size_sets || SIZE_SETS; const tType = meta.types.find((x) => x.code === design.type_code); const shownGroups = groupsFor(tType, Object.keys(allSets), meta.type_groups);
+  const sets = Object.fromEntries(shownGroups.map((g) => [g, allSets[g]])); const [custom, setCustom] = useState(''); const [extra, setExtra] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const f = { sizes: extra };
   const toggle = (k, v) => setExtra((x) => (x.includes(v) ? x.filter((y) => y !== v) : [...x, v]));
   const isLen = (k) => /length|long|inseam|ប្រវែង/i.test(k);

@@ -474,3 +474,10 @@ test('editing a design updates prices, cost and rewrites SKUs when the code chan
   assert.equal(row.code, 'NEW-2'); assert.equal(row.items[0].sku, 'NEW-2-NVY-48');
   assert.ok(o.id);
 });
+
+test('size groups can be assigned to each type', async () => {
+  const { api } = await setup();
+  await api.post('/lists/sizes', { sets: { Suit: ['44', '46'], Shirt: ['S', 'M'] }, type_groups: { S: ['Suit', 'Gone'], H: ['Shirt'] } });
+  const z = await api.get('/lists/sizes'); assert.deepEqual(z.type_groups, { S: ['Suit'], H: ['Shirt'] });
+  assert.deepEqual((await api.get('/meta')).type_groups, { S: ['Suit'], H: ['Shirt'] });
+});

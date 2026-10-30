@@ -254,12 +254,13 @@ export function createMore(B) {
     auditIn(wb, null, `list.${kind}.delete`, kind, id, {}); await wb.commit().catch(wrap('Could not delete')); await B.loadCatalog(true); return { ok: true };
   }
   const DEFAULT_SIZE_SETS = { Suit: ['44', '46', '48', '50', '52', '54', '56'], Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] };
-  async function sizeSets() { const d = await read('settings', 'sizeSets'); return { size_sets: d?.sets || DEFAULT_SIZE_SETS }; }
+  async function sizeSets() { const d = await read('settings', 'sizeSets'); return { size_sets: d?.sets || DEFAULT_SIZE_SETS, type_groups: d?.typeGroups || {} }; }
   async function sizeSetsSave(b) {
     ownerOnly(); const out = {};
     for (const [k, v] of Object.entries(b.sets || {})) { const name = txt(k, 30).trim(); const sizes = [...new Set((Array.isArray(v) ? v : []).map((x) => txt(x, 8).trim().toUpperCase()).filter(Boolean))].slice(0, 40); if (name && sizes.length) out[name] = sizes; }
     if (!Object.keys(out).length) throw bad('BAD_INPUT', 'Keep at least one size group.');
-    await setDoc(ref('settings', 'sizeSets'), { sets: out, ts: now(), setBy: S().uid }); return { ok: true };
+    const tg = {}; for (const [code, gs] of Object.entries(b.type_groups || {})) { const keep = (Array.isArray(gs) ? gs : []).filter((g) => out[g]); if (keep.length) tg[String(code).slice(0, 8)] = keep; }
+    await setDoc(ref('settings', 'sizeSets'), { sets: out, typeGroups: tg, ts: now(), setBy: S().uid }); return { ok: true };
   }
 
   async function route(method, path, q, b) {
