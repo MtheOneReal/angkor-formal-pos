@@ -307,6 +307,20 @@ service cloud.firestore {
       allow delete: if leadOf(resource.data.storeId) && (isOwner() || resource.data.userId != request.auth.uid);
     }
 
+    // ---------- profit share: a month is closed once (only the super admin can reopen it); payouts are never edited ----------
+    match /profitCloses/{id} {
+      allow read: if isOwner() || isPartner();
+      allow create: if isOwner() && request.resource.data.closedBy == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSuper() || testReset();
+    }
+    match /profitPayouts/{id} {
+      allow read: if isOwner() || isPartner();
+      allow create: if isOwner() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if false;
+      allow delete: if testReset();
+    }
+
     // ---------- activity log ----------
     match /auditLog/{id} {
       allow read: if isLead();
