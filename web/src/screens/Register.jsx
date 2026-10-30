@@ -273,7 +273,6 @@ export default function Register() {
   return (
     <div className="pos">
       <div className="left">
-        <div style={{ marginBottom: 6 }}><Clock /></div>
         <div className="row">
           <input ref={box} className="grow scanbox" value={q} onChange={onChange} onKeyDown={onKey} placeholder={t('search')} inputMode={kb ? 'text' : 'none'} autoComplete="off" autoCapitalize="characters" aria-label="Scan or type" />
           <button className="btn" onClick={() => setKb((k) => !k)} title={t('keyboard')}>⌨</button>
@@ -301,6 +300,7 @@ export default function Register() {
         </div>
       </div>
       <div className="card cart" ref={cartRef}>
+        <div style={{ marginBottom: 8 }}><Clock /></div>
         <div className="grid g2" style={{ gap: 8 }}><input placeholder={t('cust_name')} value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} /><input inputMode="tel" placeholder={t('cust_phone')} value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></div>
         <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)', margin: '10px 0' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={cust.alteration} onChange={(e) => setCust({ ...cust, alteration: e.target.checked })} />✂️ {t('alteration')}</label>
         {cust.alteration && <input style={{ marginBottom: 8 }} placeholder={t('alteration_note')} value={cust.note || ''} onChange={(e) => setCust({ ...cust, note: e.target.value })} />}
