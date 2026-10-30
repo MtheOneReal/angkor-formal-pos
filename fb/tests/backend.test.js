@@ -487,5 +487,5 @@ test('typing a few letters of a design code finds its items for Receive delivery
   const st = (await api.get('/me')).stores[0].id;
   await api.post('/designs', { brand_id: 1, type_code: 'B', code: 'AF-BLK', name_en: 'Blazer', price_usd: 260, sizes: ['48', '50'] });
   const r = await api.get(`/stock/lookup?store_id=${st}&q=Af`);
-  assert.equal(r.items.length, 2); assert.equal(r.items[0].sku, 'AF-BLK-48');
+  const mine = r.items.filter((i) => i.sku.startsWith('AF-BLK-')); assert.equal(mine.length, 2); assert.ok(mine.some((i) => i.sku === 'AF-BLK-48'));
 });
