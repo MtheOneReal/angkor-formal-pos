@@ -55,7 +55,7 @@ function Adjust({ item, onClose, onDone }) {
 }
 
 function StockIn({ onClose, onDone }) {
-  const { store } = useApp(); const [code, setCode] = useState(''); const [lines, setLines] = useState([]); const [ref, setRef] = useState(''); const [err, setErr] = useState('');
+  const { store, lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en); const [code, setCode] = useState(''); const [lines, setLines] = useState([]); const [ref, setRef] = useState(''); const [err, setErr] = useState('');
   const add = async () => {
     setErr('');
     try { const it = await api.get(`/items/code/${encodeURIComponent(code.trim())}${qs({ store_id: store.id })}`); setLines((l) => { const i = l.findIndex((x) => x.it.id === it.id); if (i >= 0) { const n = [...l]; n[i] = { ...n[i], qty: n[i].qty + 1 }; return n; } return [...l, { it, qty: 1 }]; }); setCode(''); }
@@ -65,11 +65,12 @@ function StockIn({ onClose, onDone }) {
     <Modal title="Receive delivery" onClose={onClose} wide>
       <div className="row"><input autoFocus className="grow scanbox" value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="Scan or type the code, press Enter" /><button className="btn" onClick={add}>Add</button></div>
       {err && <div className="error">{err}</div>}
+      {err && <p className="muted small">{L('Type the full code of one colour and size: design code + colour + size, for example MY-CODE-BLK-S. It is printed on the label. The easy way: Catalogue → ＋ Add stock on the design, with nothing to type. A design with no colours and sizes yet must get them there first.', 'វាយកូដពេញនៃពណ៌ និងទំហំមួយ៖ កូដម៉ូដែល + ពណ៌ + ទំហំ ឧទាហរណ៍ MY-CODE-BLK-S ដែលមានលើស្លាក។ វិធីងាយ៖ កាតាឡុក → ＋ បន្ថែមស្តុក លើម៉ូដែល ដោយមិនបាច់វាយកូដ។ ម៉ូដែលដែលមិនទាន់មានពណ៌ និងទំហំ ត្រូវបន្ថែមនៅទីនោះជាមុនសិន។')}</p>}
       <table style={{ marginTop: 10 }}><tbody>{lines.map((l, i) => <tr key={l.it.id}><td>{l.it.sku}<div className="small muted">{l.it.name_en} · {l.it.colour_en} · {l.it.size}</div></td>
         <td style={{ width: 110 }}><input type="number" min="1" value={l.qty} onChange={(e) => setLines((x) => x.map((y, j) => (j === i ? { ...y, qty: Number(e.target.value) } : y)))} /></td>
         <td><button className="btn" onClick={() => setLines((x) => x.filter((_, j) => j !== i))}>✕</button></td></tr>)}</tbody></table>
       <label>Note (optional)</label><input value={ref} placeholder="e.g. from Bokor, 30 Oct" onChange={(e) => setRef(e.target.value)} />
-      <button className="btn primary big" disabled={!lines.length} style={{ width: '100%', marginTop: 12 }} onClick={async () => { try { await api.post('/stock/in', { store_id: store.id, reference: ref, lines: lines.map((l) => ({ item_id: l.it.id, qty: l.qty })) }); onDone(); } catch (e) { setErr(e.message); } }}>Add {lines.reduce((a, l) => a + l.qty, 0)} pieces to stock</button>
+      <button className="btn primary big" disabled={!lines.length} style={{ width: '100%', marginTop: 12 }} onClick={async () => { try { await api.post('/stock/in', { store_id: store.id, reference: ref, lines: lines.map((l) => ({ item_id: l.it.id, qty: l.qty })) }); onDone(); } catch (e) { setErr(e.message); } }}>{L('Add', 'បន្ថែម')} {lines.reduce((a, l) => a + l.qty, 0)} {L('pieces to stock', 'ដុំចូលស្តុក')}</button>
     </Modal>
   );
 }
