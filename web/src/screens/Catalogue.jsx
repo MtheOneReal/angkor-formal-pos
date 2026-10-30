@@ -91,7 +91,7 @@ function NewDesign({ design, dcode, rows, meta, owner, editLists, onClose, onDon
       <div className="grid g2">
         <div><label>{L('Type', 'ប្រភេទ')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('types'); }} style={{ textTransform: 'none' }}>✎ {L('edit', 'កែ')}</a>}</label><select value={f.type_code} onChange={(e) => setF({ ...f, type_code: e.target.value })}>{meta.types.map((b) => <option key={b.code} value={b.code}>{b.name_en}</option>)}</select></div>
         <div><label>{L('Brand', 'ម៉ាក')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('brands'); }} style={{ textTransform: 'none' }}>✎ {L('edit', 'កែ')}</a>}</label><select value={f.brand_id} onChange={(e) => setF({ ...f, brand_id: Number(e.target.value) })}>{meta.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-        <div><label>{L('Code', 'កូដ')}</label><input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} />{design && f.code.trim().toUpperCase().replace(/\s+/g, '-') !== dcode(design).toUpperCase() && <div className="small" style={{ color: 'var(--warn)' }}>{L('Changing the code also changes the code of every colour and size of this design.', 'ការប្តូរកូដនឹងប្តូរកូដនៃគ្រប់ពណ៌ និងទំហំរបស់ម៉ូដែលនេះផងដែរ។')}</div>}</div>
+        <div><label>{L('Code', 'កូដ')}</label><input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} />{design && f.code.trim().toUpperCase().replace(/\s+/g, '-') !== dcode(design).toUpperCase() && <div className="small" style={{ color: 'var(--warn)' }}>{L('Changing the code also changes the code of every size of this design.', 'ការប្តូរកូដនឹងប្តូរកូដនៃគ្រប់ទំហំរបស់ម៉ូដែលនេះផងដែរ។')}</div>}</div>
         <div><label>{L('Name', 'ឈ្មោះ')}</label><input value={f.name_en} onChange={(e) => setF({ ...f, name_en: e.target.value })} /></div>
         <div><label>{L('Full price (USD)', 'តម្លៃដើម (USD)')}</label><input inputMode="decimal" value={f.full} onChange={(e) => setPrices({ full: e.target.value })} /></div>
         <div><label>{L('Discount (USD)', 'បញ្ចុះតម្លៃ (USD)')}</label><input inputMode="decimal" placeholder="0" value={f.disc} onChange={(e) => setPrices({ disc: e.target.value })} /></div>
@@ -108,9 +108,9 @@ function NewDesign({ design, dcode, rows, meta, owner, editLists, onClose, onDon
 
 function VariantPicker({ meta, owner, editLists, design, onAdded }) {
   const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
-  const sets = meta.size_sets || SIZE_SETS; const [custom, setCustom] = useState(''); const [cols, setCols] = useState([]); const [extra, setExtra] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const f = { colours: cols, sizes: extra };
-  const toggle = (k, v) => (k === 'colours' ? setCols : setExtra)((x) => (x.includes(v) ? x.filter((y) => y !== v) : [...x, v]));
+  const sets = meta.size_sets || SIZE_SETS; const [custom, setCustom] = useState(''); const [extra, setExtra] = useState([]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const f = { sizes: extra };
+  const toggle = (k, v) => setExtra((x) => (x.includes(v) ? x.filter((y) => y !== v) : [...x, v]));
   const isLen = (k) => /length|long|inseam|ប្រវែង/i.test(k);
   const [gs, setGs] = useState({});
   const gtoggle = (g, v) => setGs((x) => ({ ...x, [g]: (x[g] || []).includes(v) ? x[g].filter((y) => y !== v) : [...(x[g] || []), v] }));
@@ -121,17 +121,16 @@ function VariantPicker({ meta, owner, editLists, design, onAdded }) {
     const combo = lens.length ? own.flatMap((b) => lens.map((l) => `${b} ${l}`.trim())) : own;
     return [...new Set([...combo, ...f.sizes])];
   };
-  const n = cols.length * buildSizes().length;
-  const save = async () => { setBusy(true); setErr(''); try { await api.post(`/designs/${design.id}/variants`, { colours: cols, sizes: buildSizes() }); setCols([]); setGs({}); setExtra([]); onAdded(); } catch (e) { setErr(e.message); } setBusy(false); };
+  const n = buildSizes().length;
+  const save = async () => { setBusy(true); setErr(''); try { await api.post(`/designs/${design.id}/variants`, { sizes: buildSizes() }); setGs({}); setExtra([]); onAdded(); } catch (e) { setErr(e.message); } setBusy(false); };
   return (
     <div>
-      <label>{L('Colours', 'ពណ៌')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('colours'); }} style={{ textTransform: 'none' }}>✎ {L('add / edit', 'បន្ថែម / កែ')}</a>}</label><div className="row wrap">{meta.colours.map((c) => <button key={c.code} className={`chip ${f.colours.includes(c.code) ? 'on' : ''}`} onClick={() => toggle('colours', c.code)}><span className="swatch" style={{ background: c.hex }} />{lang === 'km' && c.name_km ? c.name_km : c.name_en}</button>)}</div>
       <label>{L('Sizes', 'ទំហំ')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('sizes'); }} style={{ textTransform: 'none' }}>✎ {L('edit groups', 'កែក្រុម')}</a>}</label>
       {Object.entries(sets).map(([k, sizes]) => <div key={k} className="row wrap" style={{ marginBottom: 6 }}><span className="small muted" style={{ width: 60 }}>{k}</span>{sizes.map((s) => <button key={k + s} className={`chip ${(gs[k] || []).includes(s) ? 'on' : ''}`} onClick={() => gtoggle(k, s)}>{s}</button>)}</div>)}
       {Object.keys(sets).some(isLen) && <p className="muted small">{L('A group named “Length” is combined with the size: size 44 + length S makes “44 S”, its own stock item.', 'ក្រុមឈ្មោះ “Length” ត្រូវបានផ្សំជាមួយទំហំ៖ ទំហំ 44 + ប្រវែង S ជា “44 S” ដែលមានស្តុកផ្ទាល់ខ្លួន។')}</p>}
       <div className="row" style={{ marginTop: 6 }}><input style={{ width: 160 }} placeholder={L('Other size (e.g. 58)', 'ទំហំផ្សេង (ឧ. 58)')} value={custom} onChange={(e) => setCustom(e.target.value)} /><button className="btn" onClick={() => { const v = custom.trim().toUpperCase(); if (v && !f.sizes.includes(v)) setExtra((x) => [...x, v]); setCustom(''); }}>{L('Add size', 'បន្ថែមទំហំ')}</button>{f.sizes.filter((z) => !Object.values(sets).flat().includes(z)).map((z) => <button key={z} className="chip on" onClick={() => toggle('sizes', z)}>{z} ✕</button>)}</div>
       {err && <div className="error">{err}</div>}
-      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} disabled={!n || busy} onClick={save}>{n ? `${L('Create', 'បង្កើត')} ${n} ${L('variants', 'ប្រភេទ')}` : L('Choose colours and sizes', 'ជ្រើសពណ៌ និងទំហំ')}</button>
+      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} disabled={!n || busy} onClick={save}>{n ? `${L('Create', 'បង្កើត')} ${n} ${L('sizes', 'ទំហំ')}` : L('Choose sizes', 'ជ្រើសទំហំ')}</button>
     </div>
   );
 }
@@ -140,7 +139,6 @@ function Labels({ design, meta, onClose }) {
   const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
   const [copies, setCopies] = useState(1);
   const items = design.items.filter((i) => i.active);
-  const col = (c) => meta?.colours.find((x) => x.code === c)?.name_en || c;
   const all = items.flatMap((i) => Array.from({ length: copies }, () => i));
   return (
     <Modal title={L('Print labels', 'បោះពុម្ពស្លាក')} onClose={onClose} wide>
@@ -149,7 +147,7 @@ function Labels({ design, meta, onClose }) {
       <div id="labels" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
         {all.map((i, k) => (
           <div key={k} className="receipt" style={{ width: '50mm', height: '90mm', margin: 0, border: '1px solid #ccc', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pageBreakAfter: 'always' }}>
-            <div><div style={{ fontFamily: 'Cormorant Garamond,serif', fontSize: 16, fontWeight: 600 }}>{design.name_en}</div><div>{col(i.colour_code)} · {i.size}</div></div>
+            <div><div style={{ fontFamily: 'Cormorant Garamond,serif', fontSize: 16, fontWeight: 600 }}>{design.name_en}</div><div>{i.size}</div></div>
             <Barcode value={i.sku} />
             <div style={{ fontSize: 18, fontWeight: 600 }}>{usd(design.price_cents)}</div>
           </div>))}
@@ -158,21 +156,20 @@ function Labels({ design, meta, onClose }) {
   );
 }
 
-// Type the pieces received for every colour and size of one design in a single table.
+// Type the pieces received for every size of one design in a single table.
 function StockGrid({ design, owner, editLists, reload, meta, stk, store, onClose, onDone }) {
   const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
   const [qty, setQty] = useState({}); const [ref, setRef] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const colours = [...new Set(design.items.filter((i) => i.active).map((i) => i.colour_code))]; const sizes = [...new Set(design.items.filter((i) => i.active).map((i) => i.size))].sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0) || String(a).localeCompare(String(b)));
-  const cname = (c) => meta?.colours.find((x) => x.code === c)?.name_en || c; const item = (c, s) => design.items.find((i) => i.active && i.colour_code === c && i.size === s);
+  const its = design.items.filter((i) => i.active).sort((a, b) => (parseFloat(a.size) || 0) - (parseFloat(b.size) || 0) || String(a.size).localeCompare(String(b.size)));
   const lines = Object.entries(qty).map(([id, q]) => ({ item_id: Number(id), qty: Math.floor(Number(q)) })).filter((l) => l.qty > 0); const total = lines.reduce((a, l) => a + l.qty, 0);
   const save = async () => { setBusy(true); setErr(''); try { await api.post('/stock/in', { store_id: store.id, lines, reference: ref || 'Added from catalogue' }); onDone(); } catch (e) { setErr(e.message || 'Could not save.'); setBusy(false); } };
   return (
     <Modal title={`${L('Add stock', 'បន្ថែមស្តុក')}: ${design.name_en} (${store.name})`} onClose={onClose} wide>
-      {!colours.length && <><p className="muted small">{owner ? L('This design has no colours and sizes yet. Choose them to create its stock items.', 'ម៉ូដែលនេះមិនទាន់មានពណ៌ និងទំហំទេ។ សូមជ្រើសរើសដើម្បីបង្កើតទំនិញ។') : L('This design has no colours and sizes yet. Ask the owner to add them.', 'ម៉ូដែលនេះមិនទាន់មានពណ៌ និងទំហំទេ។ សូមស្នើម្ចាស់បន្ថែម។')}</p>{owner && <VariantPicker meta={meta} owner={owner} editLists={editLists} design={design} onAdded={reload} />}</>}
-      <p className="muted small">{L('Type how many pieces arrived for each colour and size. Leave the rest empty. The small number under each box is what the shop has now.', 'វាយចំនួនដែលទទួលបានសម្រាប់ពណ៌ និងទំហំនីមួយៗ។ ទុកទទេសម្រាប់ផ្សេងទៀត។ លេខតូចក្រោមប្រអប់គឺស្តុកបច្ចុប្បន្ន។')}</p>
-      <div className="tbl" style={{ overflow: 'auto' }}><table><thead><tr><th>{L('Colour', 'ពណ៌')}</th>{sizes.map((s) => <th key={s} className="right">{s}</th>)}</tr></thead>
-        <tbody>{colours.map((c) => <tr key={c}><td><b>{cname(c)}</b></td>{sizes.map((s) => { const it = item(c, s); return <td key={s} className="right">{it ? <><input type="number" min="0" inputMode="numeric" value={qty[it.id] ?? ''} onChange={(e) => setQty({ ...qty, [it.id]: e.target.value })} style={{ width: 64, textAlign: 'right' }} /><div className="small muted">have {stk?.items?.[it.id]?.here ?? 0}</div></> : <span className="muted">—</span>}</td>; })}</tr>)}</tbody></table></div>
-      {colours.length > 0 && owner && <details style={{ marginTop: 10 }}><summary className="small" style={{ cursor: 'pointer' }}>＋ {L('Add more colours or sizes', 'បន្ថែមពណ៌ ឬទំហំ')}</summary><VariantPicker meta={meta} owner={owner} editLists={editLists} design={design} onAdded={reload} /></details>}
+      {!its.length && <><p className="muted small">{owner ? L('This design has no sizes yet. Choose them to create its stock items.', 'ម៉ូដែលនេះមិនទាន់មានទំហំទេ។ សូមជ្រើសរើសដើម្បីបង្កើតទំនិញ។') : L('This design has no sizes yet. Ask the owner to add them.', 'ម៉ូដែលនេះមិនទាន់មានទំហំទេ។ សូមស្នើម្ចាស់បន្ថែម។')}</p>{owner && <VariantPicker meta={meta} owner={owner} editLists={editLists} design={design} onAdded={reload} />}</>}
+      {its.length > 0 && <><p className="muted small">{L('Type how many pieces arrived for each size. Leave the rest empty.', 'វាយចំនួនដែលទទួលបានសម្រាប់ទំហំនីមួយៗ។ ទុកទទេសម្រាប់ផ្សេងទៀត។')}</p>
+      <div className="tbl" style={{ overflow: 'auto' }}><table><thead><tr><th>{L('Size', 'ទំហំ')}</th><th>{L('Code', 'កូដ')}</th><th className="right">{L('In stock here', 'ស្តុកនៅទីនេះ')}</th><th className="right">{L('Pieces received', 'ចំនួនទទួល')}</th></tr></thead>
+        <tbody>{its.map((it) => <tr key={it.id}><td><b>{it.size}</b></td><td className="muted small">{it.sku}</td><td className="right num">{stk?.items?.[it.id]?.here ?? 0}</td><td className="right"><input type="number" min="0" inputMode="numeric" value={qty[it.id] ?? ''} onChange={(e) => setQty({ ...qty, [it.id]: e.target.value })} style={{ width: 80, textAlign: 'right' }} /></td></tr>)}</tbody></table></div></>}
+      {its.length > 0 && owner && <details style={{ marginTop: 10 }}><summary className="small" style={{ cursor: 'pointer' }}>＋ {L('Add more sizes', 'បន្ថែមទំហំ')}</summary><VariantPicker meta={meta} owner={owner} editLists={editLists} design={design} onAdded={reload} /></details>}
       <label>{L('Reference (optional)', 'កំណត់ចំណាំ (ជាជម្រើស)')}</label><input value={ref} onChange={(e) => setRef(e.target.value)} placeholder={L('e.g. delivery 30 Oct, opening stock', 'ឧ. ដឹកចូល ៣០ តុលា, ស្តុកដំបូង')} />
       {err && <div className="error">{err}</div>}
       <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} disabled={!total || busy} onClick={save}>{total ? `${L('Add', 'បន្ថែម')} ${total} ${L('pieces', 'ដុំ')}` : L('Type quantities above', 'វាយចំនួនខាងលើ')}</button>

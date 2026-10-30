@@ -5,7 +5,6 @@ import { useApp, Modal } from '../ui.jsx';
 // Filters that can sit under the search bar. The owner chooses which ones show, separately for Stock and POS.
 export const FILTERS = {
   type: { en: 'Type', km: 'ប្រភេទ', kind: 'pick' },
-  colour: { en: 'Colour', km: 'ពណ៌', kind: 'pick' },
   size: { en: 'Size', km: 'ទំហំ', kind: 'pick' },
   brand: { en: 'Brand', km: 'ម៉ាក', kind: 'pick' },
   price: { en: 'Price', km: 'តម្លៃ', kind: 'pick' },
@@ -20,7 +19,6 @@ export function passes(r, sel, qty, filterKeys) {
   for (const k of filterKeys) {
     const v = sel[k]; if (!v) continue;
     if (k === 'type' && r.type_code !== v) return false;
-    if (k === 'colour' && r.colour_code !== v) return false;
     if (k === 'size' && String(r.size) !== v) return false;
     if (k === 'brand' && r.brand_code !== v) return false;
     if (k === 'price') { const b = BANDS.find((x) => x[0] === v); if (b && !(r.price_cents >= b[1] && r.price_cents < b[2])) return false; }
@@ -32,7 +30,6 @@ export function passes(r, sel, qty, filterKeys) {
 
 function optionsFor(key, items, km) {
   if (key === 'type') return [...new Map(items.map((i) => [i.type_code, i])).values()].map((i) => ({ v: i.type_code, l: (km && i.type_name_km) || i.type_name_en || i.type_code }));
-  if (key === 'colour') return [...new Map(items.map((i) => [i.colour_code, i])).values()].map((i) => ({ v: i.colour_code, l: (km && i.colour_km) || i.colour_en || i.colour_code }));
   if (key === 'size') return [...new Set(items.map((i) => String(i.size)))].sort(sizeSort).map((v) => ({ v, l: v }));
   if (key === 'brand') return [...new Set(items.map((i) => i.brand_code))].filter(Boolean).sort().map((v) => ({ v, l: v }));
   if (key === 'price') return BANDS.map((b) => ({ v: b[0], l: km ? b[4] : b[3] }));

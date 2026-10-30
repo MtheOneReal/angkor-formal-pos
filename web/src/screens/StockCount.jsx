@@ -31,7 +31,7 @@ export default function StockCount() {
       <div className="card tbl" style={{ marginTop: 12 }}>
         <table><thead><tr><th>{L('Item', 'ទំនិញ')}</th><th className="right">{L('System', 'ប្រព័ន្ធ')}</th><th style={{ width: 110 }}>{L('Counted', 'រាប់បាន')}</th><th className="right">{L('Diff', 'ខុស')}</th></tr></thead>
           <tbody>{rows.map((r) => { const c = counts[r.id]; const d = c === undefined || c === '' ? null : Number(c) - r.on_hand; return (
-            <tr key={r.id}><td><b>{nm(r)}</b><div className="small muted">{r.sku} · {r.colour_en} · {r.size}</div></td><td className="right num">{r.on_hand}</td>
+            <tr key={r.id}><td><b>{nm(r)}</b><div className="small muted">{r.sku} · {r.size}</div></td><td className="right num">{r.on_hand}</td>
               <td><input type="number" min="0" value={c ?? ''} onChange={(e) => setCounts({ ...counts, [r.id]: e.target.value })} /></td>
               <td className="right num" style={{ color: d ? (d < 0 ? 'var(--bad)' : 'var(--warn)') : undefined }}>{d === null ? '' : d > 0 ? `+${d}` : d}</td></tr>); })}
             {!rows.length && <tr><td colSpan="4" className="muted">{L('No stock in this store yet.', 'មិនទាន់មានស្តុកទេ។')}</td></tr>}</tbody></table>

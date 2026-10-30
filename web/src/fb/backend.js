@@ -112,7 +112,7 @@ export function createBackend(deps) {
     const d = cat.designs.get(String(item.designId)); const c = cat.colours.get(item.colourCode);
     if (!d) return null;
     const row = {
-      id: item.id, sku: item.sku, size: item.size, colour_code: item.colourCode, low_stock: item.lowStock ?? 2, design_id: Number(d.id),
+      id: item.id, sku: item.sku, design_code: d.code || `${d.brandCode}-${d.typeCode}${String(d.number).padStart(2, '0')}`, size: item.size, colour_code: item.colourCode, low_stock: item.lowStock ?? 2, design_id: Number(d.id),
       name_en: d.nameEn, name_km: d.nameKm || null, photo: d.photo || null, price_cents: d.priceCents, type_code: d.typeCode, number: d.number, brand_code: d.brandCode,
       colour_en: c?.nameEn || item.colourCode, colour_km: c?.nameKm || null, colour_hex: c?.hex || '#999', active: item.active !== false && d.active !== false,
     };

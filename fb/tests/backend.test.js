@@ -396,7 +396,7 @@ test('super admin: only the first owner can add or change owners, and cannot be 
 test('filters under the search bar: defaults, owner can change them, cashier cannot', async () => {
   const { api } = await setup();
   const f0 = await api.get('/filters');
-  assert.deepEqual(f0.stock, ['type', 'colour', 'size', 'brand', 'low']); assert.equal(f0.can_edit, true);
+  assert.deepEqual(f0.stock, ['type', 'size', 'brand', 'low']); assert.equal(f0.can_edit, true);
   await api.post('/filters', { scope: 'pos', keys: ['size', 'price'] });
   assert.deepEqual((await api.get('/filters')).pos, ['size', 'price']);
   assert.deepEqual((await api.get('/filters')).stock, f0.stock);

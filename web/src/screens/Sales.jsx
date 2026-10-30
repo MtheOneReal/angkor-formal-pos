@@ -40,7 +40,7 @@ function SaleDetail({ id, onClose }) {
   return (
     <Modal title={s.receipt_no} onClose={onClose} wide>
       <p className="muted">{dt(s.ts)} · {s.cashier_name} {s.status !== 'completed' && <span className="badge out">{s.status}</span>}</p>
-      <table><tbody>{s.lines.map((l) => <tr key={l.id}><td>{l.name_en}<div className="small muted">{l.sku} · {l.colour_en} · {l.size}</div></td><td>{l.qty}{l.returned_qty ? ` (returned ${l.returned_qty})` : ''}</td><td className="right num">{usd(l.line_total_cents)}</td>
+      <table><tbody>{s.lines.map((l) => <tr key={l.id}><td>{l.name_en}<div className="small muted">{l.sku} · {l.size}</div></td><td>{l.qty}{l.returned_qty ? ` (returned ${l.returned_qty})` : ''}</td><td className="right num">{usd(l.line_total_cents)}</td>
         {mode === 'return' && <td style={{ width: 90 }}><input type="number" min="0" max={l.qty - l.returned_qty} value={pick[l.id] || ''} onChange={(e) => setPick({ ...pick, [l.id]: e.target.value })} placeholder="0" /></td>}</tr>)}</tbody></table>
       {s.discount_cents > 0 && <p className="muted">Discount {usd(s.discount_cents)}{s.discount_reason ? ` — ${s.discount_reason}` : ''}</p>}
       <p><b>Total {usd(s.total_cents)}</b> <span className="muted">({riel(s.total_khr)})</span></p>

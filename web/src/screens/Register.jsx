@@ -44,7 +44,7 @@ function Receipt({ sale, onDone }) {
       <div className="receipt" id="receipt">
         <div style={{ textAlign: 'center' }}><b style={{ fontSize: 15 }}>{sale.store_name}</b><br />{new Date(sale.ts).toLocaleString('en-GB', { timeZone: 'Asia/Phnom_Penh' })}<br />{sale.receipt_no}</div>
         <hr />
-        {sale.lines.map((l) => <div key={l.id}><div>{l.name_en} · {l.colour_en} · {l.size}</div><div className="l"><span>{l.qty} × {usd(l.unit_price_cents ?? l.price_cents ?? 0)}</span><span>{usd(l.line_total_cents)}</span></div></div>)}
+        {sale.lines.map((l) => <div key={l.id}><div>{l.name_en} · {l.size}</div><div className="l"><span>{l.qty} × {usd(l.unit_price_cents ?? l.price_cents ?? 0)}</span><span>{usd(l.line_total_cents)}</span></div></div>)}
         <hr />
         {sale.discount_cents > 0 && <div className="l"><span>{t('discount')}</span><span>-{usd(sale.discount_cents)}</span></div>}
         <div className="l"><b>{t('total')}</b><b>{usd(sale.total_cents)}</b></div>
@@ -223,7 +223,7 @@ export default function Register() {
     for (const it of catalog) { if (!m.has(it.design_id)) m.set(it.design_id, { id: it.design_id, d: it, items: [] }); m.get(it.design_id).items.push(it); }
     const term = q.trim().toLowerCase();
     return [...m.values()].filter((g) => (!Object.values(flt).some(Boolean) || g.items.some((i) => passes(i, flt, i.available, fcfg.keys)))
-      && (!term || g.items.some((i) => `${i.sku} ${i.name_en} ${i.name_km || ''} ${i.colour_en}`.toLowerCase().includes(term)))).sort((a, b) => String(a.d.sku).localeCompare(b.d.sku));
+      && (!term || g.items.some((i) => `${i.sku} ${i.name_en} ${i.name_km || ''}`.toLowerCase().includes(term)))).sort((a, b) => String(a.d.sku).localeCompare(b.d.sku));
   }, [catalog, flt, q, fcfg.keys]);
   const focus = () => setTimeout(() => box.current?.focus(), 50);
   useEffect(() => { if (shift) focus(); }, [shift, done, pay]);
@@ -286,10 +286,9 @@ export default function Register() {
         <div className="pgrid">
           {groups.map((g) => {
             const here = g.items.reduce((n, i) => n + i.available, 0); const oth = g.items.some((i) => i.others == null) ? null : g.items.reduce((n, i) => n + i.others, 0);
-            const cols = [...new Map(g.items.map((i) => [i.colour_code, i.colour_hex])).values()];
             return (
               <div className="pcard" key={g.id}>
-                <div className="ph">{photo(g.d.photo) ? <img src={photo(g.d.photo)} alt="" loading="lazy" /> : <GarmentArt code={g.d.type_code} name={g.d.type_name_en} nameKm={g.d.type_name_km} tint={cols[0]} />}<span className="code">{g.d.sku.split('-').slice(0, 2).join('-')}</span><span className="dots2">{cols.slice(0, 4).map((c, k) => <i key={k} style={{ background: c }} />)}</span></div>
+                <div className="ph">{photo(g.d.photo) ? <img src={photo(g.d.photo)} alt="" loading="lazy" /> : <GarmentArt code={g.d.type_code} name={g.d.type_name_en} nameKm={g.d.type_name_km} />}<span className="code">{g.d.design_code}</span></div>
                 <div className="row between small"><span className="muted">{nm({ name_en: g.d.type_name_en, name_km: g.d.type_name_km })}</span><span className="muted">{g.d.brand_code}</span></div>
                 <b style={{ fontSize: 14, lineHeight: 1.3 }}>{nm(g.d)}</b>
                 <div className="stockbox"><div><span>{t('this_store')}:</span><b>{here} pcs</b></div>{oth != null && <div><span>{t('other_stores')}:</span><b>{oth} pcs</b></div>}</div>
@@ -310,7 +309,7 @@ export default function Register() {
           {!cart.length && <p className="muted">{t('empty_cart')}</p>}
           {cart.map((l, i) => (
             <div className="line" key={l.item.id}>
-              <div className="grow"><b style={{ fontSize: 13 }}>{nm(l.item)}</b><div className="small muted">{l.item.sku} · {l.item.colour_en} · {l.item.size}</div></div>
+              <div className="grow"><b style={{ fontSize: 13 }}>{nm(l.item)}</b><div className="small muted">{l.item.sku} · {l.item.size}</div></div>
               <div className="qty">
                 <button onClick={() => setCart((c) => c.flatMap((x, j) => (j === i ? (x.qty > 1 ? [{ ...x, qty: x.qty - 1 }] : []) : [x])))} aria-label="Less">−</button>
                 <span className="num">{l.qty}</span>
@@ -329,15 +328,7 @@ export default function Register() {
       {pick && (
         <Modal title={nm(pick.d)} onClose={() => setPick(null)}>
           <p className="muted small">{t('pick_size')}</p>
-          {[...new Set(pick.items.map((i) => i.colour_code))].map((cc) => {
-            const its = pick.items.filter((i) => i.colour_code === cc).sort((a, b) => (parseFloat(a.size) || 0) - (parseFloat(b.size) || 0) || String(a.size).localeCompare(b.size));
-            return (
-              <div key={cc} style={{ marginBottom: 12 }}>
-                <div style={{ marginBottom: 6 }}><span className="swatch" style={{ background: its[0].colour_hex }} /><b>{nm({ name_en: its[0].colour_en, name_km: its[0].colour_km })}</b></div>
-                <div className="row wrap">{its.map((i) => <button key={i.id} className="chip" disabled={i.available <= 0} style={i.available <= 0 ? { opacity: .4 } : undefined} onClick={() => addItem(i, 'typed')}>{i.size} <span className="small muted">({i.available})</span></button>)}</div>
-              </div>
-            );
-          })}
+          <div className="row wrap" style={{ marginBottom: 12 }}>{[...pick.items].sort((a, b) => (parseFloat(a.size) || 0) - (parseFloat(b.size) || 0) || String(a.size).localeCompare(b.size)).map((i) => <button key={i.id} className="chip" disabled={i.available <= 0} style={i.available <= 0 ? { opacity: .4 } : undefined} onClick={() => addItem(i, 'typed')}>{i.size} <span className="small muted">({i.available})</span></button>)}</div>
         </Modal>
       )}
       {cam && <CameraScan onClose={() => setCam(false)} onCode={(c) => { setCam(false); search(c, 'scan'); }} />}

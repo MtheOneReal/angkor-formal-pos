@@ -208,11 +208,11 @@ export function createMore(B) {
     const sales = []; const lines = [];
     for (const st of stores) for (const s of await list('sales', where('storeId', '==', st.id))) {
       sales.push({ Date: day(s.ts), Receipt: s.receiptNo, Store: st.name, Cashier: s.cashierName, Customer: s.customerName || '', Phone: s.customerPhone || '', Subtotal: usd(s.subtotalCents), Discount: usd(s.discountCents), Total: usd(s.totalCents), Status: s.status, Deposit: s.deposit ? 'yes' : '', BalanceAtSale: usd(s.balanceCents), Alteration: s.alteration ? 'yes' : '' });
-      for (const l of s.lines || []) lines.push({ Date: day(s.ts), Receipt: s.receiptNo, Store: st.name, SKU: l.sku, Product: l.nameEn, Colour: l.colourEn, Size: l.size, Qty: l.qty, UnitPrice: usd(l.unitCents), LineTotal: usd(l.totalCents), Status: s.status });
+      for (const l of s.lines || []) lines.push({ Date: day(s.ts), Receipt: s.receiptNo, Store: st.name, SKU: l.sku, Product: l.nameEn, Size: l.size, Qty: l.qty, UnitPrice: usd(l.unitCents), LineTotal: usd(l.totalCents), Status: s.status });
     }
     const stockAll = await B.stockOfAll(); const itemBy = new Map(cat.items.map((i) => [Number(i.id), i]));
     const stock = stockAll.map((x) => { const it = itemBy.get(Number(x.itemId)); const d = it ? cat.designs.get(String(it.designId)) : null; return { Store: sn.get(Number(x.storeId)) || x.storeId, SKU: it?.sku || x.itemId, Product: d?.nameEn || '', Size: it?.size || '', OnHand: x.onHand || 0, Reserved: x.reserved || 0 }; });
-    const items = cat.items.map((i) => { const d = cat.designs.get(String(i.designId)); return { SKU: i.sku, Product: d?.nameEn || '', Size: i.size, Colour: i.colourCode, Price: usd(d?.priceCents), Cost: usd(costs.get(String(i.designId))), Active: i.active !== false ? 'yes' : '' }; });
+    const items = cat.items.map((i) => { const d = cat.designs.get(String(i.designId)); return { SKU: i.sku, Product: d?.nameEn || '', Size: i.size, Price: usd(d?.priceCents), Cost: usd(costs.get(String(i.designId))), Active: i.active !== false ? 'yes' : '' }; });
     const expenses = (await list('expenses')).sort((a, b) => String(a.date).localeCompare(b.date)).map((e) => ({ Date: e.date, Store: sn.get(Number(e.storeId)) || e.storeId, Category: e.category, Amount: usd(e.amountCents), Note: e.note || '', By: e.createdByName || '' }));
     const attendance = (await list('attendance')).sort((a, b) => String(a.date).localeCompare(b.date)).map((a) => ({ Date: a.date, Store: sn.get(Number(a.storeId)) || a.storeId, Staff: a.userName || a.userId, In: day(a.inTs), Out: day(a.outTs), Manual: a.manual ? 'yes' : '', Excused: a.excused ? 'yes' : '' }));
     const customers = (await list('customers')).map((c) => ({ Name: c.name, Phone: c.phone || '', Note: c.note || '' }));

@@ -17,12 +17,12 @@ export default function Lookup() {
         <div className="row wrap" style={{ gap: 8, marginTop: 10 }}><span className="small">Requests will be sent to:</span>
           <select value={store.id} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 200 }} aria-label="Branch">{me.stores.map((s) => <option key={s.id} value={s.id}>{s.kind === 'warehouse' ? '🏬 ' : ''}{s.name}</option>)}</select></div>
       )}
-      <input className="scanbox" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a code, name or colour" style={{ marginTop: 12 }} />
+      <input className="scanbox" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type a code or name" style={{ marginTop: 12 }} />
       {data && !data.items.length && <p className="muted">Nothing found.</p>}
       <div className="col" style={{ marginTop: 14 }}>
         {data?.items.map((it) => (
           <div key={it.id} className="card">
-            <div className="row between wrap"><div><b>{nm(it)}</b> <span className="muted">· {it.colour_en} · {it.size}</span><div className="small muted">{it.sku}</div></div><b>{usd(it.price_cents)}</b></div>
+            <div className="row between wrap"><div><b>{nm(it)}</b> <span className="muted">· {it.size}</span><div className="small muted">{it.sku}</div></div><b>{usd(it.price_cents)}</b></div>
             <div className="row wrap" style={{ marginTop: 10 }}>
               {it.stores.map((s) => {
                 const info = stores.find((x) => x.id === s.store_id);

@@ -12,7 +12,7 @@ export default function Restock() {
   const ask = async (r) => {
     try { const x = await api.get(`/stock/lookup${qs({ store_id: store.id, q: r.sku })}`); const it = x.items.find((i) => i.id === r.id); if (it) setReq({ item: it, stores: x.stores }); } catch (e) { setErr(e.message); }
   };
-  const Name = ({ r }) => <div><b>{nm(r)}</b> <span className="muted">· {r.colour_en} · {r.size}</span><div className="small muted">{r.sku}</div></div>;
+  const Name = ({ r }) => <div><b>{nm(r)}</b> <span className="muted">· {r.size}</span><div className="small muted">{r.sku}</div></div>;
   const Btn = ({ r }) => (canReq && r.can_other && r.others > 0 && r.level !== 'in') ? <button className="btn" onClick={() => ask(r)}>{t('request')}</button> : (r.level !== 'in' && r.can_other ? <span className="small muted">{L('Not in other branches', 'គ្មានក្នុងសាខាផ្សេង')}</span> : null);
   return (
     <div>

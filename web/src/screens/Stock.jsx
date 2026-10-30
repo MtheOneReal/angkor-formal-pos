@@ -20,7 +20,7 @@ export default function StockScreen() {
     <div>
       <div className="row between wrap"><h1>{t('stock')} — {store.name}</h1>
         <div className="row">{me.perms.includes('stock.in') && <button className="btn primary" onClick={() => setModal({ kind: 'in' })}>＋ Receive delivery</button>}</div></div>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search code, name, colour" style={{ margin: '12px 0 0' }} />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search code or name" style={{ margin: '12px 0 0' }} />
       <FilterBar scope="stock" items={rows} sel={sel} setSel={setSel} cfg={fcfg} />
       {canCost && <p className="muted small">Stock value at cost (list shown): {usd(value)}</p>}
       {ret.length > 0 && <div className="card" style={{ marginBottom: 12 }}><b>Returned pieces waiting for a check</b>
@@ -28,8 +28,8 @@ export default function StockScreen() {
           <span className="row"><button className="btn" onClick={async () => { await api.post('/stock/returned/resolve', { store_id: store.id, item_id: r.item_id, qty: r.qty, to: 'stock' }); show('Back in stock'); load(); }}>Good → stock</button>
             <button className="btn danger" onClick={async () => { await api.post('/stock/returned/resolve', { store_id: store.id, item_id: r.item_id, qty: r.qty, to: 'damaged' }); show('Marked damaged'); load(); }}>Damaged</button></span></div>)}</div>}
       <div className="card" style={{ overflow: 'auto' }}>
-        <table><thead><tr><th>Item</th><th>Colour</th><th>Size</th><th className="right">Price</th>{canCost && <th className="right">Cost</th>}<th className="right">On hand</th><th className="right">Reserved</th><th></th></tr></thead>
-          <tbody>{shown.map((r) => <tr key={r.id}><td><b>{nm(r)}</b><div className="small muted">{r.sku}</div></td><td><span className="swatch" style={{ background: r.colour_hex }} />{r.colour_en}</td><td>{r.size}</td>
+        <table><thead><tr><th>Item</th><th>Size</th><th className="right">Price</th>{canCost && <th className="right">Cost</th>}<th className="right">On hand</th><th className="right">Reserved</th><th></th></tr></thead>
+          <tbody>{shown.map((r) => <tr key={r.id}><td><b>{nm(r)}</b><div className="small muted">{r.sku}</div></td><td>{r.size}</td>
             <td className="right num">{usd(r.price_cents)}</td>{canCost && <td className="right num">{usd(r.cost_cents)}</td>}
             <td className="right num"><b style={{ color: r.on_hand <= 0 ? 'var(--bad)' : r.on_hand <= r.low_stock ? 'var(--warn)' : undefined }}>{r.on_hand}</b></td><td className="right num">{r.reserved || ''}</td>
             <td>{me.perms.includes('stock.adjust') && <button className="btn" onClick={() => setModal({ kind: 'adjust', item: r })}>Adjust</button>}</td></tr>)}</tbody></table>
@@ -66,10 +66,10 @@ function StockIn({ onClose, onDone }) {
   return (
     <Modal title="Receive delivery" onClose={onClose} wide>
       <div className="row"><input autoFocus className="grow scanbox" value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="Scan or type the code, press Enter" /><button className="btn" onClick={add}>Add</button></div>
-      {sug.length > 0 && <div className="col" style={{ marginTop: 6, gap: 4 }}>{sug.map((it) => <button key={it.id} className="btn" style={{ textAlign: 'left' }} onClick={() => pickSug(it)}><b>{it.sku}</b> <span className="muted small">{it.name_en} · {it.colour_en} · {it.size}</span></button>)}</div>}
+      {sug.length > 0 && <div className="col" style={{ marginTop: 6, gap: 4 }}>{sug.map((it) => <button key={it.id} className="btn" style={{ textAlign: 'left' }} onClick={() => pickSug(it)}><b>{it.sku}</b> <span className="muted small">{it.name_en} · {it.size}</span></button>)}</div>}
       {err && <div className="error">{err}</div>}
       {err && <p className="muted small">{L('Type the full code of one colour and size: design code + colour + size, for example MY-CODE-BLK-S. It is printed on the label. The easy way: Catalogue → ＋ Add stock on the design, with nothing to type. A design with no colours and sizes yet must get them there first.', 'វាយកូដពេញនៃពណ៌ និងទំហំមួយ៖ កូដម៉ូដែល + ពណ៌ + ទំហំ ឧទាហរណ៍ MY-CODE-BLK-S ដែលមានលើស្លាក។ វិធីងាយ៖ កាតាឡុក → ＋ បន្ថែមស្តុក លើម៉ូដែល ដោយមិនបាច់វាយកូដ។ ម៉ូដែលដែលមិនទាន់មានពណ៌ និងទំហំ ត្រូវបន្ថែមនៅទីនោះជាមុនសិន។')}</p>}
-      <table style={{ marginTop: 10 }}><tbody>{lines.map((l, i) => <tr key={l.it.id}><td>{l.it.sku}<div className="small muted">{l.it.name_en} · {l.it.colour_en} · {l.it.size}</div></td>
+      <table style={{ marginTop: 10 }}><tbody>{lines.map((l, i) => <tr key={l.it.id}><td>{l.it.sku}<div className="small muted">{l.it.name_en} · {l.it.size}</div></td>
         <td style={{ width: 110 }}><input type="number" min="1" value={l.qty} onChange={(e) => setLines((x) => x.map((y, j) => (j === i ? { ...y, qty: Number(e.target.value) } : y)))} /></td>
         <td><button className="btn" onClick={() => setLines((x) => x.filter((_, j) => j !== i))}>✕</button></td></tr>)}</tbody></table>
       <label>Note (optional)</label><input value={ref} placeholder="e.g. from Bokor, 30 Oct" onChange={(e) => setRef(e.target.value)} />

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { Modal } from '../ui.jsx';
 
-const TABS = [['brands', 'Brands'], ['types', 'Types'], ['colours', 'Colours'], ['sizes', 'Sizes']];
+const TABS = [['brands', 'Brands'], ['types', 'Types'], ['sizes', 'Sizes']];
 
 // Owner-only editor for the lists used when creating products.
 export default function ListsManager({ start = 'brands', onClose }) {
@@ -18,7 +18,6 @@ export default function ListsManager({ start = 'brands', onClose }) {
       {err && <div className="error">{err}</div>}
       {tab === 'brands' && <Simple kind="brands" rows={meta.brands.map((b) => ({ key: b.id, code: b.code, name_en: b.name }))} fields={['name_en']} codeHint="Code (2–5 letters, e.g. AF)" run={run} done={onClose} />}
       {tab === 'types' && <Simple kind="types" rows={meta.types.map((b) => ({ key: b.code, code: b.code, name_en: b.name_en, name_km: b.name_km || '' }))} fields={['name_en', 'name_km']} codeHint="Code (1–3 letters, e.g. S)" run={run} done={onClose} />}
-      {tab === 'colours' && <Simple kind="colours" rows={meta.colours.map((b) => ({ key: b.code, code: b.code, name_en: b.name_en, name_km: b.name_km || '', hex: b.hex }))} fields={['name_en', 'name_km', 'hex']} codeHint="Code (2–4 letters, e.g. NVY)" run={run} done={onClose} />}
       {tab === 'sizes' && <Sizes sets={meta.size_sets || { Suit: meta.suit_sizes, Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] }} run={run} done={onClose} />}
     </Modal>
   );
@@ -51,7 +50,7 @@ function Sizes({ sets, run, done }) {
   const save = async () => { if (await run(() => api.post('/lists/sizes', { sets: Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, String(v).split(',').map((x) => x.trim()).filter(Boolean)])) }))) done(); };
   return (
     <div>
-      <p className="muted small">Each group is a row of size buttons when you add colours and sizes to a design. Separate sizes with commas.</p>
+      <p className="muted small">Each group is a row of size buttons when you add sizes to a design. Separate sizes with commas.</p>
       {Object.entries(draft).map(([k, v]) => <div key={k} className="row" style={{ marginBottom: 8 }}><b style={{ width: 90 }}>{k}</b><input className="grow" value={v} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} /><button className="btn danger" onClick={() => setDraft((d) => { const n = { ...d }; delete n[k]; return n; })}>✕</button></div>)}
       <div className="row"><input style={{ width: 160 }} placeholder="New group (e.g. Shoes)" value={newName} onChange={(e) => setNewName(e.target.value)} /><button className="btn" disabled={!newName.trim()} onClick={() => { setDraft({ ...draft, [newName.trim()]: '' }); setNewName(''); }}>Add group</button></div>
       <button className="btn primary" style={{ marginTop: 12 }} onClick={save}>Save sizes</button>

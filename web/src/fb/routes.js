@@ -163,13 +163,13 @@ export function createApi(B, extra = {}) {
     if (!number) number = Math.max(0, ...[...cat.designs.values()].filter((d) => Number(d.brandId) === Number(brand.id) && d.typeCode === type.code).map((d) => d.number)) + 1;
     if ([...cat.designs.values()].some((d) => Number(d.brandId) === Number(brand.id) && d.typeCode === type.code && d.number === number)) throw bad('DUPLICATE', 'This brand, type and number already exist.');
     const dId = await nextIds('design', 1);
-    const first = colours.length * sizes.length ? await nextIds('item', colours.length * sizes.length) : 0;
+    const cols = colours.length ? colours : ['']; const first = cols.length * sizes.length ? await nextIds('item', cols.length * sizes.length) : 0;
     const batch = writeBatch(db);
     batch.set(ref('designs', dId), { id: dId, brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, number, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || null, code: code || null, photo: b.photo || null, priceCents: price, fullPriceCents: fullP, discountCents: discC, active: true, createdAt: ts() });
     batch.set(ref('costs', dId), { costCents: cost });
     let k = 0; const skus = [];
-    for (const c of colours) for (const s of sizes) {
-      const id = first + k++; const sku = `${code || `${brand.code}-${type.code}${String(number).padStart(2, '0')}`}-${c}-${String(s).toUpperCase()}`;
+    for (const c of cols) for (const s of sizes) {
+      const id = first + k++; const sku = [code || `${brand.code}-${type.code}${String(number).padStart(2, '0')}`, c, String(s).toUpperCase()].filter(Boolean).join('-');
       batch.set(ref('items', id), { id, sku, designId: dId, colourCode: c, size: String(s).toUpperCase(), lowStock: 2, active: true }); skus.push(sku);
     }
     auditIn(batch, null, 'design.create', 'design', dId, { name: b.name_en, variants: skus.length });
@@ -194,7 +194,7 @@ export function createApi(B, extra = {}) {
     if (b.photo !== undefined) upd.photo = b.photo || null;
     batch.set(ref('designs', d.id), upd, { merge: true });
     if (b.cost_usd !== undefined && b.cost_usd !== '' && B.can('cost.view')) batch.set(ref('costs', d.id), { costCents: Math.round(Number(b.cost_usd || 0) * 100) });
-    if (code !== oldCode) for (const i of cat.items.filter((x) => Number(x.designId) === Number(d.id))) batch.set(ref('items', i.id), { sku: `${code}-${i.colourCode}-${i.size}` }, { merge: true });
+    if (code !== oldCode) for (const i of cat.items.filter((x) => Number(x.designId) === Number(d.id))) batch.set(ref('items', i.id), { sku: [code, i.colourCode, i.size].filter(Boolean).join('-') }, { merge: true });
     auditIn(batch, null, 'design.update', 'design', Number(d.id), { name: b.name_en, code });
     await batch.commit(); B.clearCaches(); await B.loadCatalog(true);
     return { ok: true };
@@ -204,23 +204,24 @@ export function createApi(B, extra = {}) {
     need('catalog.edit');
     const cat = await B.loadCatalog(); const d = cat.designs.get(String(id)); if (!d) throw bad('NOT_FOUND', 'Design not found.');
     const colours = (b.colours || []).filter(Boolean); const sizes = (b.sizes || []).map((x) => String(x).toUpperCase()).filter(Boolean);
-    if (!colours.length || !sizes.length) throw bad('BAD_INPUT', 'Choose at least one colour and one size.');
-    const have = new Set(cat.items.filter((i) => Number(i.designId) === Number(d.id)).map((i) => `${i.colourCode}|${i.size}`));
-    const todo = []; for (const c of colours) for (const s of sizes) if (!have.has(`${c}|${s}`)) todo.push([c, s]);
+    if (!sizes.length) throw bad('BAD_INPUT', 'Choose at least one size.');
+    const cols = colours.length ? colours : [''];
+    const have = new Set(cat.items.filter((i) => Number(i.designId) === Number(d.id)).map((i) => (colours.length ? `${i.colourCode}|${i.size}` : `|${i.size}`)));
+    const todo = []; for (const c of cols) for (const s of sizes) if (!have.has(`${c}|${s}`)) todo.push([c, s]);
     if (!todo.length) return { added: 0 };
     const first = await nextIds('item', todo.length); const batch = writeBatch(db); const base = d.code || `${d.brandCode}-${d.typeCode}${String(d.number).padStart(2, '0')}`;
-    todo.forEach(([c, s], k) => { const iid = first + k; batch.set(ref('items', iid), { id: iid, sku: `${base}-${c}-${s}`, designId: Number(d.id), colourCode: c, size: s, lowStock: 2, active: true }); });
+    todo.forEach(([c, s], k) => { const iid = first + k; batch.set(ref('items', iid), { id: iid, sku: [base, c, s].filter(Boolean).join('-'), designId: Number(d.id), colourCode: c, size: s, lowStock: 2, active: true }); });
     auditIn(batch, null, 'design.variants', 'design', Number(d.id), { added: todo.length });
     await batch.commit(); await B.loadCatalog(true);
     return { added: todo.length };
   }
 
   // ---------- stock ----------
-  const FILTER_KEYS = ['type', 'colour', 'size', 'brand', 'price', 'instock', 'low'];
-  const FILTER_DEFAULTS = { stock: ['type', 'colour', 'size', 'brand', 'low'], pos: ['type', 'colour', 'size', 'brand'] };
+  const FILTER_KEYS = ['type', 'size', 'brand', 'price', 'instock', 'low'];
+  const FILTER_DEFAULTS = { stock: ['type', 'size', 'brand', 'low'], pos: ['type', 'size', 'brand'] };
   async function filtersGet() {
     const d = await getDoc(ref('settings', 'filters')); const x = d.exists() ? d.data() : {};
-    return { stock: Array.isArray(x.stock) ? x.stock : FILTER_DEFAULTS.stock, pos: Array.isArray(x.pos) ? x.pos : FILTER_DEFAULTS.pos, can_edit: can('settings.manage') };
+    return { stock: Array.isArray(x.stock) ? x.stock.filter((k) => FILTER_KEYS.includes(k)) : FILTER_DEFAULTS.stock, pos: Array.isArray(x.pos) ? x.pos.filter((k) => FILTER_KEYS.includes(k)) : FILTER_DEFAULTS.pos, can_edit: can('settings.manage') };
   }
   async function filtersSave(b) {
     need('settings.manage');
