@@ -481,3 +481,11 @@ test('size groups can be assigned to each type', async () => {
   const z = await api.get('/lists/sizes'); assert.deepEqual(z.type_groups, { S: ['Suit'], H: ['Shirt'] });
   assert.deepEqual((await api.get('/meta')).type_groups, { S: ['Suit'], H: ['Shirt'] });
 });
+
+test('typing a few letters of a design code finds its items for Receive delivery', async () => {
+  const { api } = await setup();
+  const st = (await api.get('/me')).stores[0].id;
+  await api.post('/designs', { brand_id: 1, type_code: 'B', code: 'AF-BLK', name_en: 'Blazer', price_usd: 260, sizes: ['48', '50'] });
+  const r = await api.get(`/stock/lookup?store_id=${st}&q=Af`);
+  assert.equal(r.items.length, 2); assert.equal(r.items[0].sku, 'AF-BLK-48');
+});
