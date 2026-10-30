@@ -406,3 +406,36 @@ test('filters under the search bar: defaults, owner can change them, cashier can
   const fm = await api.get('/filters'); assert.equal(fm.can_edit, false); assert.deepEqual(fm.pos, ['size', 'price']);
   await fails(api.post('/filters', { scope: 'pos', keys: [] }), 'FORBIDDEN');
 });
+
+test('profit share: draft statement, close month, payouts limited to what is owed, reversal, combined view', async () => {
+  const { api, F } = await setup();
+  F.db.data.set('monthStats/1_2026-09', { storeId: 1, date: '2026-09', salesCents: 100000, byItem: {} });
+  F.db.data.set('expenses/e1', { storeId: 1, month: '2026-09', amountCents: 20000, category: 'Rent' });
+  F.db.data.set('expenses/e2', { storeId: 1, month: '2026-09', amountCents: 5000, category: 'Production fabric' });
+  const a = await api.post('/capital/shareholders', { name: 'Partner A', agreed_by_store: { 1: 6000 } });
+  const b = await api.post('/capital/shareholders', { name: 'Partner B', agreed_by_store: { 1: 4000 } });
+  await api.post('/capital/reserve', { pct: 20 });
+  let p = await api.get('/capital/profit?store_id=1&month=2026-09');
+  assert.equal(p.mode, 'statement'); assert.equal(p.statement.net_cents, 80000); assert.equal(p.statement.reserve_cents, 16000); assert.equal(p.statement.share_cents, 64000);
+  assert.deepEqual(p.holders.map((h) => [h.name, h.share_cents, h.owed_cents]), [['Partner A', 38400, 0], ['Partner B', 25600, 0]]);
+  await fails(api.post('/capital/profit/pay', { store_id: 1, shareholder_id: a.id, amount_usd: 10, date: '2026-10-05' }), 'OVERPAY');
+  await fails(api.post('/capital/profit/close', { store_id: 1, month: '2026-10' }), 'TOO_EARLY');
+  await api.post('/capital/profit/close', { store_id: 1, month: '2026-09' });
+  await fails(api.post('/capital/profit/close', { store_id: 1, month: '2026-09' }), 'ALREADY');
+  await api.post('/capital/reserve', { pct: 50 }); // a closed month stays as it was
+  p = await api.get('/capital/profit?store_id=1&month=2026-09');
+  assert.equal(p.statement.closed, true); assert.equal(p.statement.reserve_cents, 16000); assert.equal(p.holders[0].owed_cents, 38400);
+  assert.equal(p.fund.set_aside_cents, 16000); assert.equal(p.fund.used_cents, 5000); assert.equal(p.fund.balance_cents, 11000);
+  await fails(api.post('/capital/profit/pay', { store_id: 1, shareholder_id: a.id, amount_usd: 400, date: '2026-10-05' }), 'OVERPAY');
+  const pay = await api.post('/capital/profit/pay', { store_id: 1, shareholder_id: a.id, amount_usd: 100, date: '2026-10-05', note: 'ABA' });
+  p = await api.get('/capital/profit?store_id=1&month=2026-09'); assert.equal(p.holders[0].owed_cents, 28400);
+  await fails(api.post(`/capital/profit/pay/${pay.id}/reverse`, { reason: '' }), 'BAD_INPUT');
+  await api.post(`/capital/profit/pay/${pay.id}/reverse`, { reason: 'wrong person' });
+  await fails(api.post(`/capital/profit/pay/${pay.id}/reverse`, { reason: 'again' }), 'ALREADY');
+  p = await api.get('/capital/profit?store_id=1&month=2026-09'); assert.equal(p.holders[0].owed_cents, 38400); assert.equal(p.payouts.length, 2);
+  const all = await api.get('/capital/profit?store_id=all&month=2026-09');
+  assert.equal(all.mode, 'combined'); assert.equal(all.totals.share_cents, 64000); assert.equal(all.people.find((x) => x.name === 'Partner B').owed_cents, 25600);
+  await fails(api.post('/capital/profit/mode', { pooled: true }), 'HAS_HISTORY');
+  await api.post('/capital/profit/reopen', { store_id: 1, month: '2026-09' });
+  p = await api.get('/capital/profit?store_id=1&month=2026-09'); assert.equal(p.statement.closed, false); assert.equal(b.id.length > 0, true);
+});

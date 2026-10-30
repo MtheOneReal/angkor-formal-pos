@@ -77,23 +77,105 @@ export function createMore(B) {
     return { month, store_id: sel, stores: stores.map((x) => ({ id: x.id, name: x.name })), rows, totals, trend, note: 'Cost of goods uses each product’s current cost price.' };
   }
 
-  // ---------- monthly profit share and the production reserve ----------
+  // ---------- profit share: one statement per shop and month, closed, then paid out ----------
+  const isProd = (e) => /production/i.test(e.category || '');
+  async function profitData() {
+    const stores = (await B.loadStores()).filter((x) => x.active !== false);
+    const shops = stores.filter((x) => x.kind !== 'warehouse'); const whIds = new Set(stores.filter((x) => x.kind === 'warehouse').map((x) => Number(x.id)));
+    const lead = can('capital.manage');
+    const D = { shops, whIds, lead, sh: await list('shareholders'), closes: await list('profitCloses'), pays: await list('profitPayouts') };
+    const rd = await getDoc(ref('settings', 'reserve')); D.pct = rd.exists() ? Math.min(100, Math.max(0, Number(rd.data().pct) || 0)) : 0;
+    const md = await getDoc(ref('settings', 'profitMode')); D.pooled = md.exists() && md.data().pooled === true;
+    D.exps = lead ? await list('expenses') : []; D.stats = lead ? await list('monthStats') : [];
+    if (lead) { const cat = await B.loadCatalog(); const costs = new Map((await list('costs')).map((c) => [String(c.id), c.costCents || 0])); const costOfItem = new Map(cat.items.map((i) => [String(i.id), costs.get(String(i.designId)) || 0])); D.cogsOf = (st) => Object.entries(st.byItem || {}).reduce((n, [item, v]) => n + (v.qty || 0) * (costOfItem.get(String(item)) || 0), 0); }
+    return D;
+  }
+  // key = a shop id, or 'all' when profit is pooled
+  function statement(D, key, month) {
+    const frozen = D.closes.find((c) => c.id === `${key}_${month}`);
+    if (frozen) return { key: String(key), month, closed: true, closed_ts: frozen.closedTs, sales_cents: frozen.salesCents, cogs_cents: frozen.cogsCents, expenses_cents: frozen.expensesCents, shared_cents: frozen.sharedCents, net_cents: frozen.netCents, reserve_pct: frozen.reservePct, reserve_cents: frozen.reserveCents, share_cents: frozen.shareCents, holders: frozen.holders.map((h) => ({ id: h.id, name: h.name, pct: h.pct, share_cents: h.shareCents })) };
+    if (!D.lead) return { key: String(key), month, closed: false, hidden: true, holders: [], net_cents: 0, reserve_cents: 0, share_cents: 0, sales_cents: 0, cogs_cents: 0, expenses_cents: 0, shared_cents: 0, reserve_pct: D.pct };
+    const ids = key === 'all' ? D.shops.map((x) => Number(x.id)) : [Number(key)];
+    const sales = (sid) => D.stats.filter((x) => Number(x.storeId) === sid && x.date === month).reduce((n, x) => n + (x.salesCents || 0), 0);
+    const mine = ids.reduce((n, sid) => n + sales(sid), 0); const allSales = D.shops.reduce((n, x) => n + sales(Number(x.id)), 0);
+    const cogs = D.stats.filter((x) => ids.includes(Number(x.storeId)) && x.date === month).reduce((n, x) => n + D.cogsOf(x), 0);
+    const spend = (e) => e.month === month && !isProd(e);
+    const own = D.exps.filter((e) => ids.includes(Number(e.storeId)) && spend(e)).reduce((n, e) => n + (e.amountCents || 0), 0);
+    const sharedTotal = D.exps.filter((e) => D.whIds.has(Number(e.storeId)) && spend(e)).reduce((n, e) => n + (e.amountCents || 0), 0);
+    const frac = key === 'all' ? 1 : (allSales > 0 ? mine / allSales : 1 / Math.max(1, D.shops.length));
+    const shared = Math.round(sharedTotal * frac);
+    const net = mine - cogs - own - shared;
+    const reserve = net > 0 ? Math.round((net * D.pct) / 100) : 0; const share = net > 0 ? net - reserve : 0;
+    const agreedOf = (x) => ids.reduce((a, sid) => a + ((x.agreedByStore || {})[sid] || 0), 0); const total = D.sh.reduce((a, x) => a + agreedOf(x), 0);
+    const holders = D.sh.filter((x) => agreedOf(x) > 0).map((x) => { const w = total ? agreedOf(x) / total : 0; return { id: x.id, name: x.name, pct: Math.round(w * 1000) / 10, share_cents: Math.round(share * w) }; }).sort((a, b) => b.pct - a.pct);
+    if (holders.length && share > 0) { const diff = share - holders.reduce((a, h) => a + h.share_cents, 0); holders[0].share_cents += diff; }
+    return { key: String(key), month, closed: false, sales_cents: mine, cogs_cents: cogs, expenses_cents: own, shared_cents: shared, net_cents: net, reserve_pct: D.pct, reserve_cents: reserve, share_cents: share, holders };
+  }
+  // what each person has earned (closed months only), been paid and is still owed for one key
+  function balances(D, key) {
+    const earned = new Map(); const paid = new Map();
+    for (const c of D.closes.filter((x) => String(x.key) === String(key))) for (const h of c.holders) earned.set(h.id, (earned.get(h.id) || 0) + h.shareCents);
+    for (const p of D.pays.filter((x) => String(x.key) === String(key))) paid.set(p.shareholderId, (paid.get(p.shareholderId) || 0) + p.amountCents);
+    return { earned, paid };
+  }
   async function profit(q) {
-    need('capital.view');
-    const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse'); const sel = String(q.store_id || 'all');
-    const ids = sel === 'all' ? stores.map((x) => x.id) : [Number(sel)]; const month = monthOf(q.month);
-    const cat = await B.loadCatalog(); const costs = new Map((await list('costs')).map((c) => [String(c.id), c.costCents || 0]));
-    const costOfItem = new Map(cat.items.map((i) => [String(i.id), costs.get(String(i.designId)) || 0]));
-    const stats = (await list('monthStats')).filter((x) => ids.includes(Number(x.storeId))); const exps = (await list('expenses')).filter((e) => ids.includes(Number(e.storeId)));
-    const cogsOf = (st) => Object.entries(st.byItem || {}).reduce((n, [item, v]) => n + (v.qty || 0) * (costOfItem.get(String(item)) || 0), 0);
-    const net = (m) => stats.filter((x) => x.date === m).reduce((n, x) => n + (x.salesCents || 0) - cogsOf(x), 0) - exps.filter((e) => e.month === m).reduce((n, e) => n + (e.amountCents || 0), 0);
-    const rd = await getDoc(ref('settings', 'reserve')); const pct = rd.exists() ? Math.min(100, Math.max(0, Number(rd.data().pct) || 0)) : 0;
-    const n = net(month); const reserve = n > 0 ? Math.round((n * pct) / 100) : 0; const share = n > 0 ? n - reserve : 0;
-    const sh = await list('shareholders'); const agreedOf = (x) => ids.reduce((a, sid) => a + ((x.agreedByStore || {})[sid] || 0), 0); const totalAgreed = sh.reduce((a, x) => a + agreedOf(x), 0);
-    const holders = sh.filter((x) => agreedOf(x) > 0).map((x) => { const w = totalAgreed ? agreedOf(x) / totalAgreed : 0; return { id: x.id, name: x.name, pct: Math.round(w * 1000) / 10, share_cents: Math.round(share * w), reserve_part_cents: Math.round(reserve * w) }; }).sort((a, b) => b.pct - a.pct);
-    const months = [...new Set(stats.map((x) => x.date))]; const setAside = months.reduce((a, m) => a + Math.max(0, Math.round((net(m) * pct) / 100)), 0);
-    const used = exps.filter((e) => /production/i.test(e.category || '')).reduce((a, e) => a + (e.amountCents || 0), 0);
-    return { month, store_id: sel, net_cents: n, reserve_pct: pct, reserve_cents: reserve, share_cents: share, holders, set_aside_total_cents: setAside, used_cents: used, reserve_balance_cents: setAside - used, can_edit: can('capital.manage') };
+    need('capital.view'); const D = await profitData(); const month = monthOf(q.month); const sel = String(q.store_id || 'all');
+    const names = new Map(D.sh.map((x) => [x.id, x.name])); const sn = new Map(D.shops.map((x) => [Number(x.id), x.name]));
+    const closedKeys = (D.pooled ? ['all'] : D.shops.map((x) => String(x.id)));
+    const out = { month, pooled: D.pooled, reserve_pct: D.pct, can_edit: can('capital.manage'), is_super: !!S().isSuper, has_history: D.closes.length > 0 || D.pays.length > 0,
+      fund: { set_aside_cents: D.closes.reduce((a, c) => a + (c.reserveCents || 0), 0), used_cents: D.lead ? D.exps.filter(isProd).reduce((a, e) => a + (e.amountCents || 0), 0) : 0 } };
+    out.fund.balance_cents = out.fund.set_aside_cents - out.fund.used_cents;
+    const people = (keys) => { const m = new Map(); for (const k of keys) { const b = balances(D, k); for (const [id, v] of b.earned) { const r = m.get(id) || { id, name: names.get(id) || id, earned_cents: 0, paid_cents: 0 }; r.earned_cents += v; m.set(id, r); } for (const [id, v] of b.paid) { const r = m.get(id) || { id, name: names.get(id) || id, earned_cents: 0, paid_cents: 0 }; r.paid_cents += v; m.set(id, r); } } return [...m.values()].map((r) => ({ ...r, owed_cents: r.earned_cents - r.paid_cents })).sort((a, b) => b.owed_cents - a.owed_cents); };
+    if (!D.pooled && sel === 'all') {
+      const rows = D.shops.map((s) => { const st = statement(D, s.id, month); return { store_id: Number(s.id), name: s.name, closed: st.closed, hidden: !!st.hidden, net_cents: st.net_cents, reserve_cents: st.reserve_cents, share_cents: st.share_cents }; });
+      return { ...out, mode: 'combined', rows, totals: { net_cents: rows.reduce((a, r) => a + r.net_cents, 0), reserve_cents: rows.reduce((a, r) => a + r.reserve_cents, 0), share_cents: rows.reduce((a, r) => a + r.share_cents, 0) }, people: people(closedKeys) };
+    }
+    const key = D.pooled ? 'all' : String(Number(sel)); if (!D.pooled && !sn.has(Number(key))) throw notFound('Shop not found.');
+    const st = statement(D, key, month); const b = balances(D, key);
+    const holders = st.holders.map((h) => ({ ...h, earned_cents: b.earned.get(h.id) || 0, paid_cents: b.paid.get(h.id) || 0, owed_cents: (b.earned.get(h.id) || 0) - (b.paid.get(h.id) || 0) }));
+    for (const id of new Set([...b.earned.keys(), ...b.paid.keys()])) if (!holders.some((h) => h.id === id)) holders.push({ id, name: names.get(id) || id, pct: 0, share_cents: 0, earned_cents: b.earned.get(id) || 0, paid_cents: b.paid.get(id) || 0, owed_cents: (b.earned.get(id) || 0) - (b.paid.get(id) || 0) });
+    const payouts = D.pays.filter((x) => String(x.key) === key).sort((a, c) => (c.ts || 0) - (a.ts || 0)).slice(0, 30).map((x) => ({ id: x.id, shareholder_id: x.shareholderId, name: names.get(x.shareholderId) || x.shareholderId, amount_cents: x.amountCents, date: x.date, note: x.note || '', reverses_id: x.reversesId || null }));
+    return { ...out, mode: 'statement', key, store_name: D.pooled ? null : sn.get(Number(key)), statement: st, holders, payouts };
+  }
+  const keyCheck = async (D, b) => { const key = String(b.store_id ?? ''); if (D.pooled ? key !== 'all' : !D.shops.some((s) => String(s.id) === key)) throw bad('BAD_INPUT', D.pooled ? 'Profit is shared from all shops together.' : 'Choose a shop.'); return key; };
+  async function profitClose(b) {
+    need('capital.manage'); const D = await profitData(); const key = await keyCheck(D, b); const month = monthOf(b.month);
+    if (month >= dateOf(now()).slice(0, 7)) throw bad('TOO_EARLY', 'A month can be closed only after it has ended.');
+    if (D.closes.some((c) => c.id === `${key}_${month}`)) throw bad('ALREADY', 'This month is already closed.');
+    const st = statement(D, key, month); if (!st.holders.length && st.share_cents > 0) throw bad('NO_HOLDERS', 'Add shareholders with agreed amounts first, so the profit can be split.');
+    const wb = writeBatch(db);
+    wb.set(ref('profitCloses', `${key}_${month}`), { key, month, salesCents: st.sales_cents, cogsCents: st.cogs_cents, expensesCents: st.expenses_cents, sharedCents: st.shared_cents, netCents: st.net_cents, reservePct: st.reserve_pct, reserveCents: st.reserve_cents, shareCents: st.share_cents, holders: st.holders.map((h) => ({ id: h.id, name: h.name, pct: h.pct, shareCents: h.share_cents })), closedTs: now(), closedBy: S().uid });
+    auditIn(wb, null, 'profit.close', 'profit', `${key}_${month}`, { net: st.net_cents, share: st.share_cents }); await wb.commit().catch(wrap('Could not close the month')); return { ok: true };
+  }
+  async function profitReopen(b) {
+    need('capital.manage'); if (!S().isSuper) throw new ApiErr(403, 'FORBIDDEN', 'Only the super admin can reopen a closed month.');
+    const D = await profitData(); const key = await keyCheck(D, b); const month = monthOf(b.month); const id = `${key}_${month}`;
+    if (!D.closes.some((c) => c.id === id)) throw notFound('This month is not closed.');
+    const wb = writeBatch(db); wb.delete(ref('profitCloses', id)); auditIn(wb, null, 'profit.reopen', 'profit', id, {}); await wb.commit().catch(wrap('Could not reopen')); return { ok: true };
+  }
+  async function profitPay(b) {
+    need('capital.manage'); const D = await profitData(); const key = await keyCheck(D, b); const sid = String(b.shareholder_id || '');
+    const holder = D.sh.find((x) => x.id === sid); if (!holder) throw bad('BAD_INPUT', 'Choose a shareholder.');
+    const cents = Math.round(Number(b.amount_usd) * 100); if (!(cents > 0)) throw bad('BAD_INPUT', 'Enter an amount above zero.');
+    const bl = balances(D, key); const owed = (bl.earned.get(sid) || 0) - (bl.paid.get(sid) || 0);
+    if (cents > owed) throw bad('OVERPAY', `This is more than ${holder.name} is owed (${(Math.max(0, owed) / 100).toFixed(2)} USD).`);
+    const date = ymd(b.date); const r = doc(collection(db, 'profitPayouts')); const wb = writeBatch(db);
+    wb.set(r, { key, shareholderId: sid, amountCents: cents, date, note: txt(b.note, 200), ts: now(), createdBy: S().uid }); auditIn(wb, null, 'profit.payout', 'profitPayout', r.id, { shareholder: holder.name, cents, key });
+    await wb.commit().catch(wrap('Could not save')); return { id: r.id };
+  }
+  async function profitPayReverse(id, b) {
+    need('capital.manage'); const p = await read('profitPayouts', id); if (!p) throw notFound('Payment not found.');
+    if (p.amountCents <= 0 || p.reversesId) throw bad('BAD_INPUT', 'This entry cannot be reversed.');
+    if ((await list('profitPayouts', where('reversesId', '==', String(id)))).length) throw bad('ALREADY', 'This payment is already reversed.');
+    if (!String(b.reason || '').trim()) throw bad('BAD_INPUT', 'Enter the reason.');
+    const r = doc(collection(db, 'profitPayouts')); const wb = writeBatch(db);
+    wb.set(r, { key: p.key, shareholderId: p.shareholderId, amountCents: -p.amountCents, date: dateOf(now()), note: `Reversal: ${txt(b.reason, 160)}`, reversesId: String(id), ts: now(), createdBy: S().uid }); auditIn(wb, null, 'profit.payout.reverse', 'profitPayout', id, { reason: b.reason });
+    await wb.commit().catch(wrap('Could not save')); return { ok: true };
+  }
+  async function profitMode(b) {
+    need('capital.manage'); if (!S().isSuper) throw new ApiErr(403, 'FORBIDDEN', 'Only the super admin can change how profit is shared.');
+    const D = await profitData(); if (D.closes.length || D.pays.length) throw bad('HAS_HISTORY', 'This can be changed only before the first month is closed.');
+    const wb = writeBatch(db); wb.set(ref('settings', 'profitMode'), { pooled: !!b.pooled, updatedTs: now() }); auditIn(wb, null, 'profit.mode', 'settings', 'profitMode', { pooled: !!b.pooled }); await wb.commit().catch(wrap('Could not save')); return { ok: true };
   }
   async function reserveSave(b) {
     need('capital.manage'); const pct = Number(b.pct); if (!(pct >= 0 && pct <= 100)) throw bad('BAD_INPUT', 'Enter a percentage from 0 to 100.');
@@ -140,7 +222,7 @@ export function createMore(B) {
     const balances = (await list('balances')).map((r) => ({ Receipt: r.receiptNo, Store: sn.get(Number(r.storeId)) || r.storeId, Customer: r.customerName, Phone: r.customerPhone, Total: usd(r.totalCents), Paid: usd(r.paidCents), Balance: usd(r.balanceCents), Due: r.dueDate || '', Settled: r.settled ? 'yes' : '' }));
     const jobs = (await list('alterations')).map((j) => ({ Receipt: j.receiptNo, Store: sn.get(Number(j.storeId)) || j.storeId, Customer: j.customerName, Phone: j.customerPhone, Items: j.summary, Notes: j.notes, Due: j.dueDate || '', Status: j.status }));
     const counts = (await list('stocktakes')).flatMap((t) => (t.lines || []).map((l) => ({ Date: t.date, Store: sn.get(Number(t.storeId)) || t.storeId, SKU: l.sku, Expected: l.expected, Counted: l.counted, Difference: l.diff, Corrected: t.applied ? 'yes' : '' })));
-    return { sheets: { Sales: sales, 'Sale lines': lines, Stock: stock, Products: items, Expenses: expenses, Attendance: attendance, Customers: customers, Shareholders: shareholders, 'Capital payments': capital, Balances: balances, Alterations: jobs, 'Stock counts': counts } };
+    return { sheets: { Sales: sales, 'Sale lines': lines, Stock: stock, Products: items, Expenses: expenses, Attendance: attendance, Customers: customers, Shareholders: shareholders, 'Capital payments': capital, 'Profit months': (await list('profitCloses')).sort((x, y) => String(x.id).localeCompare(String(y.id))).map((c) => ({ Month: c.month, Where: c.key === 'all' ? 'All shops' : (sn.get(Number(c.key)) || c.key), Sales: usd(c.salesCents), 'Cost of goods': usd(c.cogsCents), Expenses: usd(c.expensesCents), 'Shared costs': usd(c.sharedCents), Profit: usd(c.netCents), 'Kept for production': usd(c.reserveCents), 'To share': usd(c.shareCents), Shares: c.holders.map((h) => `${h.name} ${usd(h.shareCents)}`).join('; ') })), 'Profit payouts': (await list('profitPayouts')).sort((x, y) => (x.ts || 0) - (y.ts || 0)).map((p) => ({ Date: p.date, Where: p.key === 'all' ? 'All shops' : (sn.get(Number(p.key)) || p.key), Shareholder: shn.get(p.shareholderId) || p.shareholderId, Amount: usd(p.amountCents), Note: p.note || '' })), Balances: balances, Alterations: jobs, 'Stock counts': counts } };
   }
 
   // ---------- owner-editable lists: brands, types (kinds), colours, size sets ----------
@@ -194,6 +276,11 @@ export function createMore(B) {
     if (method === 'GET' && path === '/report') return report(q);
     if (method === 'GET' && path === '/capital/profit') return profit(q);
     if (method === 'POST' && path === '/capital/reserve') return reserveSave(b);
+    if (method === 'POST' && path === '/capital/profit/close') return profitClose(b);
+    if (method === 'POST' && path === '/capital/profit/reopen') return profitReopen(b);
+    if (method === 'POST' && path === '/capital/profit/pay') return profitPay(b);
+    if (method === 'POST' && path === '/capital/profit/mode') return profitMode(b);
+    if (method === 'POST' && (m = path.match(/^\/capital\/profit\/pay\/([^/]+)\/reverse$/))) return profitPayReverse(m[1], b);
     if (method === 'GET' && path === '/summary/daily') return dailySummary(q);
     if (method === 'GET' && path === '/export') return exportAll();
     return undefined;

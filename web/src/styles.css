@@ -135,3 +135,5 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .posclock { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; color:var(--muted, #8a8d91); white-space:nowrap; padding:0 4px; }
 .posclock b { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
 .posclock .clockwarn { color:var(--bad, #c0392b); font-weight:600; }
+
+@media print { body * { visibility:hidden; } .printable, .printable * { visibility:visible; } .printable { position:absolute; left:0; top:0; width:100%; box-shadow:none; } .noprint { display:none !important; } }

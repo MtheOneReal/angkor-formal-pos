@@ -51,7 +51,7 @@ export function createApi(B, extra = {}) {
     need('settings.manage'); if (!S().isSuper) throw forbidden('Only the super admin can reset.');
     if (b.confirm !== 'RESET') throw bad('CONFIRM', 'Type RESET to confirm.');
     await setDoc(ref('settings', 'testMode'), { enabled: true, ts: ts(), by: S().uid });
-    const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'itemStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), ...(b.capital ? ['capitalPayments', 'shareholders'] : []), 'balances', 'balancePayments', 'alterations', 'stocktakes', 'auditLog'];
+    const cols = ['sales', 'returns', 'shifts', 'dailyStats', 'itemStats', 'monthStats', 'approvals', 'transfers', 'movements', 'stock', 'counters', 'expenses', 'expensePhotos', 'attendance', 'customers', ...(b.catalogue ? ['items', 'designs', 'costs'] : []), ...(b.capital ? ['capitalPayments', 'shareholders'] : []), 'balances', 'balancePayments', 'alterations', 'stocktakes', 'profitCloses', 'profitPayouts', 'auditLog'];
     let n = 0;
     for (const c of cols) {
       let docs; try { docs = (await getDocs(collection(db, c))).docs; } catch { throw bad('RESET_FAILED', `Could not read ${c}.`); }
