@@ -128,7 +128,7 @@ export function createApi(B, extra = {}) {
     need('catalog.view');
     const cat = await B.loadCatalog(); const costs = B.can('cost.view') ? await B.loadCosts() : null;
     return [...cat.designs.values()].sort((a, b) => String(a.brandCode).localeCompare(b.brandCode) || String(a.typeCode).localeCompare(b.typeCode) || a.number - b.number).map((d) => {
-      const o = { id: Number(d.id), brand_id: d.brandId, type_code: d.typeCode, number: d.number, name_en: d.nameEn, name_km: d.nameKm || null, photo: d.photo || null, price_cents: d.priceCents, active: d.active !== false ? 1 : 0, brand_code: d.brandCode,
+      const o = { id: Number(d.id), brand_id: d.brandId, type_code: d.typeCode, number: d.number, name_en: d.nameEn, name_km: d.nameKm || null, photo: d.photo || null, price_cents: d.priceCents, full_price_cents: d.fullPriceCents ?? d.priceCents, discount_cents: d.discountCents || 0, active: d.active !== false ? 1 : 0, brand_code: d.brandCode,
         items: cat.items.filter((i) => Number(i.designId) === Number(d.id)).map((i) => ({ id: i.id, design_id: Number(d.id), sku: i.sku, colour_code: i.colourCode, size: i.size, low_stock: i.lowStock ?? 2, active: i.active !== false ? 1 : 0 })) };
       if (costs) o.cost_cents = costs.get(String(d.id)) ?? 0;
       return o;
@@ -154,7 +154,7 @@ export function createApi(B, extra = {}) {
     const brand = cat.brandsList.find((x) => Number(x.id) === Number(b.brand_id)); const type = cat.typesList.find((x) => x.code === b.type_code);
     if (!brand || !type) throw bad('BAD_INPUT', 'Choose a brand and a type.');
     if (!b.name_en) throw bad('BAD_INPUT', 'Enter a name.');
-    const price = Math.round(Number(b.price_usd) * 100); const cost = Math.round(Number(b.cost_usd || 0) * 100);
+    const price = Math.round(Number(b.price_usd) * 100); const fullP = Math.round(Number(b.full_price_usd || b.price_usd) * 100); const discC = Math.max(0, fullP - price); const cost = Math.round(Number(b.cost_usd || 0) * 100);
     if (!(price > 0)) throw bad('BAD_INPUT', 'Enter a selling price.');
     const colours = (b.colours || []).filter(Boolean); const sizes = (b.sizes || []).map(String).filter(Boolean);
     if (!colours.length || !sizes.length) throw bad('BAD_INPUT', 'Choose at least one colour and one size.');
@@ -164,7 +164,7 @@ export function createApi(B, extra = {}) {
     const dId = await nextIds('design', 1);
     const first = await nextIds('item', colours.length * sizes.length);
     const batch = writeBatch(db);
-    batch.set(ref('designs', dId), { id: dId, brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, number, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || null, photo: b.photo || null, priceCents: price, active: true, createdAt: ts() });
+    batch.set(ref('designs', dId), { id: dId, brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, number, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || null, photo: b.photo || null, priceCents: price, fullPriceCents: fullP, discountCents: discC, active: true, createdAt: ts() });
     batch.set(ref('costs', dId), { costCents: cost });
     let k = 0; const skus = [];
     for (const c of colours) for (const s of sizes) {

@@ -30,7 +30,7 @@ export default function Catalogue() {
           <div key={d.id} className="tile">
             <div className="ph">{photo(d.photo) ? <img src={photo(d.photo)} alt="" /> : <GarmentArt code={d.type_code} name={meta?.types?.find((x) => x.code === d.type_code)?.name_en} nameKm={meta?.types?.find((x) => x.code === d.type_code)?.name_km} />}</div>
             <div className="in"><b style={{ fontSize: 13 }}>{nm(d)}</b><div className="small muted">{d.brand_code}-{d.type_code}{String(d.number).padStart(2, '0')} · {d.items.length} variants</div>
-              <div className="row between"><b className="num">{usd(d.price_cents)}</b>{canCost && <span className="small muted">cost {usd(d.cost_cents)}</span>}</div>
+              <div className="row between"><span>{d.discount_cents > 0 && <s className="small muted" style={{ marginRight: 6 }}>{usd(d.full_price_cents)}</s>}<b className="num">{usd(d.price_cents)}</b></span>{canCost && <span className="small muted">cost {usd(d.cost_cents)}</span>}</div>
               {stk?.designs[d.id] && (() => { const s = stk.designs[d.id]; return <div style={{ marginTop: 4 }}><div className="row between"><span className="small">In stock here</span><b className="num" style={{ color: s.here <= 0 ? 'var(--bad)' : s.low || s.out ? 'var(--warn)' : 'var(--ok)' }}>{s.here}</b></div>{s.others != null && <div className="row between"><span className="small muted">Other shops</span><span className="small muted num">{s.others}</span></div>}{(s.out > 0 || s.low > 0) && s.here > 0 && <div className="small" style={{ color: 'var(--warn)' }}>{s.out ? `${s.out} sold out` : ''}{s.out && s.low ? ' · ' : ''}{s.low ? `${s.low} running low` : ''}</div>}</div>; })()}
               {me.perms.includes('stock.in') && <button className="btn primary" style={{ marginTop: 6, width: '100%' }} onClick={() => setGrid(d)}>＋ Add stock</button>}
               <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={() => setLabels(d)}>Print labels</button>
@@ -38,7 +38,7 @@ export default function Catalogue() {
           </div>))}
       </div>
       {lists && <ListsManager start={lists} onClose={() => { setLists(null); reloadMeta(); load(); }} />}
-      {add && meta && <NewDesign meta={meta} owner={me.role === 'owner'} editLists={(k) => { setAdd(false); setLists(k); }} onClose={() => setAdd(false)} onDone={() => { setAdd(false); show('Design added'); load(); }} />}
+      {add && meta && <NewDesign rows={rows} meta={meta} owner={me.role === 'owner'} editLists={(k) => { setAdd(false); setLists(k); }} onClose={() => setAdd(false)} onDone={() => { setAdd(false); show('Design added'); load(); }} />}
       {labels && <Labels design={labels} meta={meta} onClose={() => setLabels(null)} />}
       {grid && <StockGrid design={grid} meta={meta} stk={stk} store={store} onClose={() => setGrid(null)} onDone={() => { setGrid(null); show('Stock added'); loadStock(); }} />}
       {toast}
@@ -46,9 +46,18 @@ export default function Catalogue() {
   );
 }
 
-function NewDesign({ meta, owner, editLists, onClose, onDone }) {
+function NewDesign({ rows, meta, owner, editLists, onClose, onDone }) {
   const sets = meta.size_sets || SIZE_SETS; const [custom, setCustom] = useState('');
-  const [f, setF] = useState({ brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', price_usd: '', cost_usd: '', colours: [], sizes: [], photo: null });
+  const [f, setF] = useState({ brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', number: '', full: '', disc: '', price_usd: '', cost_usd: '', colours: [], sizes: [], photo: null });
+  const brandO = meta.brands.find((b) => b.id === f.brand_id); const prefix = `${brandO?.code || ''}-${f.type_code}`;
+  const nextNo = Math.max(0, ...rows.filter((d) => Number(d.brand_id) === Number(f.brand_id) && d.type_code === f.type_code).map((d) => d.number)) + 1;
+  const setPrices = ({ full, disc, sell }) => setF((x) => {
+    const n = { ...x }; const num = (v) => (v === '' || isNaN(Number(v)) ? null : Number(v)); const r2 = (v) => String(Math.round(v * 100) / 100);
+    if (full !== undefined) n.full = full; if (disc !== undefined) n.disc = disc; if (sell !== undefined) n.price_usd = sell;
+    if (sell !== undefined) { const F = num(n.full), S = num(sell); n.disc = F != null && S != null ? r2(Math.max(0, F - S)) : ''; }
+    else { const F = num(n.full), D = num(n.disc) || 0; n.price_usd = F != null ? r2(Math.max(0, F - D)) : ''; }
+    return n;
+  });
   const [err, setErr] = useState('');
   const isLen = (k) => /length|long|inseam|ប្រវែង/i.test(k);
   const [gs, setGs] = useState({});
@@ -65,22 +74,24 @@ function NewDesign({ meta, owner, editLists, onClose, onDone }) {
   return (
     <Modal title="New design" onClose={onClose} wide>
       <div className="grid g2">
-        <div><label>Brand {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('brands'); }} style={{ textTransform: 'none' }}>✎ edit</a>}</label><select value={f.brand_id} onChange={(e) => setF({ ...f, brand_id: Number(e.target.value) })}>{meta.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
         <div><label>Type {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('types'); }} style={{ textTransform: 'none' }}>✎ edit</a>}</label><select value={f.type_code} onChange={(e) => setF({ ...f, type_code: e.target.value })}>{meta.types.map((b) => <option key={b.code} value={b.code}>{b.name_en}</option>)}</select></div>
-        <div><label>Name (English)</label><input value={f.name_en} onChange={(e) => setF({ ...f, name_en: e.target.value })} /></div>
-        <div><label>Name (Khmer)</label><input value={f.name_km} onChange={(e) => setF({ ...f, name_km: e.target.value })} /></div>
-        <div><label>Selling price (USD)</label><input inputMode="decimal" value={f.price_usd} onChange={(e) => setF({ ...f, price_usd: e.target.value })} /></div>
+        <div><label>Brand {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('brands'); }} style={{ textTransform: 'none' }}>✎ edit</a>}</label><select value={f.brand_id} onChange={(e) => setF({ ...f, brand_id: Number(e.target.value) })}>{meta.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
+        <div><label>Code</label><div className="row" style={{ gap: 6 }}><span className="num" style={{ whiteSpace: 'nowrap' }}>{prefix}</span><input inputMode="numeric" style={{ width: 80 }} placeholder={String(nextNo)} value={f.number} onChange={(e) => setF({ ...f, number: e.target.value.replace(/\D/g, '') })} /></div><div className="small muted">Next free number is filled in if you leave it empty.</div></div>
+        <div><label>Name</label><input value={f.name_en} onChange={(e) => setF({ ...f, name_en: e.target.value })} /></div>
+        <div><label>Full price (USD)</label><input inputMode="decimal" value={f.full} onChange={(e) => setPrices({ full: e.target.value })} /></div>
+        <div><label>Discount (USD)</label><input inputMode="decimal" placeholder="0" value={f.disc} onChange={(e) => setPrices({ disc: e.target.value })} /></div>
+        <div><label>Selling price (USD)</label><input inputMode="decimal" value={f.price_usd} onChange={(e) => setPrices({ sell: e.target.value })} /></div>
         <div><label>Cost (USD)</label><input inputMode="decimal" value={f.cost_usd} onChange={(e) => setF({ ...f, cost_usd: e.target.value })} /></div>
       </div>
+      <label>Photo</label><input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files[0])} />
+      {f.photo && <img src={f.photo} alt="" style={{ height: 120, borderRadius: 8, marginTop: 8 }} />}
       <label>Colours {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('colours'); }} style={{ textTransform: 'none' }}>✎ add / edit</a>}</label><div className="row wrap">{meta.colours.map((c) => <button key={c.code} className={`chip ${f.colours.includes(c.code) ? 'on' : ''}`} onClick={() => toggle('colours', c.code)}><span className="swatch" style={{ background: c.hex }} />{c.name_en}</button>)}</div>
       <label>Sizes {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('sizes'); }} style={{ textTransform: 'none' }}>✎ edit groups</a>}</label>
       {Object.entries(sets).map(([k, sizes]) => <div key={k} className="row wrap" style={{ marginBottom: 6 }}><span className="small muted" style={{ width: 60 }}>{k}</span>{sizes.map((s) => <button key={k + s} className={`chip ${(gs[k] || []).includes(s) ? 'on' : ''}`} onClick={() => gtoggle(k, s)}>{s}</button>)}</div>)}
       {Object.keys(sets).some(isLen) && <p className="muted small">A group named “Length” is combined with the size: size 44 + length S makes “44 S”, its own stock item.</p>}
       <div className="row" style={{ marginTop: 6 }}><input style={{ width: 160 }} placeholder="Other size (e.g. 58)" value={custom} onChange={(e) => setCustom(e.target.value)} /><button className="btn" onClick={() => { const v = custom.trim().toUpperCase(); if (v && !f.sizes.includes(v)) setF((x) => ({ ...x, sizes: [...x.sizes, v] })); setCustom(''); }}>Add size</button>{f.sizes.filter((z) => !Object.values(sets).flat().includes(z)).map((z) => <button key={z} className="chip on" onClick={() => toggle('sizes', z)}>{z} ✕</button>)}</div>
-      <label>Photo</label><input type="file" accept="image/*" capture="environment" onChange={(e) => pickPhoto(e.target.files[0])} />
-      {f.photo && <img src={f.photo} alt="" style={{ height: 120, borderRadius: 8, marginTop: 8 }} />}
       {err && <div className="error">{err}</div>}
-      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { try { await api.post('/designs', { ...f, sizes: buildSizes() }); onDone(); } catch (e) { setErr(e.message); } }}>Create {f.colours.length * buildSizes().length || ''} variants</button>
+      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { try { await api.post('/designs', { ...f, full_price_usd: f.full || f.price_usd, number: f.number || undefined, sizes: buildSizes() }); onDone(); } catch (e) { setErr(e.message); } }}>Create {f.colours.length * buildSizes().length || ''} variants</button>
     </Modal>
   );
 }
