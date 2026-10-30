@@ -128,7 +128,7 @@ export function createApi(B, extra = {}) {
     need('catalog.view');
     const cat = await B.loadCatalog(); const costs = B.can('cost.view') ? await B.loadCosts() : null;
     return [...cat.designs.values()].sort((a, b) => String(a.brandCode).localeCompare(b.brandCode) || String(a.typeCode).localeCompare(b.typeCode) || a.number - b.number).map((d) => {
-      const o = { id: Number(d.id), brand_id: d.brandId, type_code: d.typeCode, number: d.number, name_en: d.nameEn, name_km: d.nameKm || null, photo: d.photo || null, price_cents: d.priceCents, full_price_cents: d.fullPriceCents ?? d.priceCents, discount_cents: d.discountCents || 0, active: d.active !== false ? 1 : 0, brand_code: d.brandCode,
+      const o = { id: Number(d.id), brand_id: d.brandId, type_code: d.typeCode, number: d.number, name_en: d.nameEn, name_km: d.nameKm || null, photo: d.photo || null, price_cents: d.priceCents, code: d.code || null, full_price_cents: d.fullPriceCents ?? d.priceCents, discount_cents: d.discountCents || 0, active: d.active !== false ? 1 : 0, brand_code: d.brandCode,
         items: cat.items.filter((i) => Number(i.designId) === Number(d.id)).map((i) => ({ id: i.id, design_id: Number(d.id), sku: i.sku, colour_code: i.colourCode, size: i.size, low_stock: i.lowStock ?? 2, active: i.active !== false ? 1 : 0 })) };
       if (costs) o.cost_cents = costs.get(String(d.id)) ?? 0;
       return o;
@@ -158,17 +158,19 @@ export function createApi(B, extra = {}) {
     if (!(price > 0)) throw bad('BAD_INPUT', 'Enter a selling price.');
     const colours = (b.colours || []).filter(Boolean); const sizes = (b.sizes || []).map(String).filter(Boolean);
     if (!colours.length || !sizes.length) throw bad('BAD_INPUT', 'Choose at least one colour and one size.');
+    let code = txt(b.code, 40).toUpperCase().replace(/\s+/g, '-');
+    if (code && [...cat.designs.values()].some((d) => String(d.code || '').toUpperCase() === code)) throw bad('DUPLICATE', 'This code is already used by another design.');
     let number = Number(b.number);
     if (!number) number = Math.max(0, ...[...cat.designs.values()].filter((d) => Number(d.brandId) === Number(brand.id) && d.typeCode === type.code).map((d) => d.number)) + 1;
     if ([...cat.designs.values()].some((d) => Number(d.brandId) === Number(brand.id) && d.typeCode === type.code && d.number === number)) throw bad('DUPLICATE', 'This brand, type and number already exist.');
     const dId = await nextIds('design', 1);
     const first = await nextIds('item', colours.length * sizes.length);
     const batch = writeBatch(db);
-    batch.set(ref('designs', dId), { id: dId, brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, number, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || null, photo: b.photo || null, priceCents: price, fullPriceCents: fullP, discountCents: discC, active: true, createdAt: ts() });
+    batch.set(ref('designs', dId), { id: dId, brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, number, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || null, code: code || null, photo: b.photo || null, priceCents: price, fullPriceCents: fullP, discountCents: discC, active: true, createdAt: ts() });
     batch.set(ref('costs', dId), { costCents: cost });
     let k = 0; const skus = [];
     for (const c of colours) for (const s of sizes) {
-      const id = first + k++; const sku = `${brand.code}-${type.code}${String(number).padStart(2, '0')}-${c}-${String(s).toUpperCase()}`;
+      const id = first + k++; const sku = `${code || `${brand.code}-${type.code}${String(number).padStart(2, '0')}`}-${c}-${String(s).toUpperCase()}`;
       batch.set(ref('items', id), { id, sku, designId: dId, colourCode: c, size: String(s).toUpperCase(), lowStock: 2, active: true }); skus.push(sku);
     }
     auditIn(batch, null, 'design.create', 'design', dId, { name: b.name_en, variants: skus.length });
