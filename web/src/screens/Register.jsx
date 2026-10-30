@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { api, qs } from '../api.js';
 import GarmentArt from '../GarmentArt.jsx';
+import Clock from './Clock.jsx';
 import FilterBar, { useFilterConfig, passes } from './FilterBar.jsx';
 import { useApp, useT, Modal, PinPad, ManagerPin, useToast, useName, LevelBadge } from '../ui.jsx';
 import { usd, riel, toRiel } from '../format.js';
@@ -276,6 +277,7 @@ export default function Register() {
           <input ref={box} className="grow scanbox" value={q} onChange={onChange} onKeyDown={onKey} placeholder={t('search')} inputMode={kb ? 'text' : 'none'} autoComplete="off" autoCapitalize="characters" aria-label="Scan or type" />
           <button className="btn" onClick={() => setKb((k) => !k)} title={t('keyboard')}>⌨</button>
           <button className="btn" onClick={() => setCam(true)}>📷 {t('camera')}</button>
+          <Clock />
           <ShiftBar shift={shift} reload={loadShift} store={store} />
         </div>
         {sw.require_scan_to_sell && <div className="small muted" style={{ marginTop: 6 }}>Scan-to-sell is on: typed items will need a manager PIN.</div>}

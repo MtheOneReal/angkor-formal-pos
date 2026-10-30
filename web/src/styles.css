@@ -131,3 +131,7 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .fbar .fsel { width:auto; min-width:0; max-width:100%; min-height:38px; padding:6px 30px 6px 14px; border-radius:999px; font-size:14px; }
 .fbar .fsel.on { border-color:var(--gold, #b08d57); font-weight:600; }
 .fbar .chip.add { border-style:dashed; }
+
+.posclock { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; color:var(--muted, #8a8d91); white-space:nowrap; padding:0 4px; }
+.posclock b { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+.posclock .clockwarn { color:var(--bad, #c0392b); font-weight:600; }
