@@ -55,19 +55,20 @@ function Adjust({ item, onClose, onDone }) {
 }
 
 function StockIn({ onClose, onDone }) {
-  const { store, lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en); const [code, setCode] = useState(''); const [lines, setLines] = useState([]); const [ref, setRef] = useState(''); const [err, setErr] = useState(''); const [sug, setSug] = useState([]); const [sugQ, setSugQ] = useState('');
-  useEffect(() => { const q = code.trim(); if (q.length < 2) { setSug([]); return undefined; } const h = setTimeout(() => api.get(`/stock/lookup${qs({ store_id: store.id, q })}`).then((r) => { setSug(r.items.slice(0, 8)); setSugQ(q); }).catch(() => { setSug([]); setSugQ(q); }), 200); return () => clearTimeout(h); }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { store, lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en); const [code, setCode] = useState(''); const [lines, setLines] = useState([]); const [ref, setRef] = useState(''); const [err, setErr] = useState(''); const [sug, setSug] = useState([]); const [sugQ, setSugQ] = useState(''); const [sugErr, setSugErr] = useState('');
+  useEffect(() => { const q = code.trim(); if (q.length < 2) { setSug([]); return undefined; } const h = setTimeout(() => api.get(`/stock/lookup${qs({ store_id: store.id, q })}`).then((r) => { setSug(r.items.slice(0, 8)); setSugQ(q); setSugErr(''); }).catch((e) => { setSug([]); setSugQ(q); setSugErr(e?.message || 'Search failed'); }), 200); return () => clearTimeout(h); }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
   const pickSug = (it) => { setErr(''); setLines((l) => { const i = l.findIndex((x) => x.it.id === it.id); if (i >= 0) { const n = [...l]; n[i] = { ...n[i], qty: n[i].qty + 1 }; return n; } return [...l, { it, qty: 1 }]; }); setCode(''); setSug([]); };
   const add = async () => {
     setErr('');
     try { const it = await api.get(`/items/code/${encodeURIComponent(code.trim())}${qs({ store_id: store.id })}`); setLines((l) => { const i = l.findIndex((x) => x.it.id === it.id); if (i >= 0) { const n = [...l]; n[i] = { ...n[i], qty: n[i].qty + 1 }; return n; } return [...l, { it, qty: 1 }]; }); setCode(''); }
-    catch (e) { setErr(e.message); }
+    catch (e) { if (sug.length === 1) pickSug(sug[0]); else if (sug.length > 1) setErr(L('Several items match. Click the one you want in the list.', 'មានទំនិញត្រូវគ្នាច្រើន។ សូមចុចលើមួយដែលអ្នកចង់បាន។')); else setErr(e.message); }
   };
   return (
     <Modal title="Receive delivery" onClose={onClose} wide>
       <div className="row"><input autoFocus className="grow scanbox" value={code} onChange={(e) => { setCode(e.target.value); setErr(''); }} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="Scan or type the code, press Enter" /><button className="btn" onClick={add}>Add</button></div>
       {sug.length > 0 && <div className="col" style={{ marginTop: 6, gap: 4 }}>{sug.map((it) => <button key={it.id} className="btn" style={{ textAlign: 'left' }} onClick={() => pickSug(it)}><b>{it.sku}</b> <span className="muted small">{it.name_en} · {it.size}</span></button>)}</div>}
-      {!sug.length && code.trim().length >= 2 && sugQ === code.trim() && !err && <p className="muted small">{L('No item matches. Check the code, or ask the owner to add this design and its sizes in Catalogue.', 'រកមិនឃើញទំនិញត្រូវគ្នាទេ។ ពិនិត្យកូដ ឬស្នើម្ចាស់បន្ថែមម៉ូដែល និងទំហំនៅកាតាឡុក។')}</p>}
+      {sugErr && sugQ === code.trim() && <div className="error">{L('Search failed', 'ស្វែងរកមិនបាន')}: {sugErr}</div>}
+      {!sug.length && !sugErr && code.trim().length >= 2 && sugQ === code.trim() && !err && <p className="muted small">{L('No item matches. Check the code, or ask the owner to add this design and its sizes in Catalogue.', 'រកមិនឃើញទំនិញត្រូវគ្នាទេ។ ពិនិត្យកូដ ឬស្នើម្ចាស់បន្ថែមម៉ូដែល និងទំហំនៅកាតាឡុក។')}</p>}
       {err && <div className="error">{err}</div>}
       {err && <p className="muted small">{L('Type a few letters of the code or name and click the match that appears. Or type the full code of one item, for example MY-CODE-44, and press Enter. If nothing matches, the owner must first add the design and its sizes in Catalogue.', 'វាយអក្សរខ្លះនៃកូដ ឬឈ្មោះ រួចចុចលើទំនិញដែលបង្ហាញ។ ឬវាយកូដពេញនៃទំនិញមួយ ឧទាហរណ៍ MY-CODE-44 រួចចុច Enter។ បើរកមិនឃើញ ម្ចាស់ត្រូវបន្ថែមម៉ូដែល និងទំហំនៅកាតាឡុកជាមុនសិន។')}</p>}
       <table style={{ marginTop: 10 }}><tbody>{lines.map((l, i) => <tr key={l.it.id}><td>{l.it.sku}<div className="small muted">{l.it.name_en} · {l.it.size}</div></td>
