@@ -50,6 +50,16 @@ function NewDesign({ meta, owner, editLists, onClose, onDone }) {
   const sets = meta.size_sets || SIZE_SETS; const [custom, setCustom] = useState('');
   const [f, setF] = useState({ brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', price_usd: '', cost_usd: '', colours: [], sizes: [], photo: null });
   const [err, setErr] = useState('');
+  const isLen = (k) => /length|long|inseam|ប្រវែង/i.test(k);
+  const [gs, setGs] = useState({});
+  const gtoggle = (g, v) => setGs((x) => ({ ...x, [g]: (x[g] || []).includes(v) ? x[g].filter((y) => y !== v) : [...(x[g] || []), v] }));
+  const buildSizes = () => {
+    const base = [...new Set(Object.entries(gs).filter(([g]) => !isLen(g)).flatMap(([, v]) => v))];
+    const lens = [...new Set(Object.entries(gs).filter(([g]) => isLen(g)).flatMap(([, v]) => v))];
+    const own = base.length ? base : (lens.length ? [''] : []);
+    const combo = lens.length ? own.flatMap((b) => lens.map((l) => `${b} ${l}`.trim())) : own;
+    return [...new Set([...combo, ...f.sizes])];
+  };
   const toggle = (k, v) => setF((x) => ({ ...x, [k]: x[k].includes(v) ? x[k].filter((y) => y !== v) : [...x[k], v] }));
   const pickPhoto = (file) => { if (!file) return; const r = new FileReader(); r.onload = () => { const img = new Image(); img.onload = () => { const s = Math.min(1, 480 / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = img.width * s; c.height = img.height * s; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); setF((x) => ({ ...x, photo: c.toDataURL('image/jpeg', 0.7) })); }; img.src = r.result; }; r.readAsDataURL(file); };
   return (
@@ -64,12 +74,13 @@ function NewDesign({ meta, owner, editLists, onClose, onDone }) {
       </div>
       <label>Colours {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('colours'); }} style={{ textTransform: 'none' }}>✎ add / edit</a>}</label><div className="row wrap">{meta.colours.map((c) => <button key={c.code} className={`chip ${f.colours.includes(c.code) ? 'on' : ''}`} onClick={() => toggle('colours', c.code)}><span className="swatch" style={{ background: c.hex }} />{c.name_en}</button>)}</div>
       <label>Sizes {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('sizes'); }} style={{ textTransform: 'none' }}>✎ edit groups</a>}</label>
-      {Object.entries(sets).map(([k, sizes]) => <div key={k} className="row wrap" style={{ marginBottom: 6 }}><span className="small muted" style={{ width: 60 }}>{k}</span>{sizes.map((s) => <button key={k + s} className={`chip ${f.sizes.includes(s) ? 'on' : ''}`} onClick={() => toggle('sizes', s)}>{s}</button>)}</div>)}
+      {Object.entries(sets).map(([k, sizes]) => <div key={k} className="row wrap" style={{ marginBottom: 6 }}><span className="small muted" style={{ width: 60 }}>{k}</span>{sizes.map((s) => <button key={k + s} className={`chip ${(gs[k] || []).includes(s) ? 'on' : ''}`} onClick={() => gtoggle(k, s)}>{s}</button>)}</div>)}
+      {Object.keys(sets).some(isLen) && <p className="muted small">A group named “Length” is combined with the size: size 44 + length S makes “44 S”, its own stock item.</p>}
       <div className="row" style={{ marginTop: 6 }}><input style={{ width: 160 }} placeholder="Other size (e.g. 58)" value={custom} onChange={(e) => setCustom(e.target.value)} /><button className="btn" onClick={() => { const v = custom.trim().toUpperCase(); if (v && !f.sizes.includes(v)) setF((x) => ({ ...x, sizes: [...x.sizes, v] })); setCustom(''); }}>Add size</button>{f.sizes.filter((z) => !Object.values(sets).flat().includes(z)).map((z) => <button key={z} className="chip on" onClick={() => toggle('sizes', z)}>{z} ✕</button>)}</div>
       <label>Photo</label><input type="file" accept="image/*" capture="environment" onChange={(e) => pickPhoto(e.target.files[0])} />
       {f.photo && <img src={f.photo} alt="" style={{ height: 120, borderRadius: 8, marginTop: 8 }} />}
       {err && <div className="error">{err}</div>}
-      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { try { await api.post('/designs', f); onDone(); } catch (e) { setErr(e.message); } }}>Create {f.colours.length * f.sizes.length || ''} variants</button>
+      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { try { await api.post('/designs', { ...f, sizes: buildSizes() }); onDone(); } catch (e) { setErr(e.message); } }}>Create {f.colours.length * buildSizes().length || ''} variants</button>
     </Modal>
   );
 }
