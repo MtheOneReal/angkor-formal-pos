@@ -137,3 +137,5 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .posclock .clockwarn { color:var(--bad, #c0392b); font-weight:600; }
 
 @media print { body * { visibility:hidden; } .printable, .printable * { visibility:visible; } .printable { position:absolute; left:0; top:0; width:100%; box-shadow:none; } .noprint { display:none !important; } }
+
+.pos .rcol { display:flex; flex-direction:column; gap:8px; min-height:0; } .pos .rcol .cart { flex:1; min-height:0; }

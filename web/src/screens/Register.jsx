@@ -299,8 +299,9 @@ export default function Register() {
           })}
         </div>
       </div>
+      <div className="rcol">
+      <div style={{ padding: '0 4px' }}><Clock /></div>
       <div className="card cart" ref={cartRef}>
-        <div style={{ marginBottom: 8 }}><Clock /></div>
         <div className="grid g2" style={{ gap: 8 }}><input placeholder={t('cust_name')} value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} /><input inputMode="tel" placeholder={t('cust_phone')} value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></div>
         <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)', margin: '10px 0' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={cust.alteration} onChange={(e) => setCust({ ...cust, alteration: e.target.checked })} />✂️ {t('alteration')}</label>
         {cust.alteration && <input style={{ marginBottom: 8 }} placeholder={t('alteration_note')} value={cust.note || ''} onChange={(e) => setCust({ ...cust, note: e.target.value })} />}
@@ -322,6 +323,7 @@ export default function Register() {
         <div className="kpi" style={{ padding: '10px 0' }}><div className="l">{t('total')}</div><div className="v">{usd(subtotal)}</div><div className="muted num">{riel(toRiel(subtotal, rate))}</div></div>
         <div className="row"><button className="btn" disabled={!cart.length} onClick={() => { setCart([]); setCust({ name: '', phone: '', alteration: false }); }}>{t('cancel')}</button>
           <button className="btn primary big grow" disabled={!cart.length} onClick={() => setPay(true)}>{t('pay')}</button></div>
+      </div>
       </div>
       {cart.length > 0 && <button className="cartbar" onClick={() => cartRef.current?.scrollIntoView({ behavior: 'smooth' })}><span>{t('view_cart')} ({pieces})</span><span className="num">{usd(subtotal)}</span></button>}
       {pick && (
