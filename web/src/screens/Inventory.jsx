@@ -12,7 +12,7 @@ export default function Inventory() {
   const tabs = [
     ['find', km ? '🔎 ស្វែងរកគ្រប់សាខា' : '🔎 Search all branches', 'stock.view', Lookup],
     ['stock', km ? '📦 ស្តុកក្នុងសាខានេះ' : '📦 Stock in this branch', 'stock.view', StockScreen],
-    ['catalogue', km ? '👔 កាតាឡុក & ស្លាក' : '👔 Catalogue & labels', 'catalog.edit', Catalogue],
+    ['catalogue', km ? '👔 កាតាឡុក' : '👔 Catalogue', 'catalog.edit', Catalogue],
   ].filter((x) => me.perms.includes(x[2]));
   const [cur, setCur] = useState(tabs[0]?.[0]);
   useEffect(() => { document.body.dataset.invTab = cur || ''; return () => { delete document.body.dataset.invTab; }; }, [cur]);
