@@ -273,11 +273,11 @@ export default function Register() {
   return (
     <div className="pos">
       <div className="left">
+        <div style={{ marginBottom: 6 }}><Clock /></div>
         <div className="row">
           <input ref={box} className="grow scanbox" value={q} onChange={onChange} onKeyDown={onKey} placeholder={t('search')} inputMode={kb ? 'text' : 'none'} autoComplete="off" autoCapitalize="characters" aria-label="Scan or type" />
           <button className="btn" onClick={() => setKb((k) => !k)} title={t('keyboard')}>⌨</button>
           <button className="btn" onClick={() => setCam(true)}>📷 {t('camera')}</button>
-          <Clock />
           <ShiftBar shift={shift} reload={loadShift} store={store} />
         </div>
         {sw.require_scan_to_sell && <div className="small muted" style={{ marginTop: 6 }}>Scan-to-sell is on: typed items will need a manager PIN.</div>}

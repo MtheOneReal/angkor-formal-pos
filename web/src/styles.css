@@ -132,7 +132,7 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .fbar .fsel.on { border-color:var(--gold, #b08d57); font-weight:600; }
 .fbar .chip.add { border-style:dashed; }
 
-.posclock { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; color:var(--muted, #8a8d91); white-space:nowrap; padding:0 4px; }
+.posclock { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; color:var(--muted, #8a8d91); white-space:nowrap; padding:0 2px; }
 .posclock b { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
 .posclock .clockwarn { color:var(--bad, #c0392b); font-weight:600; }
 
