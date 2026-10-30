@@ -55,7 +55,9 @@ function Adjust({ item, onClose, onDone }) {
 }
 
 function StockIn({ onClose, onDone }) {
-  const { store, lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en); const [code, setCode] = useState(''); const [lines, setLines] = useState([]); const [ref, setRef] = useState(''); const [err, setErr] = useState('');
+  const { store, lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en); const [code, setCode] = useState(''); const [lines, setLines] = useState([]); const [ref, setRef] = useState(''); const [err, setErr] = useState(''); const [sug, setSug] = useState([]);
+  useEffect(() => { const q = code.trim(); if (q.length < 2) { setSug([]); return undefined; } const h = setTimeout(() => api.get(`/stock/lookup${qs({ store_id: store.id, q })}`).then((r) => setSug(r.items.slice(0, 8))).catch(() => setSug([])), 200); return () => clearTimeout(h); }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pickSug = (it) => { setErr(''); setLines((l) => { const i = l.findIndex((x) => x.it.id === it.id); if (i >= 0) { const n = [...l]; n[i] = { ...n[i], qty: n[i].qty + 1 }; return n; } return [...l, { it, qty: 1 }]; }); setCode(''); setSug([]); };
   const add = async () => {
     setErr('');
     try { const it = await api.get(`/items/code/${encodeURIComponent(code.trim())}${qs({ store_id: store.id })}`); setLines((l) => { const i = l.findIndex((x) => x.it.id === it.id); if (i >= 0) { const n = [...l]; n[i] = { ...n[i], qty: n[i].qty + 1 }; return n; } return [...l, { it, qty: 1 }]; }); setCode(''); }
@@ -64,6 +66,7 @@ function StockIn({ onClose, onDone }) {
   return (
     <Modal title="Receive delivery" onClose={onClose} wide>
       <div className="row"><input autoFocus className="grow scanbox" value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="Scan or type the code, press Enter" /><button className="btn" onClick={add}>Add</button></div>
+      {sug.length > 0 && <div className="col" style={{ marginTop: 6, gap: 4 }}>{sug.map((it) => <button key={it.id} className="btn" style={{ textAlign: 'left' }} onClick={() => pickSug(it)}><b>{it.sku}</b> <span className="muted small">{it.name_en} · {it.colour_en} · {it.size}</span></button>)}</div>}
       {err && <div className="error">{err}</div>}
       {err && <p className="muted small">{L('Type the full code of one colour and size: design code + colour + size, for example MY-CODE-BLK-S. It is printed on the label. The easy way: Catalogue → ＋ Add stock on the design, with nothing to type. A design with no colours and sizes yet must get them there first.', 'វាយកូដពេញនៃពណ៌ និងទំហំមួយ៖ កូដម៉ូដែល + ពណ៌ + ទំហំ ឧទាហរណ៍ MY-CODE-BLK-S ដែលមានលើស្លាក។ វិធីងាយ៖ កាតាឡុក → ＋ បន្ថែមស្តុក លើម៉ូដែល ដោយមិនបាច់វាយកូដ។ ម៉ូដែលដែលមិនទាន់មានពណ៌ និងទំហំ ត្រូវបន្ថែមនៅទីនោះជាមុនសិន។')}</p>}
       <table style={{ marginTop: 10 }}><tbody>{lines.map((l, i) => <tr key={l.it.id}><td>{l.it.sku}<div className="small muted">{l.it.name_en} · {l.it.colour_en} · {l.it.size}</div></td>

@@ -22,19 +22,44 @@ export default function Catalogue() {
   const load = () => { api.get('/designs').then(setRows); loadStock(); };
   useEffect(() => { load(); api.get('/meta').then(setMeta); }, [store.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const canCost = me.perms.includes('cost.view');
+  const [fType, setFType] = useState(''); const [fBrand, setFBrand] = useState(''); const [fText, setFText] = useState('');
+  const dcode = (d) => d.code || `${d.brand_code}-${d.type_code}${String(d.number).padStart(2, '0')}`;
+  const shownRows = rows.filter((d) => (!fType || d.type_code === fType) && (!fBrand || String(d.brand_id) === fBrand) && (!fText.trim() || [dcode(d), d.name_en, d.name_km || '', ...d.items.map((i) => i.sku)].join(' ').toLowerCase().includes(fText.trim().toLowerCase())));
   return (
     <div>
       <div className="row between wrap"><h1>{t('catalogue')}</h1><div className="row wrap">{me.role === 'owner' && <button className="btn" onClick={() => setLists('brands')}>✎ {L('Edit lists', 'កែបញ្ជី')}</button>}<button className="btn primary" onClick={() => setAdd(true)}>＋ {L('New design', 'ម៉ូដែលថ្មី')}</button></div></div>
-      <div className="results" style={{ marginTop: 14 }}>
-        {rows.map((d) => (
-          <div key={d.id} className="tile">
-            <div className="ph">{photo(d.photo) ? <img src={photo(d.photo)} alt="" /> : <GarmentArt code={d.type_code} name={meta?.types?.find((x) => x.code === d.type_code)?.name_en} nameKm={meta?.types?.find((x) => x.code === d.type_code)?.name_km} />}</div>
-            <div className="in"><b style={{ fontSize: 13 }}>{nm(d)}</b><div className="small muted">{d.code || `${d.brand_code}-${d.type_code}${String(d.number).padStart(2, '0')}`} · {d.items.length} {L('variants', 'ប្រភេទ')}</div>
-              <div className="row between"><span>{d.discount_cents > 0 && <s className="small muted" style={{ marginRight: 6 }}>{usd(d.full_price_cents)}</s>}<b className="num">{usd(d.price_cents)}</b></span>{canCost && <span className="small muted">cost {usd(d.cost_cents)}</span>}</div>
-              {stk?.designs[d.id] && (() => { const s = stk.designs[d.id]; return <div style={{ marginTop: 4 }}><div className="row between"><span className="small">{L('In stock here', 'ស្តុកនៅទីនេះ')}</span><b className="num" style={{ color: s.here <= 0 ? 'var(--bad)' : s.low || s.out ? 'var(--warn)' : 'var(--ok)' }}>{s.here}</b></div>{s.others != null && <div className="row between"><span className="small muted">{L('Other shops', 'សាខាផ្សេង')}</span><span className="small muted num">{s.others}</span></div>}{(s.out > 0 || s.low > 0) && s.here > 0 && <div className="small" style={{ color: 'var(--warn)' }}>{s.out ? `${s.out} ${L('sold out', 'អស់')}` : ''}{s.out && s.low ? ' · ' : ''}{s.low ? `${s.low} ${L('running low', 'ជិតអស់')}` : ''}</div>}</div>; })()}
-              {me.perms.includes('stock.in') && <button className="btn primary" style={{ marginTop: 6, width: '100%' }} onClick={() => setGrid(d.id)}>＋ {L('Add stock', 'បន្ថែមស្តុក')}</button>}
-              {me.perms.includes('catalog.edit') && <button className="btn" style={{ marginTop: 6, width: '100%' }} onClick={async () => { if (!window.confirm(`Delete “${nm(d)}” and its ${d.items.length} variants for good?`)) return; try { await api.post(`/designs/${d.id}/delete`); show(L('Deleted', 'បានលុប')); load(); } catch (e) { window.alert(e.message); } }}>{L('Delete', 'លុប')}</button>}</div>
-          </div>))}
+      <div className="row wrap" style={{ marginTop: 14, gap: 8 }}>
+        <select style={{ width: 170 }} value={fType} onChange={(e) => setFType(e.target.value)}><option value="">{L('All types', 'គ្រប់ប្រភេទ')}</option>{meta?.types.map((x) => <option key={x.code} value={x.code}>{lang === 'km' && x.name_km ? x.name_km : x.name_en}</option>)}</select>
+        <select style={{ width: 170 }} value={fBrand} onChange={(e) => setFBrand(e.target.value)}><option value="">{L('All brands', 'គ្រប់ម៉ាក')}</option>{meta?.brands.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
+        <input style={{ width: 220 }} placeholder={L('Code or name', 'កូដ ឬឈ្មោះ')} value={fText} onChange={(e) => setFText(e.target.value)} />
+        <span className="muted small">{shownRows.length} / {rows.length}</span>
+      </div>
+      <div className="tbl" style={{ marginTop: 10, overflow: 'auto' }}>
+        <table style={{ whiteSpace: 'nowrap' }}>
+          <thead><tr><th></th><th>{L('Code', 'កូដ')}</th><th>{L('Name', 'ឈ្មោះ')}</th><th>{L('Type', 'ប្រភេទ')}</th><th>{L('Brand', 'ម៉ាក')}</th><th className="right">{L('Full price', 'តម្លៃដើម')}</th><th className="right">{L('Discount', 'បញ្ចុះ')}</th><th className="right">{L('Selling price', 'តម្លៃលក់')}</th>{canCost && <th className="right">{L('Cost', 'តម្លៃទិញចូល')}</th>}<th className="right">{L('Variants', 'ប្រភេទ')}</th>{stk && <th className="right">{L('In stock here', 'ស្តុកនៅទីនេះ')}</th>}{stk && <th className="right">{L('Other shops', 'សាខាផ្សេង')}</th>}<th></th></tr></thead>
+          <tbody>
+            {shownRows.map((d) => { const sd = stk?.designs[d.id]; const ty = meta?.types.find((x) => x.code === d.type_code); const br = meta?.brands.find((x) => Number(x.id) === Number(d.brand_id)); return (
+              <tr key={d.id}>
+                <td style={{ width: 54 }}><div style={{ width: 44, height: 56, borderRadius: 6, overflow: 'hidden' }}>{photo(d.photo) ? <img src={photo(d.photo)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <GarmentArt code={d.type_code} name={ty?.name_en} nameKm={ty?.name_km} />}</div></td>
+                <td><b>{dcode(d)}</b></td>
+                <td>{nm(d)}</td>
+                <td>{ty ? (lang === 'km' && ty.name_km ? ty.name_km : ty.name_en) : d.type_code}</td>
+                <td>{br?.name || d.brand_code}</td>
+                <td className="right num">{usd(d.full_price_cents ?? d.price_cents)}</td>
+                <td className="right num">{d.discount_cents > 0 ? usd(d.discount_cents) : '—'}</td>
+                <td className="right num"><b>{usd(d.price_cents)}</b></td>
+                {canCost && <td className="right num">{usd(d.cost_cents)}</td>}
+                <td className="right num">{d.items.length}</td>
+                {stk && <td className="right num"><b style={{ color: !sd || sd.here <= 0 ? 'var(--bad)' : sd.low || sd.out ? 'var(--warn)' : 'var(--ok)' }}>{sd ? sd.here : 0}</b></td>}
+                {stk && <td className="right num muted">{sd?.others ?? '—'}</td>}
+                <td className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                  {me.perms.includes('stock.in') && <button className="btn primary" onClick={() => setGrid(d.id)}>＋ {L('Add stock', 'បន្ថែមស្តុក')}</button>}
+                  {me.perms.includes('catalog.edit') && <button className="btn" onClick={async () => { if (!window.confirm(`Delete “${nm(d)}” and its ${d.items.length} variants for good?`)) return; try { await api.post(`/designs/${d.id}/delete`); show(L('Deleted', 'បានលុប')); load(); } catch (e) { window.alert(e.message); } }}>{L('Delete', 'លុប')}</button>}
+                </td>
+              </tr>); })}
+            {!shownRows.length && <tr><td colSpan="13" className="muted">{L('Nothing matches.', 'រកមិនឃើញទេ។')}</td></tr>}
+          </tbody>
+        </table>
       </div>
       {lists && <ListsManager start={lists} onClose={() => { setLists(null); reloadMeta(); load(); }} />}
       {add && meta && <NewDesign rows={rows} meta={meta} owner={me.role === 'owner'} editLists={(k) => { setAdd(false); setLists(k); }} onClose={() => setAdd(false)} onDone={() => { setAdd(false); show(L('Design added', 'បានបន្ថែមម៉ូដែល')); load(); }} />}
