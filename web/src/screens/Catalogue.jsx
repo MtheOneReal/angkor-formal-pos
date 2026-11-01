@@ -37,7 +37,7 @@ export default function Catalogue() {
       </div>
       <div className="tbl" style={{ marginTop: 10, overflow: 'auto' }}>
         <table style={{ whiteSpace: 'nowrap' }}>
-          <thead><tr><th></th><th>{L('Code', 'កូដ')}</th><th>{L('Name', 'ឈ្មោះ')}</th><th>{L('Type', 'ប្រភេទ')}</th><th>{L('Brand', 'ម៉ាក')}</th><th className="right">{L('Full price', 'តម្លៃដើម')}</th><th className="right">{L('Discount', 'បញ្ចុះ')}</th><th className="right">{L('Selling price', 'តម្លៃលក់')}</th>{canCost && <th className="right">{L('Cost', 'តម្លៃទិញចូល')}</th>}<th className="right">{L('Variants', 'ប្រភេទ')}</th>{stk && <th className="right">{L('In stock here', 'ស្តុកនៅទីនេះ')}</th>}{stk && <th className="right">{L('Other shops', 'សាខាផ្សេង')}</th>}<th></th></tr></thead>
+          <thead><tr><th></th><th>{L('Code', 'កូដ')}</th><th>{L('Name', 'ឈ្មោះ')}</th><th>{L('Type', 'ប្រភេទ')}</th><th>{L('Brand', 'ម៉ាក')}</th><th className="right">{L('Full price', 'តម្លៃដើម')}</th><th className="right">{L('Discount', 'បញ្ចុះ')}</th><th className="right">{L('Selling price', 'តម្លៃលក់')}</th>{canCost && <th className="right">{L('Cost', 'តម្លៃទិញចូល')}</th>}<th></th></tr></thead>
           <tbody>
             {shownRows.map((d) => { const sd = stk?.designs[d.id]; const ty = meta?.types.find((x) => x.code === d.type_code); const br = meta?.brands.find((x) => Number(x.id) === Number(d.brand_id)); return (
               <tr key={d.id} onClick={() => me.perms.includes('catalog.edit') && setEditD(d.id)} style={me.perms.includes('catalog.edit') ? { cursor: 'pointer' } : undefined} title={me.perms.includes('catalog.edit') ? L('Click to edit', 'ចុចដើម្បីកែ') : undefined}>
@@ -50,14 +50,11 @@ export default function Catalogue() {
                 <td className="right num">{d.discount_cents > 0 ? usd(d.discount_cents) : '—'}</td>
                 <td className="right num"><b>{usd(d.price_cents)}</b></td>
                 {canCost && <td className="right num">{usd(d.cost_cents)}</td>}
-                <td className="right num">{d.items.length}</td>
-                {stk && <td className="right num"><b style={{ color: !sd || sd.here <= 0 ? 'var(--bad)' : sd.low || sd.out ? 'var(--warn)' : 'var(--ok)' }}>{sd ? sd.here : 0}</b></td>}
-                {stk && <td className="right num muted">{sd?.others ?? '—'}</td>}
                 <td className="row" style={{ justifyContent: 'flex-end', gap: 6 }} onClick={(e) => e.stopPropagation()}>
                   {me.perms.includes('catalog.edit') && <button className="btn" onClick={async () => { if (!window.confirm(`Delete “${nm(d)}” and its ${d.items.length} variants for good?`)) return; try { await api.post(`/designs/${d.id}/delete`); show(L('Deleted', 'បានលុប')); load(); } catch (e) { window.alert(e.message); } }}>{L('Delete', 'លុប')}</button>}
                 </td>
               </tr>); })}
-            {!shownRows.length && <tr><td colSpan="13" className="muted">{L('Nothing matches.', 'រកមិនឃើញទេ។')}</td></tr>}
+            {!shownRows.length && <tr><td colSpan="10" className="muted">{L('Nothing matches.', 'រកមិនឃើញទេ។')}</td></tr>}
           </tbody>
         </table>
       </div>
