@@ -490,14 +490,13 @@ test('typing a few letters of a design code finds its items for Receive delivery
   const mine = r.items.filter((i) => i.sku.startsWith('AF-BLK-')); assert.equal(mine.length, 2); assert.ok(mine.some((i) => i.sku === 'AF-BLK-48'));
 });
 
-test('shareholders have a code letter and designs record who funded them', async () => {
+test('owner keeps a list of funders and a design stores one', async () => {
   const { api } = await setup();
-  const a = await api.post('/capital/shareholders', { name: 'Hok', agreed_by_store: {} });
-  const b = await api.post('/capital/shareholders', { name: 'Heng', letter: 'g', agreed_by_store: {} });
-  const cap = await api.get('/capital?store_id=all');
-  assert.deepEqual(cap.all_shareholders.filter((x) => [a.id, b.id].includes(x.id)).map((x) => x.letter), ['H', 'G']);
-  const d = await api.post('/designs', { brand_id: 1, type_code: 'S', code: 'HG1', name_en: 'Joint', price_usd: 100, funder_ids: [a.id, b.id] });
-  assert.deepEqual((await api.get('/designs')).find((x) => x.id === d.id).funder_ids, [a.id, b.id]);
-  await api.post(`/designs/${d.id}/update`, { brand_id: 1, type_code: 'S', code: 'H1', name_en: 'Joint', price_usd: 100, funder_ids: [a.id] });
-  assert.deepEqual((await api.get('/designs')).find((x) => x.id === d.id).funder_ids, [a.id]);
+  await api.post('/lists/funders', { funders: [{ code: 'hhbsk', name: 'All 5 owners' }, { code: 'HK', name: 'Two owners' }] });
+  assert.deepEqual((await api.get('/meta')).funders.map((x) => x.code), ['HHBSK', 'HK']);
+  await fails(api.post('/lists/funders', { funders: [{ code: 'HK' }, { code: 'hk' }] }), 'DUPLICATE');
+  const d = await api.post('/designs', { brand_id: 1, type_code: 'S', code: 'X1', name_en: 'Joint', price_usd: 100, funder_code: 'hk' });
+  assert.equal((await api.get('/designs')).find((x) => x.id === d.id).funder_code, 'HK');
+  await api.post(`/designs/${d.id}/update`, { brand_id: 1, type_code: 'S', code: 'X1', name_en: 'Joint', price_usd: 100, funder_code: 'HHBSK' });
+  assert.equal((await api.get('/designs')).find((x) => x.id === d.id).funder_code, 'HHBSK');
 });

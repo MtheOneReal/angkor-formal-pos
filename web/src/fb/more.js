@@ -253,6 +253,12 @@ export function createMore(B) {
     else throw notFound();
     auditIn(wb, null, `list.${kind}.delete`, kind, id, {}); await wb.commit().catch(wrap('Could not delete')); await B.loadCatalog(true); return { ok: true };
   }
+  async function fundersGet() { const d = await read('settings', 'funders'); return { funders: Array.isArray(d?.list) ? d.list : [] }; }
+  async function fundersSave(b) {
+    ownerOnly(); const seen = new Set(); const out = [];
+    for (const x of Array.isArray(b.funders) ? b.funders : []) { const code = txt(x.code, 12).trim().toUpperCase().replace(/\s+/g, ''); const name = txt(x.name, 80).trim(); if (!code) continue; if (seen.has(code)) throw bad('DUPLICATE', `Funder ${code} is listed twice.`); seen.add(code); out.push({ code, name }); }
+    await setDoc(ref('settings', 'funders'), { list: out, ts: now(), setBy: S().uid }); return { ok: true };
+  }
   const DEFAULT_SIZE_SETS = { Suit: ['44', '46', '48', '50', '52', '54', '56'], Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] };
   async function sizeSets() { const d = await read('settings', 'sizeSets'); return { size_sets: d?.sets || DEFAULT_SIZE_SETS, type_groups: d?.typeGroups || {} }; }
   async function sizeSetsSave(b) {
@@ -265,6 +271,8 @@ export function createMore(B) {
 
   async function route(method, path, q, b) {
     let m;
+    if (method === 'GET' && path === '/lists/funders') return fundersGet();
+    if (method === 'POST' && path === '/lists/funders') return fundersSave(b);
     if (method === 'GET' && path === '/lists/sizes') return sizeSets();
     if (method === 'POST' && path === '/lists/sizes') return sizeSetsSave(b);
     if (method === 'POST' && (m = path.match(/^\/lists\/(brands|types|colours)$/))) return listSave(m[1], null, b);

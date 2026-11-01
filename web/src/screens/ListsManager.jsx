@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { Modal } from '../ui.jsx';
 
-const TABS = [['brands', 'Brands'], ['types', 'Types'], ['sizes', 'Sizes']];
+const TABS = [['brands', 'Brands'], ['types', 'Types'], ['funders', 'Funders'], ['sizes', 'Sizes']];
 
 // Owner-only editor for the lists used when creating products.
 export default function ListsManager({ start = 'brands', onClose }) {
@@ -19,6 +19,7 @@ export default function ListsManager({ start = 'brands', onClose }) {
       {err && <div className="error">{err}</div>}
       {tab === 'brands' && <Simple kind="brands" rows={meta.brands.map((b) => ({ key: b.id, code: b.code, name_en: b.name }))} fields={['name_en']} codeHint="Code (2–5 letters, e.g. AF)" run={run} done={onClose} />}
       {tab === 'types' && <Simple kind="types" rows={meta.types.map((b) => ({ key: b.code, code: b.code, name_en: b.name_en, name_km: b.name_km || '' }))} fields={['name_en', 'name_km']} codeHint="Code (1–3 letters, e.g. S)" run={run} done={onClose} />}
+      {tab === 'funders' && <Funders run={run} done={onClose} />}
       {tab === 'sizes' && <Sizes sets={meta.size_sets || { Suit: meta.suit_sizes, Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] }} run={run} done={onClose} types={meta.types} typeGroups={meta.type_groups || {}} />}
     </Modal>
   );
@@ -60,6 +61,22 @@ function Sizes({ sets, run, done, types, typeGroups }) {
       <p className="muted small">When you add sizes to a design, only the groups ticked for its type are shown, so a shirt never shows waist sizes.</p>
       {types.map((t) => <div key={t.code} className="row wrap" style={{ marginBottom: 6 }}><b style={{ width: 110 }}>{t.name_en}</b>{Object.keys(draft).map((g) => <button key={g} className={`chip ${(tg[t.code] || []).includes(g) ? 'on' : ''}`} onClick={() => flip(t.code, g)}>{g}</button>)}</div>)}
       <button className="btn primary" style={{ marginTop: 12 }} onClick={save}>Save sizes</button>
+    </div>
+  );
+}
+
+function Funders({ run, done }) {
+  const [rows, setRows] = useState(null); const [err, setErr] = useState('');
+  useEffect(() => { api.get('/lists/funders').then((r) => setRows(r.funders.map((x) => ({ ...x })))).catch((e) => setErr(e.message)); }, []);
+  if (!rows) return err ? <div className="error">{err}</div> : null;
+  const upd = (i, k, v) => setRows((x) => x.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  const save = async () => { if (await run(() => api.post('/lists/funders', { funders: rows }))) done(); };
+  return (
+    <div>
+      <p className="muted small">Who paid to make a design. Give each combination a short code, for example HHBSK for all five owners or HK for two, and a note. Pick one in New design or Edit design.</p>
+      {rows.map((r, i) => <div key={i} className="row" style={{ marginBottom: 8 }}><input style={{ width: 120 }} placeholder="Code" value={r.code} onChange={(e) => upd(i, 'code', e.target.value.toUpperCase())} /><input className="grow" placeholder="Note (e.g. all 5 owners)" value={r.name || ''} onChange={(e) => upd(i, 'name', e.target.value)} /><button className="btn danger" onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>✕</button></div>)}
+      <button className="btn" onClick={() => setRows((x) => [...x, { code: '', name: '' }])}>＋ Add funder</button>
+      <div><button className="btn primary" style={{ marginTop: 12 }} onClick={save}>Save funders</button></div>
     </div>
   );
 }

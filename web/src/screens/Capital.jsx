@@ -73,12 +73,11 @@ export default function Capital() {
 function ShareholderForm({ f, d, L, onClose, onDone }) {
   const [x, setX] = useState(f); const [err, setErr] = useState('');
   const [tot, setTot] = useState(() => Object.fromEntries(d.stores.map((st) => { let v = ''; try { v = localStorage.getItem(`af_cap_total_${st.id}`) || ''; } catch { /* ignore */ } return [st.id, v]; }))); const [pc, setPc] = useState({});
-  const save = async () => { try { await api.post(x.id ? `/capital/shareholders/${x.id}` : '/capital/shareholders', { name: x.name, letter: x.letter, agreed_by_store: x.agreed_by_store, note: x.note, active: x.active !== false }); onDone(); } catch (e) { setErr(e.message); } };
+  const save = async () => { try { await api.post(x.id ? `/capital/shareholders/${x.id}` : '/capital/shareholders', { name: x.name, agreed_by_store: x.agreed_by_store, note: x.note, active: x.active !== false }); onDone(); } catch (e) { setErr(e.message); } };
   const del = async () => { if (!window.confirm(L('Delete this shareholder?', 'លុបអ្នកហ៊ុននេះ?'))) return; try { await api.post(`/capital/shareholders/${x.id}/delete`); onDone(); } catch (e) { setErr(e.message); } };
   return (
     <Modal title={x.id ? L('Edit shareholder', 'កែអ្នកហ៊ុន') : L('New shareholder', 'អ្នកហ៊ុនថ្មី')} onClose={onClose}>
       <label>{L('Name', 'ឈ្មោះ')}</label><input value={x.name} onChange={(e) => setX({ ...x, name: e.target.value })} autoFocus />
-      <label>{L('Letter for design codes', 'អក្សរសម្រាប់កូដម៉ូដែល')}</label><input style={{ width: 90 }} maxLength={3} placeholder={(x.name || '').trim().charAt(0).toUpperCase()} value={x.letter || ''} onChange={(e) => setX({ ...x, letter: e.target.value.toUpperCase() })} /><div className="small muted">{L('Used at the start of a design code when this person helped pay for the design. Two people can have the same letter.', 'ប្រើនៅដើមកូដម៉ូដែល នៅពេលអ្នកនេះចូលហ៊ុនផលិតម៉ូដែលនោះ។ មនុស្សពីរនាក់អាចមានអក្សរដូចគ្នា។')}</div>
       <label>{L('Share in each store: type the shop’s total once, then this person’s %. Leave empty if none.', 'ចំណែកក្នុងសាខានីមួយៗ៖ វាយដើមទុនសរុបម្តង រួចវាយ % របស់អ្នកនេះ។ ទុកទទេបើគ្មាន។')}</label>
       {d.stores.map((st) => {
         const total = tot[st.id] ?? ''; const amt = x.agreed_by_store[st.id] ?? '';

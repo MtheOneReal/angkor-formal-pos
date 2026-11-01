@@ -37,7 +37,7 @@ export default function Catalogue() {
       </div>
       <div className="tbl" style={{ marginTop: 10, overflow: 'auto' }}>
         <table style={{ whiteSpace: 'nowrap' }}>
-          <thead><tr><th></th><th>{L('Code', 'កូដ')}</th><th>{L('Name', 'ឈ្មោះ')}</th><th>{L('Type', 'ប្រភេទ')}</th><th>{L('Brand', 'ម៉ាក')}</th><th className="right">{L('Full price', 'តម្លៃដើម')}</th><th className="right">{L('Discount', 'បញ្ចុះ')}</th><th className="right">{L('Selling price', 'តម្លៃលក់')}</th>{canCost && <th className="right">{L('Cost', 'តម្លៃទិញចូល')}</th>}<th></th></tr></thead>
+          <thead><tr><th></th><th>{L('Code', 'កូដ')}</th><th>{L('Name', 'ឈ្មោះ')}</th><th>{L('Type', 'ប្រភេទ')}</th><th>{L('Brand', 'ម៉ាក')}</th><th>{L('Funder', 'អ្នកចូលហ៊ុន')}</th><th className="right">{L('Full price', 'តម្លៃដើម')}</th><th className="right">{L('Discount', 'បញ្ចុះ')}</th><th className="right">{L('Selling price', 'តម្លៃលក់')}</th>{canCost && <th className="right">{L('Cost', 'តម្លៃទិញចូល')}</th>}<th></th></tr></thead>
           <tbody>
             {shownRows.map((d) => { const sd = stk?.designs[d.id]; const ty = meta?.types.find((x) => x.code === d.type_code); const br = meta?.brands.find((x) => Number(x.id) === Number(d.brand_id)); return (
               <tr key={d.id} onClick={() => me.perms.includes('catalog.edit') && setEditD(d.id)} style={me.perms.includes('catalog.edit') ? { cursor: 'pointer' } : undefined} title={me.perms.includes('catalog.edit') ? L('Click to edit', 'ចុចដើម្បីកែ') : undefined}>
@@ -46,6 +46,7 @@ export default function Catalogue() {
                 <td>{nm(d)}</td>
                 <td>{ty ? (lang === 'km' && ty.name_km ? ty.name_km : ty.name_en) : d.type_code}</td>
                 <td>{br?.name || d.brand_code}</td>
+                <td>{d.funder_code || '—'}</td>
                 <td className="right num">{usd(d.full_price_cents ?? d.price_cents)}</td>
                 <td className="right num">{d.discount_cents > 0 ? usd(d.discount_cents) : '—'}</td>
                 <td className="right num"><b>{usd(d.price_cents)}</b></td>
@@ -54,7 +55,7 @@ export default function Catalogue() {
                   {me.perms.includes('catalog.edit') && <button className="btn" onClick={async () => { if (!window.confirm(`Delete “${nm(d)}” and its ${d.items.length} variants for good?`)) return; try { await api.post(`/designs/${d.id}/delete`); show(L('Deleted', 'បានលុប')); load(); } catch (e) { window.alert(e.message); } }}>{L('Delete', 'លុប')}</button>}
                 </td>
               </tr>); })}
-            {!shownRows.length && <tr><td colSpan="10" className="muted">{L('Nothing matches.', 'រកមិនឃើញទេ។')}</td></tr>}
+            {!shownRows.length && <tr><td colSpan="11" className="muted">{L('Nothing matches.', 'រកមិនឃើញទេ។')}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -72,17 +73,8 @@ function NewDesign({ reload, design, dcode, rows, meta, owner, editLists, onClos
   const { lang } = useApp(); const L = (en, km) => (lang === 'km' ? km : en);
   const c2 = (v) => (v == null ? '' : String(Math.round(v) / 100));
   const [f, setF] = useState(design
-    ? { brand_id: design.brand_id, type_code: design.type_code, name_en: design.name_en || '', name_km: design.name_km || '', code: dcode(design), full: c2(design.full_price_cents ?? design.price_cents), disc: design.discount_cents > 0 ? c2(design.discount_cents) : '', price_usd: c2(design.price_cents), cost_usd: design.cost_cents != null ? c2(design.cost_cents) : '', photo: design.photo || null, funders: design.funder_ids || [] }
-    : { brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', code: '', full: '', disc: '', price_usd: '', cost_usd: '', photo: null, funders: [] });
-  const [holders, setHolders] = useState([]);
-  useEffect(() => { api.get('/capital?store_id=all').then((r) => setHolders((r.all_shareholders || []).filter((h) => h.active))).catch(() => setHolders([])); }, []);
-  const prefixOf = (ids) => holders.filter((h) => ids.includes(String(h.id))).map((h) => h.letter).join('');
-  const flipFunder = (id) => setF((x) => {
-    const sid = String(id); const next = x.funders.includes(sid) ? x.funders.filter((y) => y !== sid) : [...x.funders, sid];
-    const oldP = prefixOf(x.funders); const newP = prefixOf(next); let code = x.code;
-    if (!code.trim()) code = newP; else if (oldP && code.toUpperCase().startsWith(oldP)) code = newP + code.slice(oldP.length); else if (!oldP && /^[0-9]/.test(code)) code = newP + code;
-    return { ...x, funders: next, code };
-  });
+    ? { brand_id: design.brand_id, type_code: design.type_code, name_en: design.name_en || '', name_km: design.name_km || '', code: dcode(design), full: c2(design.full_price_cents ?? design.price_cents), disc: design.discount_cents > 0 ? c2(design.discount_cents) : '', price_usd: c2(design.price_cents), cost_usd: design.cost_cents != null ? c2(design.cost_cents) : '', photo: design.photo || null, funder_code: design.funder_code || '' }
+    : { brand_id: meta.brands[0].id, type_code: meta.types[0].code, name_en: '', name_km: '', code: '', full: '', disc: '', price_usd: '', cost_usd: '', photo: null, funder_code: '' });
   const setPrices = ({ full, disc, sell }) => setF((x) => {
     const n = { ...x }; const num = (v) => (v === '' || isNaN(Number(v)) ? null : Number(v)); const r2 = (v) => String(Math.round(v * 100) / 100);
     if (full !== undefined) n.full = full; if (disc !== undefined) n.disc = disc; if (sell !== undefined) n.price_usd = sell;
@@ -97,7 +89,7 @@ function NewDesign({ reload, design, dcode, rows, meta, owner, editLists, onClos
       <div className="grid g2">
         <div><label>{L('Type', 'ប្រភេទ')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('types'); }} style={{ textTransform: 'none' }}>✎ {L('edit', 'កែ')}</a>}</label><select value={f.type_code} onChange={(e) => setF({ ...f, type_code: e.target.value })}>{meta.types.map((b) => <option key={b.code} value={b.code}>{b.name_en}</option>)}</select></div>
         <div><label>{L('Brand', 'ម៉ាក')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('brands'); }} style={{ textTransform: 'none' }}>✎ {L('edit', 'កែ')}</a>}</label><select value={f.brand_id} onChange={(e) => setF({ ...f, brand_id: Number(e.target.value) })}>{meta.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-        {holders.length > 0 && <div style={{ gridColumn: '1 / -1' }}><label>{L('Funded by', 'ហ៊ុនដោយ')}</label><div className="row wrap">{holders.map((h) => <button type="button" key={h.id} className={`chip ${f.funders.includes(String(h.id)) ? 'on' : ''}`} onClick={() => flipFunder(h.id)}>{h.letter} · {h.name}</button>)}</div><div className="small muted">{L('Tick the owners who paid to make this design. The code starts with their letters, for example HK. Two owners with the same letter are fine, because the owners you tick are saved with the design.', 'ជ្រើសម្ចាស់ហ៊ុនដែលចូលហ៊ុនផលិតម៉ូដែលនេះ។ កូដចាប់ផ្តើមដោយអក្សររបស់ពួកគេ ឧទាហរណ៍ HK។ អក្សរដូចគ្នាមិនជាបញ្ហាទេ ព្រោះម្ចាស់ដែលអ្នកជ្រើសត្រូវបានរក្សាទុកជាមួយម៉ូដែល។')}</div></div>}
+        <div><label>{L('Funder', 'អ្នកចូលហ៊ុន')} {owner && <a href="#" onClick={(e) => { e.preventDefault(); editLists('funders'); }} style={{ textTransform: 'none' }}>✎ {L('edit', 'កែ')}</a>}</label><select value={f.funder_code} onChange={(e) => setF({ ...f, funder_code: e.target.value })}><option value="">—</option>{(meta.funders || []).map((x) => <option key={x.code} value={x.code}>{x.code}{x.name ? ` · ${x.name}` : ''}</option>)}{f.funder_code && !(meta.funders || []).some((x) => x.code === f.funder_code) && <option value={f.funder_code}>{f.funder_code}</option>}</select></div>
         <div><label>{L('Code', 'កូដ')}</label><input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} />{design && f.code.trim().toUpperCase().replace(/\s+/g, '-') !== dcode(design).toUpperCase() && <div className="small" style={{ color: 'var(--warn)' }}>{L('Changing the code also changes the code of every size of this design.', 'ការប្តូរកូដនឹងប្តូរកូដនៃគ្រប់ទំហំរបស់ម៉ូដែលនេះផងដែរ។')}</div>}</div>
         <div><label>{L('Name', 'ឈ្មោះ')}</label><input value={f.name_en} onChange={(e) => setF({ ...f, name_en: e.target.value })} /></div>
         <div><label>{L('Full price (USD)', 'តម្លៃដើម (USD)')}</label><input inputMode="decimal" value={f.full} onChange={(e) => setPrices({ full: e.target.value })} /></div>
@@ -111,7 +103,7 @@ function NewDesign({ reload, design, dcode, rows, meta, owner, editLists, onClos
         <div className="row wrap">{design.items.filter((i) => i.active).map((i) => <span key={i.id} className="chip on">{i.size}</span>)}{!design.items.some((i) => i.active) && <span className="muted small">{L('No sizes yet.', 'មិនទាន់មានទំហំទេ។')}</span>}</div>
         <details style={{ marginTop: 8 }} open={!design.items.some((i) => i.active)}><summary className="small" style={{ cursor: 'pointer' }}>＋ {L('Add sizes', 'បន្ថែមទំហំ')}</summary><VariantPicker meta={meta} owner={owner} editLists={editLists} design={design} onAdded={reload} /></details></div>}
       {err && <div className="error">{err}</div>}
-      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { if (!f.code.trim()) { setErr(L('Enter a code.', 'សូមបំពេញកូដ។')); return; } try { if (design) await api.post(`/designs/${design.id}/update`, { ...f, funder_ids: f.funders, full_price_usd: f.full || f.price_usd, photo: f.photo === design.photo ? undefined : (f.photo || '') }); else { const r = await api.post('/designs', { ...f, funder_ids: f.funders, full_price_usd: f.full || f.price_usd }); onDone(r.id); return; } onDone(); } catch (e) { setErr(e.message); } }}>{design ? L('Save', 'រក្សាទុក') : L('Create design', 'បង្កើតម៉ូដែល')}</button>
+      <button className="btn primary big" style={{ width: '100%', marginTop: 12 }} onClick={async () => { if (!f.code.trim()) { setErr(L('Enter a code.', 'សូមបំពេញកូដ។')); return; } try { if (design) await api.post(`/designs/${design.id}/update`, { ...f, full_price_usd: f.full || f.price_usd, photo: f.photo === design.photo ? undefined : (f.photo || '') }); else { const r = await api.post('/designs', { ...f, full_price_usd: f.full || f.price_usd }); onDone(r.id); return; } onDone(); } catch (e) { setErr(e.message); } }}>{design ? L('Save', 'រក្សាទុក') : L('Create design', 'បង្កើតម៉ូដែល')}</button>
     </Modal>
   );
 }

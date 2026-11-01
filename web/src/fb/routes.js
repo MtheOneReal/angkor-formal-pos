@@ -128,7 +128,7 @@ export function createApi(B, extra = {}) {
     need('catalog.view');
     const cat = await B.loadCatalog(); const costs = B.can('cost.view') ? await B.loadCosts() : null;
     return [...cat.designs.values()].sort((a, b) => String(a.brandCode).localeCompare(b.brandCode) || String(a.typeCode).localeCompare(b.typeCode) || a.number - b.number).map((d) => {
-      const o = { id: Number(d.id), brand_id: d.brandId, type_code: d.typeCode, number: d.number, name_en: d.nameEn, name_km: d.nameKm || null, photo: d.photo || null, price_cents: d.priceCents, code: d.code || null, funder_ids: d.funderIds || [], full_price_cents: d.fullPriceCents ?? d.priceCents, discount_cents: d.discountCents || 0, active: d.active !== false ? 1 : 0, brand_code: d.brandCode,
+      const o = { id: Number(d.id), brand_id: d.brandId, type_code: d.typeCode, number: d.number, name_en: d.nameEn, name_km: d.nameKm || null, photo: d.photo || null, price_cents: d.priceCents, code: d.code || null, funder_code: d.funderCode || '', full_price_cents: d.fullPriceCents ?? d.priceCents, discount_cents: d.discountCents || 0, active: d.active !== false ? 1 : 0, brand_code: d.brandCode,
         items: cat.items.filter((i) => Number(i.designId) === Number(d.id)).map((i) => ({ id: i.id, design_id: Number(d.id), sku: i.sku, colour_code: i.colourCode, size: i.size, low_stock: i.lowStock ?? 2, active: i.active !== false ? 1 : 0 })) };
       if (costs) o.cost_cents = costs.get(String(d.id)) ?? 0;
       return o;
@@ -137,7 +137,7 @@ export function createApi(B, extra = {}) {
   async function meta() {
     const c = await B.loadCatalog();
     return { brands: c.brandsList.map((b) => ({ id: Number(b.id), code: b.code, name: b.name })), types: c.typesList.map((t) => ({ code: t.code, name_en: t.nameEn, name_km: t.nameKm })),
-      colours: c.coloursList.map((x) => ({ code: x.code, name_en: x.nameEn, name_km: x.nameKm, hex: x.hex })), suit_sizes: ['44', '46', '48', '50', '52', '54', '56'], size_sets: (await read('settings', 'sizeSets'))?.sets || null, type_groups: (await read('settings', 'sizeSets'))?.typeGroups || {} };
+      colours: c.coloursList.map((x) => ({ code: x.code, name_en: x.nameEn, name_km: x.nameKm, hex: x.hex })), suit_sizes: ['44', '46', '48', '50', '52', '54', '56'], size_sets: (await read('settings', 'sizeSets'))?.sets || null, type_groups: (await read('settings', 'sizeSets'))?.typeGroups || {}, funders: (await read('settings', 'funders'))?.list || [] };
   }
   async function nextIds(kind, n) {
     const r = ref('meta', 'ids');
@@ -165,7 +165,7 @@ export function createApi(B, extra = {}) {
     const dId = await nextIds('design', 1);
     const cols = colours.length ? colours : ['']; const first = cols.length * sizes.length ? await nextIds('item', cols.length * sizes.length) : 0;
     const batch = writeBatch(db);
-    batch.set(ref('designs', dId), { id: dId, brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, number, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || null, code: code || null, funderIds: Array.isArray(b.funder_ids) ? b.funder_ids.map(String).slice(0, 30) : [], photo: b.photo || null, priceCents: price, fullPriceCents: fullP, discountCents: discC, active: true, createdAt: ts() });
+    batch.set(ref('designs', dId), { id: dId, brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, number, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || null, code: code || null, funderCode: txt(b.funder_code, 12).trim().toUpperCase(), photo: b.photo || null, priceCents: price, fullPriceCents: fullP, discountCents: discC, active: true, createdAt: ts() });
     batch.set(ref('costs', dId), { costCents: cost });
     let k = 0; const skus = [];
     for (const c of cols) for (const s of sizes) {
@@ -192,7 +192,7 @@ export function createApi(B, extra = {}) {
     const batch = writeBatch(db);
     const upd = { brandId: Number(brand.id), brandCode: brand.code, typeCode: type.code, code, nameEn: txt(b.name_en, 100), nameKm: txt(b.name_km, 100) || d.nameKm || null, priceCents: price, fullPriceCents: fullP, discountCents: Math.max(0, fullP - price) };
     if (b.photo !== undefined) upd.photo = b.photo || null;
-    if (Array.isArray(b.funder_ids)) upd.funderIds = b.funder_ids.map(String).slice(0, 30);
+    if (b.funder_code !== undefined) upd.funderCode = txt(b.funder_code, 12).trim().toUpperCase();
     batch.set(ref('designs', d.id), upd, { merge: true });
     if (b.cost_usd !== undefined && b.cost_usd !== '' && B.can('cost.view')) batch.set(ref('costs', d.id), { costCents: Math.round(Number(b.cost_usd || 0) * 100) });
     if (code !== oldCode) for (const i of cat.items.filter((x) => Number(x.designId) === Number(d.id))) batch.set(ref('items', i.id), { sku: [code, i.colourCode, i.size].filter(Boolean).join('-') }, { merge: true });
