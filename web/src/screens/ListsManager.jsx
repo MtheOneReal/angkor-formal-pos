@@ -17,9 +17,9 @@ export default function ListsManager({ start = 'brands', onClose }) {
       <p className="muted small">Names can be changed any time. Codes cannot, because they are part of every product code and barcode. An entry can be deleted only when no product uses it.</p>
       <div className="tabs">{TABS.map(([k, l]) => <button key={k} className={`chip ${tab === k ? 'on' : ''}`} onClick={() => { setTab(k); setErr(''); }}>{l}</button>)}</div>
       {err && <div className="error">{err}</div>}
-      {tab === 'brands' && <Simple kind="brands" rows={meta.brands.map((b) => ({ key: b.id, code: b.code, name_en: b.name }))} fields={['name_en']} codeHint="Code (2–5 letters, e.g. AF)" run={run} done={onClose} types={meta.types} typeGroups={meta.type_groups || {}} />}
-      {tab === 'types' && <Simple kind="types" rows={meta.types.map((b) => ({ key: b.code, code: b.code, name_en: b.name_en, name_km: b.name_km || '' }))} fields={['name_en', 'name_km']} codeHint="Code (1–3 letters, e.g. S)" run={run} done={onClose} types={meta.types} typeGroups={meta.type_groups || {}} />}
-      {tab === 'sizes' && <Sizes sets={meta.size_sets || { Suit: meta.suit_sizes, Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] }} run={run} done={onClose} />}
+      {tab === 'brands' && <Simple kind="brands" rows={meta.brands.map((b) => ({ key: b.id, code: b.code, name_en: b.name }))} fields={['name_en']} codeHint="Code (2–5 letters, e.g. AF)" run={run} done={onClose} />}
+      {tab === 'types' && <Simple kind="types" rows={meta.types.map((b) => ({ key: b.code, code: b.code, name_en: b.name_en, name_km: b.name_km || '' }))} fields={['name_en', 'name_km']} codeHint="Code (1–3 letters, e.g. S)" run={run} done={onClose} />}
+      {tab === 'sizes' && <Sizes sets={meta.size_sets || { Suit: meta.suit_sizes, Shirt: ['S', 'M', 'L', 'XL', 'XXL'], Waist: ['30', '32', '34', '36', '38'], 'One size': ['ONE'] }} run={run} done={onClose} types={meta.types} typeGroups={meta.type_groups || {}} />}
     </Modal>
   );
 }
