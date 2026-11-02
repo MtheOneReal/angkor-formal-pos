@@ -4,6 +4,7 @@ import { api } from './api.js';
 import { Ctx, useApp, useT, PinPad, Modal, Spinner } from './ui.jsx';
 import { tr } from './i18n.js';
 import Register from './screens/Register.jsx';
+import Clock from './screens/Clock.jsx';
 import Capital from './screens/Capital.jsx';
 import Restock from './screens/Restock.jsx';
 import Jobs from './screens/Jobs.jsx';
@@ -193,9 +194,12 @@ export default function App() {
             <button className="nav" onClick={logout}>⎋ {t('logout')}</button>
           </aside>
           <main className="main">
-            {me.stores.length > 1 && !['dashboard', 'capital', 'report', 'account', 'expenses', 'payroll', 'attendance', 'settings'].includes(cur) && (
-              <div className="topbar"><select value={me.store_id} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 220 }} aria-label="Store">
-                {me.stores.map((s) => <option key={s.id} value={s.id}>{s.kind === 'warehouse' ? '🏬 ' : ''}{s.name}</option>)}</select></div>
+            {(me.stores.length > 1 || cur === 'register') && !['dashboard', 'capital', 'report', 'account', 'expenses', 'payroll', 'attendance', 'settings'].includes(cur) && (
+              <div className="topbar" style={cur === 'register' ? { flexWrap: 'nowrap' } : undefined}>
+                {me.stores.length > 1 && <select value={me.store_id} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 220 }} aria-label="Store">
+                  {me.stores.map((s) => <option key={s.id} value={s.id}>{s.kind === 'warehouse' ? '🏬 ' : ''}{s.name}</option>)}</select>}
+                {cur === 'register' && <Clock />}
+              </div>
             )}
             {store && <Screen key={`${cur}-${me.store_id}`} />}
           </main>

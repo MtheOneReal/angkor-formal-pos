@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { api, qs } from '../api.js';
 import GarmentArt from '../GarmentArt.jsx';
-import Clock from './Clock.jsx';
 import FilterBar, { useFilterConfig, passes } from './FilterBar.jsx';
 import { useApp, useT, Modal, PinPad, ManagerPin, useToast, useName, LevelBadge } from '../ui.jsx';
 import { usd, riel, toRiel } from '../format.js';
@@ -299,7 +298,6 @@ export default function Register() {
         </div>
       </div>
       <div className="rcol">
-      <div style={{ padding: '0 4px' }}><Clock /></div>
       <div className="card cart" ref={cartRef}>
         <div className="grid g2" style={{ gap: 8 }}><input placeholder={t('cust_name')} value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} /><input inputMode="tel" placeholder={t('cust_phone')} value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></div>
         <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)', margin: '10px 0' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={cust.alteration} onChange={(e) => setCust({ ...cust, alteration: e.target.checked })} />✂️ {t('alteration')}</label>
