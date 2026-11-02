@@ -198,7 +198,7 @@ export default function App() {
               <div className="topbar" style={cur === 'register' ? { flexWrap: 'nowrap' } : undefined}>
                 {me.stores.length > 1 && <select value={me.store_id} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 220 }} aria-label="Store">
                   {me.stores.map((s) => <option key={s.id} value={s.id}>{s.kind === 'warehouse' ? '🏬 ' : ''}{s.name}</option>)}</select>}
-                {cur === 'register' && <Clock />}
+                {cur === 'register' && <span style={{ marginLeft: 'auto' }}><Clock /></span>}
               </div>
             )}
             {store && <Screen key={`${cur}-${me.store_id}`} />}
