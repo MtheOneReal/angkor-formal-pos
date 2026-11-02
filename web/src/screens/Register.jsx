@@ -41,17 +41,21 @@ function Receipt({ sale, onDone }) {
   return (
     <Modal title={t('receipt')} onClose={onDone}>
       <div className="receipt" id="receipt">
-        <div style={{ textAlign: 'center' }}><b style={{ fontSize: 15 }}>{sale.store_name}</b><br />{new Date(sale.ts).toLocaleString('en-GB', { timeZone: 'Asia/Phnom_Penh' })}<br />{sale.receipt_no}</div>
+        <div style={{ textAlign: 'center' }}><b style={{ fontSize: 15 }}>{sale.store_name}</b>
+          {sale.receipt_contact && <div className="small" style={{ whiteSpace: 'pre-line' }}>{sale.receipt_contact}</div>}
+          <div>{new Date(sale.ts).toLocaleString('en-GB', { timeZone: 'Asia/Phnom_Penh' })}</div><div>{sale.receipt_no}</div></div>
+        {sale.cashier_name && <div className="l" style={{ marginTop: 4 }}><span>Cashier / អ្នកលក់</span><b>{sale.cashier_name}</b></div>}
         <hr />
-        {sale.lines.map((l) => <div key={l.id}><div>{l.name_en} · {l.size}</div><div className="l"><span>{l.qty} × {usd(l.unit_price_cents ?? l.price_cents ?? 0)}</span><span>{usd(l.line_total_cents)}</span></div></div>)}
+        {sale.lines.map((l) => <div key={l.id}><div>{l.name_en}{l.name_km ? ` / ${l.name_km}` : ''} · {l.size}</div><div className="l"><span>{l.qty} × {usd(l.unit_price_cents ?? l.price_cents ?? 0)}</span><span>{usd(l.line_total_cents)}</span></div></div>)}
         <hr />
-        {sale.discount_cents > 0 && <div className="l"><span>{t('discount')}</span><span>-{usd(sale.discount_cents)}</span></div>}
-        <div className="l"><b>{t('total')}</b><b>{usd(sale.total_cents)}</b></div>
+        {sale.discount_cents > 0 && <div className="l"><span>Discount / បញ្ចុះតម្លៃ</span><span>-{usd(sale.discount_cents)}</span></div>}
+        <div className="l"><b>Total / សរុប</b><b>{usd(sale.total_cents)}</b></div>
         <div className="l"><span></span><span>{riel(sale.total_khr)}</span></div>
-        {sale.deposit && <><div className="l"><span>Deposit paid</span><span>{usd(sale.total_cents - sale.balance_cents)}</span></div><div className="l"><b>Balance to pay</b><b>{usd(sale.balance_cents)}</b></div>{sale.due_date && <div className="small">Pickup: {sale.due_date}</div>}</>}
+        {sale.deposit && <><div className="l"><span>Deposit paid / បានកក់</span><span>{usd(sale.total_cents - sale.balance_cents)}</span></div><div className="l"><b>Balance to pay / នៅខ្វះ</b><b>{usd(sale.balance_cents)}</b></div>{sale.due_date && <div className="small">Pickup / ថ្ងៃមកយក: {sale.due_date}</div>}</>}
         {sale.customer_name && <div className="small">{sale.customer_name} {sale.customer_phone || ''}</div>}
-        <div className="small">Rate: {sale.rate_khr_per_usd} ៛ / $1</div>
-        <hr /><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you'}</div>
+        <div className="small">Rate / អត្រា: {sale.rate_khr_per_usd} ៛ / $1</div>
+        <hr /><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you / អរគុណ'}</div>
+        {sale.receipt_social && <div className="small" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>{sale.receipt_social}</div>}
       </div>
       <div className="row" style={{ marginTop: 14 }}>
         <button className="btn" onClick={() => window.print()}>{t('print')}</button>
