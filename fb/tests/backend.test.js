@@ -507,3 +507,12 @@ test('deleting a brand in use says which designs and stores use it', async () =>
   await api.post('/designs', { brand_id: brand.id, type_code: 'S', code: 'ZZ1', name_en: 'Used', price_usd: 10 });
   await assert.rejects(api.post(`/lists/brands/${brand.id}/delete`), /Used by .*ZZ1/);
 });
+
+test('a shop can be moved to another brand, which frees the old brand for deletion', async () => {
+  const { api } = await setup();
+  const st = (await api.get('/admin/stores')).stores.find((x) => x.kind !== 'warehouse');
+  const brands = (await api.get('/meta')).brands; const old = brands.find((b) => b.id === st.brand_id); const other = brands.find((b) => b.id !== st.brand_id);
+  await assert.rejects(api.post(`/lists/brands/${old.id}/delete`), /Used by/);
+  await api.put(`/admin/stores/${st.id}`, { brand_id: other.id });
+  assert.equal((await api.get('/admin/stores')).stores.find((x) => x.id === st.id).brand_id, other.id);
+});

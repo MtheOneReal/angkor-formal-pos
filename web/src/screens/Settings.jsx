@@ -43,8 +43,9 @@ function AddStore({ onAdded, warehouse }) {
 
 function Stores() {
   const [data, setData] = useState(null); const [sid, setSid] = useState(null); const [toast, show] = useToast();
+  const [brandList, setBrandList] = useState([]);
   const load = () => api.get('/admin/stores').then((d) => { setData(d); setSid((x) => x ?? d.stores[0].id); });
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api.get('/meta').then((m) => setBrandList(m.brands)).catch(() => {}); }, []);
   if (!data) return null;
   const s = data.stores.find((x) => x.id === sid) || data.stores[0];
   const save = async (patch) => { await api.put(`/admin/stores/${s.id}`, patch); show('Saved'); load(); window.dispatchEvent(new Event('af-reload-me')); };
@@ -54,6 +55,7 @@ function Stores() {
       <select value={sid} onChange={(e) => setSid(Number(e.target.value))} style={{ width: 'auto', minWidth: 260 }}>{data.stores.map((x) => <option key={x.id} value={x.id}>{x.kind === 'warehouse' ? '🏬 ' : ''}{x.name}</option>)}</select>
       <div className="card" style={{ marginTop: 12 }}>
         <label>{wh ? 'Warehouse name' : 'Store name'}</label><input defaultValue={s.name} key={`n${s.id}`} onBlur={(e) => e.target.value !== s.name && save({ name: e.target.value })} />
+        {!wh && <><label>Brand</label><select key={`b${s.id}`} value={s.brand_id ?? ''} onChange={(e) => save({ brand_id: Number(e.target.value) })}>{brandList.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></>}
         <label style={{ display: 'flex', gap: 12, alignItems: 'center', textTransform: 'none', fontSize: 15, color: 'var(--text)', margin: '8px 0' }}>
           <input type="checkbox" checked={!!s.active} onChange={(e) => save({ active: e.target.checked })} style={{ width: 22, height: 22, minHeight: 0 }} />
           <span><b>{wh ? 'This warehouse is in use' : 'This store is in use'}</b><span className="muted small"> — untick to remove it from the lists (history is kept)</span></span></label>

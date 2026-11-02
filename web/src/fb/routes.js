@@ -844,9 +844,11 @@ export function createApi(B, extra = {}) {
       if (sw[k] !== nv) changed[k] = { from: sw[k], to: nv }; sw[k] = nv;
     }
     const nm = txt(b.name ?? s.name, 80); const act = b.active == null ? s.active !== false : !!b.active;
+    let brandId = s.brandId; const cat0 = await B.loadCatalog();
+    if (b.brand_id !== undefined && s.kind !== 'warehouse') { const nb = cat0.brandsList.find((x) => String(x.id) === String(b.brand_id)); if (!nb) throw bad('BAD_INPUT', 'Choose a brand.'); brandId = Number(nb.id); }
     const wb = writeBatch(db);
-    wb.update(ref('stores', id), { name: nm, receiptFooter: txt(b.receipt_footer ?? s.receiptFooter ?? '', 200), active: act, switches: sw });
-    if (s.kind !== 'warehouse') wb.set(ref('publicStores', id), { id: Number(id), code: s.code, name: nm, active: act, brandCode: (await B.loadCatalog()).brandsList.find((x) => String(x.id) === String(s.brandId))?.code || null });
+    wb.update(ref('stores', id), { ...(s.kind !== 'warehouse' ? { brandId } : {}), name: nm, receiptFooter: txt(b.receipt_footer ?? s.receiptFooter ?? '', 200), active: act, switches: sw });
+    if (s.kind !== 'warehouse') wb.set(ref('publicStores', id), { id: Number(id), code: s.code, name: nm, active: act, brandCode: cat0.brandsList.find((x) => String(x.id) === String(brandId))?.code || null });
     await wb.commit();
     await audit(Number(id), 'store.update', 'store', id, { name: b.name, switches: changed }); await B.loadStores(true); await B.startSession(); return { ok: true };
   }
