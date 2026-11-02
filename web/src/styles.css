@@ -149,3 +149,7 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .paysum .big { font-size:20px; border-top:1px solid var(--line, #e3dccd); padding-top:6px; margin-top:2px; }
 
 .payrow, .payrow:has(> :nth-child(2):last-child) { grid-template-columns:1fr 1fr; } .payrow .discbox { grid-column:1 / -1; }
+
+/* cart panel: every box the same height and text size */
+.pos .cart input:not([type=checkbox]), .pos .cart select { height:44px; min-height:44px; font-size:15px; line-height:1.2; box-sizing:border-box; }
+.pos .cart .discbox select { width:64px; } .pos .cart .paypanel .chip { min-height:44px; }
