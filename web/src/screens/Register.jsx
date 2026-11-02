@@ -61,7 +61,7 @@ function Receipt({ sale, onDone }) {
   );
 }
 
-function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose, onPaid }) {
+function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCancel, onPaid }) {
   const t = useT();
   const [disc, setDisc] = useState({ type: 'percent', value: '', reason: '' });
   const dv = Number(disc.value) || 0;
@@ -108,8 +108,7 @@ function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose
 
   const ok = total > 0 && (dep ? (paidCents > 0 && paidCents < total - 100 && hasCust) : (exact || paidCents >= total - 100));
   return (
-    <Modal title={t('pay')} onClose={onClose}>
-      <div className="row between"><span className="muted">{t('subtotal')}</span><b className="num">{usd(subtotal)}</b></div>
+    <div className="paypanel">
       {canDiscount && (
         <div className="row wrap" style={{ marginTop: 8 }}>
           <select value={disc.type} onChange={(e) => setDisc({ ...disc, type: e.target.value })} style={{ width: 110 }}><option value="percent">%</option><option value="amount">$</option></select>
@@ -117,9 +116,7 @@ function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose
           {dv > 0 && <input className="grow" placeholder="Reason (required)" value={disc.reason} onChange={(e) => setDisc({ ...disc, reason: e.target.value })} />}
         </div>
       )}
-      <div className="card" style={{ textAlign: 'center', margin: '14px 0' }}>
-        <div className="kpi"><div className="l">{t('total')}</div><div className="v">{usd(total)}</div><div className="muted num">{riel(totalKhr)}</div></div>
-      </div>
+      <div className="kpi" style={{ padding: '10px 0' }}><div className="l">{t('total')}{dv > 0 && <span className="small muted"> ({t('subtotal')} {usd(subtotal)})</span>}</div><div className="v">{usd(total)}</div><div className="muted num">{riel(totalKhr)}</div></div>
       <div className="tabs">
         <button className={`chip ${!dep ? 'on' : ''}`} onClick={() => setDep(false)}>{t('pay_full')}</button>
         <button className={`chip ${dep ? 'on' : ''}`} onClick={() => setDep(true)}>{t('deposit')}</button>
@@ -139,7 +136,7 @@ function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose
           <div className="row">
             {method === 'cash' && <><button className={`chip ${cur === 'USD' ? 'on' : ''}`} onClick={() => setCur('USD')}>USD $</button>
             <button className={`chip ${cur === 'KHR' ? 'on' : ''}`} onClick={() => setCur('KHR')}>KHR ៛</button></>}
-            <input className="grow scanbox" style={{ fontSize: 22 }} inputMode="decimal" autoFocus placeholder="Received" value={tendered} onChange={(e) => setTendered(e.target.value)} />
+            <input className="grow scanbox" style={{ fontSize: 22 }} inputMode="decimal" placeholder="Received" value={tendered} onChange={(e) => setTendered(e.target.value)} />
           </div>
           <div className="row wrap" style={{ marginTop: 8 }}>
             <button className="chip" onClick={() => setTendered(cur === 'USD' ? (total / 100).toFixed(2) : String(totalKhr))}>Exact</button>
@@ -156,9 +153,12 @@ function PayModal({ cart, subtotal, rate, store, sw, canDiscount, extra, onClose
         </>
       ) : <p className="muted">Show the customer the KHQR code and confirm the payment arrived in the bank app before you continue.</p>}
       {err && <div className="error">{err}</div>}
-      <button className="btn primary big" style={{ width: '100%', marginTop: 14 }} disabled={!ok || busy || (dv > 0 && disc.reason.trim().length < 3)} onClick={() => submit().catch(() => {})}>{t('confirm')}</button>
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn" disabled={!cart.length || busy} onClick={onCancel}>{t('cancel')}</button>
+        <button className="btn primary big grow" disabled={!ok || busy || (dv > 0 && disc.reason.trim().length < 3)} onClick={() => submit().catch(() => {})}>{t('pay')}</button>
+      </div>
       {pinFor && <ManagerPin message={pinFor} onClose={() => setPinFor(null)} onSubmit={(pin) => submit(pin)} />}
-    </Modal>
+    </div>
   );
 }
 
@@ -204,7 +204,7 @@ export default function Register() {
   const [shift, setShift] = useState(undefined);
   const [q, setQ] = useState(''); const [res, setRes] = useState([]);
   const [cart, setCart] = useState([]); const [msg, setMsg] = useState('');
-  const [cam, setCam] = useState(false); const [pay, setPay] = useState(false); const [done, setDone] = useState(null);
+  const [cam, setCam] = useState(false); const [payKey, setPayKey] = useState(0); const [done, setDone] = useState(null);
   const [kb, setKb] = useState(true);
   const [catalog, setCatalog] = useState([]); const [flt, setFlt] = useState({}); const fcfg = useFilterConfig('pos'); const [pick, setPick] = useState(null);
   const [cust, setCust] = useState({ name: '', phone: '', alteration: false }); const cartRef = useRef();
@@ -225,7 +225,7 @@ export default function Register() {
       && (!term || g.items.some((i) => `${i.sku} ${i.name_en} ${i.name_km || ''}`.toLowerCase().includes(term)))).sort((a, b) => String(a.d.sku).localeCompare(b.d.sku));
   }, [catalog, flt, q, fcfg.keys]);
   const focus = () => setTimeout(() => box.current?.focus(), 50);
-  useEffect(() => { if (shift) focus(); }, [shift, done, pay]);
+  useEffect(() => { if (shift) focus(); }, [shift, done]);
 
   const addItem = (item, how) => {
     if (item.available <= 0 && item.available !== undefined) { setMsg(`${item.sku}: none available in this store.`); return; }
@@ -317,9 +317,8 @@ export default function Register() {
             </div>
           ))}
         </div>
-        <div className="kpi" style={{ padding: '10px 0' }}><div className="l">{t('total')}</div><div className="v">{usd(subtotal)}</div><div className="muted num">{riel(toRiel(subtotal, rate))}</div></div>
-        <div className="row"><button className="btn" disabled={!cart.length} onClick={() => { setCart([]); setCust({ name: '', phone: '', alteration: false }); }}>{t('cancel')}</button>
-          <button className="btn primary big grow" disabled={!cart.length} onClick={() => setPay(true)}>{t('pay')}</button></div>
+        <PayPanel key={payKey} cart={cart} subtotal={subtotal} rate={rate} store={store} sw={sw} canDiscount={me.perms.includes('pos.discount')} extra={{ customer_name: cust.name, customer_phone: cust.phone, alteration: cust.alteration, alteration_note: cust.note || '' }} onCancel={() => { setCart([]); setCust({ name: '', phone: '', alteration: false }); setPayKey((k) => k + 1); }}
+          onPaid={async (s) => { setCart([]); setCust({ name: '', phone: '', alteration: false }); setPayKey((k) => k + 1); setDone(await api.get(`/sales/${s.id}`)); }} />
       </div>
       </div>
       {cart.length > 0 && <button className="cartbar" onClick={() => cartRef.current?.scrollIntoView({ behavior: 'smooth' })}><span>{t('view_cart')} ({pieces})</span><span className="num">{usd(subtotal)}</span></button>}
@@ -330,8 +329,6 @@ export default function Register() {
         </Modal>
       )}
       {cam && <CameraScan onClose={() => setCam(false)} onCode={(c) => { setCam(false); search(c, 'scan'); }} />}
-      {pay && <PayModal cart={cart} subtotal={subtotal} rate={rate} store={store} sw={sw} canDiscount={me.perms.includes('pos.discount')} extra={{ customer_name: cust.name, customer_phone: cust.phone, alteration: cust.alteration, alteration_note: cust.note || '' }} onClose={() => setPay(false)}
-        onPaid={async (s) => { setPay(false); setCart([]); setCust({ name: '', phone: '', alteration: false }); setDone(await api.get(`/sales/${s.id}`)); }} />}
       {done && <Receipt sale={done} onDone={() => setDone(null)} />}
       {toast}
     </div>
