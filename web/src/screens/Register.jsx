@@ -130,7 +130,7 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
         <>
           <div className="row">
             {!dep && <button className="chip" onClick={() => setTendered(cur === 'USD' ? (total / 100).toFixed(2) : String(totalKhr))}>Exact</button>}
-            <input className="grow scanbox" style={{ fontSize: 22 }} inputMode="decimal" placeholder="Received" value={tendered} onChange={(e) => setTendered(e.target.value)} />
+            <input className="grow" inputMode="decimal" placeholder="Received" value={tendered} onChange={(e) => setTendered(e.target.value)} />
           </div>
           {!dep && over > 0 && cur === 'USD' && (
             <div className="row" style={{ marginTop: 10 }}>
