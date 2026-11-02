@@ -115,9 +115,8 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
       </div>
       <div className="paysum">
         <div className="row between"><span className="muted">{t('subtotal')}</span><span className="num">{usd(subtotal)}</span></div>
-        {canDiscount && <div className="row between discline"><span className="muted">{t('discount')}</span>
-          <span className="row" style={{ gap: 6 }}>{discCents > 0 && <span className="small muted num">-{usd(discCents)}</span>}
-            <span className="discbox"><input inputMode="decimal" placeholder="0" value={disc.value} onChange={(e) => setDisc({ ...disc, value: e.target.value })} /><select value={disc.type} onChange={(e) => setDisc({ ...disc, type: e.target.value })} aria-label="Discount type"><option value="percent">%</option><option value="amount">$</option><option value="riel">៛</option></select></span></span></div>}
+        {canDiscount && <div className="discline"><div className="row between"><span className="muted">{t('discount')}</span>{discCents > 0 && <span className="small muted num">-{usd(discCents)}</span>}</div>
+          <div className="discbox"><input inputMode="decimal" placeholder="0" value={disc.value} onChange={(e) => setDisc({ ...disc, value: e.target.value })} /><select value={disc.type} onChange={(e) => setDisc({ ...disc, type: e.target.value })} aria-label="Discount type"><option value="percent">%</option><option value="amount">$</option><option value="riel">៛</option></select></div></div>}
         {canDiscount && dv > 0 && <input placeholder="Reason (required)" value={disc.reason} onChange={(e) => setDisc({ ...disc, reason: e.target.value })} />}
         {!canDiscount && discCents > 0 && <div className="row between"><span className="muted">{t('discount')}</span><span className="num">-{usd(discCents)}</span></div>}
         <div className="row between big"><b>{t('total')} USD</b><b className="num">{usd(total)}</b></div>
@@ -125,7 +124,7 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
       </div>
       {dep && <div style={{ marginBottom: 10 }}>
         {!hasCust && <div className="error">{t('deposit_need_cust')}</div>}
-        <label>{t('pickup_date')}</label><input type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }} />
+        <label>{t('pickup_date')}</label><input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="datebox" />
         {paidCents > 0 && paidCents < total && <p style={{ margin: '8px 0 0' }}><b>{t('balance_due')}: {usd(total - paidCents)}</b></p>}
       </div>}
       {method === 'cash' || dep ? (

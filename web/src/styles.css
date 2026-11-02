@@ -155,3 +155,8 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .pos .cart .discbox select { width:64px; } .pos .cart .paypanel .chip { min-height:44px; }
 
 .discline .discbox { width:150px; } .discline .discbox input { text-align:right; } .discline .discbox select { width:64px; }
+
+.discline { display:flex; flex-direction:column; gap:4px; } .pos .cart .discline .discbox { display:flex; gap:8px; width:100%; } .pos .cart .discline .discbox input { flex:1; text-align:left; min-width:0; } .pos .cart .discline .discbox select { width:90px; flex:none; }
+.pos .cart .datebox { -webkit-appearance:none; appearance:none; display:block; width:100%; max-width:100%; min-width:0; text-align:left; }
+.pos .cart .datebox::-webkit-date-and-time-value { text-align:left; margin:0; min-height:1.2em; }
+.pos .cart .paysum input, .pos .cart .paypanel input { width:100%; }
