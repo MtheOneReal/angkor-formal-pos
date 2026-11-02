@@ -109,28 +109,24 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
   const ok = total > 0 && (dep ? (paidCents > 0 && paidCents < total - 100 && hasCust) : (exact || paidCents >= total - 100));
   return (
     <div className="paypanel">
-      {canDiscount && (
-        <div className="row wrap" style={{ marginTop: 8 }}>
-          <select value={disc.type} onChange={(e) => setDisc({ ...disc, type: e.target.value })} style={{ width: 110 }}><option value="percent">%</option><option value="amount">$</option></select>
-          <input inputMode="decimal" placeholder={t('discount')} value={disc.value} onChange={(e) => setDisc({ ...disc, value: e.target.value })} style={{ width: 110 }} />
-          {dv > 0 && <input className="grow" placeholder="Reason (required)" value={disc.reason} onChange={(e) => setDisc({ ...disc, reason: e.target.value })} />}
-        </div>
-      )}
-      <div className="kpi" style={{ padding: '10px 0' }}><div className="l">{t('total')}{dv > 0 && <span className="small muted"> ({t('subtotal')} {usd(subtotal)})</span>}</div><div className="v">{usd(total)}</div><div className="muted num">{riel(totalKhr)}</div></div>
-      <div className="tabs">
-        <button className={`chip ${!dep ? 'on' : ''}`} onClick={() => setDep(false)}>{t('pay_full')}</button>
-        <button className={`chip ${dep ? 'on' : ''}`} onClick={() => setDep(true)}>{t('deposit')}</button>
+      <div className="payrow">
+        <select value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Payment method"><option value="cash">{t('cash')}</option><option value="khqr">{t('khqr')}</option></select>
+        <select value={dep ? 'dep' : 'full'} onChange={(e) => setDep(e.target.value === 'dep')} aria-label="Full or deposit"><option value="full">{t('pay_full')}</option><option value="dep">{t('deposit')}</option></select>
+        {canDiscount && <div className="discbox"><input inputMode="decimal" placeholder={t('discount')} value={disc.value} onChange={(e) => setDisc({ ...disc, value: e.target.value })} /><select value={disc.type} onChange={(e) => setDisc({ ...disc, type: e.target.value })} aria-label="Discount type"><option value="amount">$</option><option value="percent">%</option></select></div>}
       </div>
-      {dep && <div className="card" style={{ marginBottom: 10 }}>
-        <p className="small muted" style={{ margin: 0 }}>{t('deposit_help')}</p>
+      {canDiscount && dv > 0 && <input style={{ marginTop: 8 }} placeholder="Reason (required)" value={disc.reason} onChange={(e) => setDisc({ ...disc, reason: e.target.value })} />}
+      <div className="paysum">
+        <div className="row between"><span className="muted">{t('subtotal')}</span><span className="num">{usd(subtotal)}</span></div>
+        <div className="row between"><span className="muted">{t('discount')}</span><span className="num">-{usd(discCents)}</span></div>
+        <div className="row between big"><b>{t('total')} USD</b><b className="num">{usd(total)}</b></div>
+        <div className="row between"><span className="muted">{t('total')} KHR</span><span className="num">{riel(totalKhr)}</span></div>
+      </div>
+      {dep && <div style={{ marginBottom: 10 }}>
+        <p className="small muted" style={{ margin: '0 0 6px' }}>{t('deposit_help')}</p>
         {!hasCust && <div className="error">{t('deposit_need_cust')}</div>}
         <label>{t('pickup_date')}</label><input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
         {paidCents > 0 && paidCents < total && <p style={{ margin: '8px 0 0' }}><b>{t('balance_due')}: {usd(total - paidCents)}</b></p>}
       </div>}
-      <div className="tabs">
-        <button className={`chip ${method === 'cash' ? 'on' : ''}`} onClick={() => setMethod('cash')}>{t('cash')}</button>
-        <button className={`chip ${method === 'khqr' ? 'on' : ''}`} onClick={() => setMethod('khqr')}>{t('khqr')}</button>
-      </div>
       {method === 'cash' || dep ? (
         <>
           <div className="row">
