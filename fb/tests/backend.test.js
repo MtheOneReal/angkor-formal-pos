@@ -500,3 +500,10 @@ test('owner keeps a list of funders and a design stores one', async () => {
   await api.post(`/designs/${d.id}/update`, { brand_id: 1, type_code: 'S', code: 'X1', name_en: 'Joint', price_usd: 100, funder_code: 'HHBSK' });
   assert.equal((await api.get('/designs')).find((x) => x.id === d.id).funder_code, 'HHBSK');
 });
+
+test('deleting a brand in use says which designs and stores use it', async () => {
+  const { api } = await setup();
+  const m = await api.get('/meta'); const brand = m.brands[0];
+  await api.post('/designs', { brand_id: brand.id, type_code: 'S', code: 'ZZ1', name_en: 'Used', price_usd: 10 });
+  await assert.rejects(api.post(`/lists/brands/${brand.id}/delete`), /Used by .*ZZ1/);
+});
