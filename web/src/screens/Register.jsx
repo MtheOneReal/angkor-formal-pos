@@ -65,7 +65,7 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
   const t = useT();
   const [disc, setDisc] = useState({ type: 'percent', value: '', reason: '' });
   const dv = Number(disc.value) || 0;
-  const discCents = disc.type === 'percent' ? Math.round((subtotal * dv) / 100) : Math.round(dv * 100);
+  const discCents = Math.min(subtotal, disc.type === 'percent' ? Math.round((subtotal * dv) / 100) : disc.type === 'riel' ? Math.round((dv / rate) * 100) : Math.round(dv * 100));
   const total = Math.max(0, subtotal - discCents);
   const [method, setMethod] = useState('cash');
   const [cur, setCur] = useState('USD');
@@ -94,7 +94,7 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
       store_id: store.id, entry_default: true, ...(extra || {}),
       lines: cart.map((l) => ({ item_id: l.item.id, qty: l.qty, entry: l.entry })),
       payments, ...(change ? { change } : {}),
-      ...(discCents > 0 ? { discount: { type: disc.type, value: dv, reason: disc.reason } } : {}),
+      ...(discCents > 0 ? { discount: { type: disc.type === 'percent' ? 'percent' : 'amount', value: disc.type === 'percent' ? dv : discCents / 100, reason: disc.reason } } : {}),
       ...(pin ? { manager_pin: pin } : {}),
       ...(dep ? { deposit: true, due_date: due || null } : {}),
     };
@@ -112,12 +112,14 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
       <div className="payrow">
         <select value={method === 'khqr' ? 'khqr' : cur === 'KHR' ? 'khr' : 'usd'} onChange={(e) => { const v = e.target.value; if (v === 'khqr') setMethod('khqr'); else { setMethod('cash'); setCur(v === 'khr' ? 'KHR' : 'USD'); } }} aria-label="Payment method"><option value="usd">{t('cash')} USD $</option><option value="khr">{t('cash')} KHR ៛</option><option value="khqr">{t('khqr')}</option></select>
         <select value={dep ? 'dep' : 'full'} onChange={(e) => setDep(e.target.value === 'dep')} aria-label="Full or deposit"><option value="full">{t('pay_full')}</option><option value="dep">{t('deposit')}</option></select>
-        {canDiscount && <div className="discbox"><input inputMode="decimal" placeholder={t('discount')} value={disc.value} onChange={(e) => setDisc({ ...disc, value: e.target.value })} /><select value={disc.type} onChange={(e) => setDisc({ ...disc, type: e.target.value })} aria-label="Discount type"><option value="amount">$</option><option value="percent">%</option></select></div>}
       </div>
-      {canDiscount && dv > 0 && <input style={{ marginTop: 8 }} placeholder="Reason (required)" value={disc.reason} onChange={(e) => setDisc({ ...disc, reason: e.target.value })} />}
       <div className="paysum">
         <div className="row between"><span className="muted">{t('subtotal')}</span><span className="num">{usd(subtotal)}</span></div>
-        <div className="row between"><span className="muted">{t('discount')}</span><span className="num">-{usd(discCents)}</span></div>
+        {canDiscount && <div className="row between discline"><span className="muted">{t('discount')}</span>
+          <span className="row" style={{ gap: 6 }}>{discCents > 0 && <span className="small muted num">-{usd(discCents)}</span>}
+            <span className="discbox"><input inputMode="decimal" placeholder="0" value={disc.value} onChange={(e) => setDisc({ ...disc, value: e.target.value })} /><select value={disc.type} onChange={(e) => setDisc({ ...disc, type: e.target.value })} aria-label="Discount type"><option value="percent">%</option><option value="amount">$</option><option value="riel">៛</option></select></span></span></div>}
+        {canDiscount && dv > 0 && <input placeholder="Reason (required)" value={disc.reason} onChange={(e) => setDisc({ ...disc, reason: e.target.value })} />}
+        {!canDiscount && discCents > 0 && <div className="row between"><span className="muted">{t('discount')}</span><span className="num">-{usd(discCents)}</span></div>}
         <div className="row between big"><b>{t('total')} USD</b><b className="num">{usd(total)}</b></div>
         <div className="row between"><span className="muted">{t('total')} KHR</span><span className="num">{riel(totalKhr)}</span></div>
       </div>

@@ -153,3 +153,5 @@ body[data-inv-tab="find"] .topbar { display:none; }
 /* cart panel: every box the same height and text size */
 .pos .cart input:not([type=checkbox]), .pos .cart select { height:44px; min-height:44px; font-size:15px; line-height:1.2; box-sizing:border-box; }
 .pos .cart .discbox select { width:64px; } .pos .cart .paypanel .chip { min-height:44px; }
+
+.discline .discbox { width:150px; } .discline .discbox input { text-align:right; } .discline .discbox select { width:64px; }
