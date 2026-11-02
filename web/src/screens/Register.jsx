@@ -110,7 +110,7 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
   return (
     <div className="paypanel">
       <div className="payrow">
-        <select value={method} onChange={(e) => setMethod(e.target.value)} aria-label="Payment method"><option value="cash">{t('cash')}</option><option value="khqr">{t('khqr')}</option></select>
+        <select value={method === 'khqr' ? 'khqr' : cur === 'KHR' ? 'khr' : 'usd'} onChange={(e) => { const v = e.target.value; if (v === 'khqr') setMethod('khqr'); else { setMethod('cash'); setCur(v === 'khr' ? 'KHR' : 'USD'); } }} aria-label="Payment method"><option value="usd">{t('cash')} USD $</option><option value="khr">{t('cash')} KHR ៛</option><option value="khqr">{t('khqr')}</option></select>
         <select value={dep ? 'dep' : 'full'} onChange={(e) => setDep(e.target.value === 'dep')} aria-label="Full or deposit"><option value="full">{t('pay_full')}</option><option value="dep">{t('deposit')}</option></select>
         {canDiscount && <div className="discbox"><input inputMode="decimal" placeholder={t('discount')} value={disc.value} onChange={(e) => setDisc({ ...disc, value: e.target.value })} /><select value={disc.type} onChange={(e) => setDisc({ ...disc, type: e.target.value })} aria-label="Discount type"><option value="amount">$</option><option value="percent">%</option></select></div>}
       </div>
@@ -129,8 +129,6 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
       {method === 'cash' || dep ? (
         <>
           <div className="row">
-            {method === 'cash' && <><button className={`chip ${cur === 'USD' ? 'on' : ''}`} onClick={() => setCur('USD')}>USD $</button>
-            <button className={`chip ${cur === 'KHR' ? 'on' : ''}`} onClick={() => setCur('KHR')}>KHR ៛</button></>}
             <input className="grow scanbox" style={{ fontSize: 22 }} inputMode="decimal" placeholder="Received" value={tendered} onChange={(e) => setTendered(e.target.value)} />
           </div>
           {!dep && <div className="row wrap" style={{ marginTop: 8 }}>
