@@ -20,7 +20,7 @@ export default function Clock() {
   }, []);
   const loc = km ? 'km-KH-u-nu-latn' : 'en-GB';
   const day = new Intl.DateTimeFormat(loc, { timeZone: 'Asia/Phnom_Penh', weekday: 'short', day: 'numeric', month: 'short' }).format(now);
-  const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+  const time = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Phnom_Penh', hour: 'numeric', minute: '2-digit', hour12: true }).format(now);
   const off = Math.abs(skew) > 2 * 60 * 1000;
   return (
     <span className="posclock" title="Phnom Penh time">
