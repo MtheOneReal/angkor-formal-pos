@@ -124,15 +124,17 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
       </div>
       {dep && <div style={{ marginBottom: 10 }}>
         {!hasCust && <div className="error">{t('deposit_need_cust')}</div>}
-        <label>{t('pickup_date')}</label><input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="datebox" />
         {paidCents > 0 && paidCents < total && <p style={{ margin: '8px 0 0' }}><b>{t('balance_due')}: {usd(total - paidCents)}</b></p>}
       </div>}
       {method === 'cash' || dep ? (
         <>
-          <div className="row">
-            {!dep && <button className="chip" onClick={() => setTendered(cur === 'USD' ? (total / 100).toFixed(2) : String(totalKhr))}>Exact</button>}
+          {dep ? <div className="payrow" style={{ alignItems: 'end' }}>
+            <div><label>{t('pickup_date')}</label><input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="datebox" /></div>
+            <div><label>Received</label><input className="grow" inputMode="decimal" placeholder="Received" value={tendered} onChange={(e) => setTendered(e.target.value)} /></div>
+          </div> : <div className="row">
+            <button className="chip" onClick={() => setTendered(cur === 'USD' ? (total / 100).toFixed(2) : String(totalKhr))}>Exact</button>
             <input className="grow" inputMode="decimal" placeholder="Received" value={tendered} onChange={(e) => setTendered(e.target.value)} />
-          </div>
+          </div>}
           {!dep && over > 0 && cur === 'USD' && (
             <div className="row" style={{ marginTop: 10 }}>
               <b>{t('change')}: {chg === 'USD' ? usd(over) : riel(toRiel(over, rate))}</b>
