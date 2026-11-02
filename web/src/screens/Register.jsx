@@ -122,9 +122,8 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
         <div className="row between"><span className="muted">{t('total')} KHR</span><span className="num">{riel(totalKhr)}</span></div>
       </div>
       {dep && <div style={{ marginBottom: 10 }}>
-        <p className="small muted" style={{ margin: '0 0 6px' }}>{t('deposit_help')}</p>
         {!hasCust && <div className="error">{t('deposit_need_cust')}</div>}
-        <label>{t('pickup_date')}</label><input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+        <label>{t('pickup_date')}</label><input type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }} />
         {paidCents > 0 && paidCents < total && <p style={{ margin: '8px 0 0' }}><b>{t('balance_due')}: {usd(total - paidCents)}</b></p>}
       </div>}
       {method === 'cash' || dep ? (

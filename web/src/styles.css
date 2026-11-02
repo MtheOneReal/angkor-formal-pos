@@ -147,3 +147,5 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .discbox { display:flex; gap:4px; } .discbox input { min-width:0; flex:1; } .discbox select { width:56px; flex:none; padding-left:6px; padding-right:2px; }
 .paysum { border-top:1px solid var(--line, #e3dccd); margin:10px 0; padding-top:8px; display:flex; flex-direction:column; gap:4px; font-size:14px; }
 .paysum .big { font-size:20px; border-top:1px solid var(--line, #e3dccd); padding-top:6px; margin-top:2px; }
+
+.payrow, .payrow:has(> :nth-child(2):last-child) { grid-template-columns:1fr 1fr; } .payrow .discbox { grid-column:1 / -1; }
