@@ -56,9 +56,13 @@ function Receipt({ sale, onDone }) {
         {sale.customer_name && <div className="small">{sale.customer_name} {sale.customer_phone || ''}</div>}
         <div className="small">Rate / អត្រា: {sale.rate_khr_per_usd} ៛ / $1</div>
         <hr /><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you / អរគុណ'}</div>
-        {SOCIALS.some((so) => sale.receipt_socials?.[so.key]?.on && sale.receipt_socials[so.key].handle) && <div className="small" style={{ display: 'grid', gap: 2, justifyContent: 'center', marginTop: 4 }}>
-          {SOCIALS.filter((so) => sale.receipt_socials?.[so.key]?.on && sale.receipt_socials[so.key].handle).map((so) => <div key={so.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><SocialIcon path={so.path} size={13} />{sale.receipt_socials[so.key].handle}</div>)}
-        </div>}
+        {sale.receipt_social_mode === 'one'
+          ? (SOCIALS.some((so) => sale.receipt_socials?.[so.key]?.on) && sale.receipt_social_one && <div className="small" style={{ textAlign: 'center', marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>{SOCIALS.filter((so) => sale.receipt_socials?.[so.key]?.on).map((so) => <SocialIcon key={so.key} path={so.path} size={16} />)}</div>
+            <div>{sale.receipt_social_one}</div></div>)
+          : SOCIALS.some((so) => sale.receipt_socials?.[so.key]?.on && sale.receipt_socials[so.key].handle) && <div className="small" style={{ display: 'grid', gap: 2, justifyContent: 'center', marginTop: 4 }}>
+            {SOCIALS.filter((so) => sale.receipt_socials?.[so.key]?.on && sale.receipt_socials[so.key].handle).map((so) => <div key={so.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><SocialIcon path={so.path} size={13} />{sale.receipt_socials[so.key].handle}</div>)}
+          </div>}
         {sale.receipt_social && <div className="small" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>{sale.receipt_social}</div>}
       </div>
       <div className="row" style={{ marginTop: 14 }}>

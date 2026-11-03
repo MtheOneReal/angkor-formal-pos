@@ -526,3 +526,11 @@ test('receipt contact and social icons are saved per shop and ignore unknown pla
   assert.equal(s2.receipt_contact, '012 345 678');
   assert.deepEqual(s2.receipt_socials, { facebook: { on: true, handle: '@angkor' }, telegram: { on: false, handle: '@t' } });
 });
+
+test('receipt can use one handle for all social icons', async () => {
+  const { api } = await setup();
+  const st = (await api.get('/admin/stores')).stores.find((x) => x.kind !== 'warehouse');
+  await api.put(`/admin/stores/${st.id}`, { receipt_social_mode: 'one', receipt_social_one: '@angkorformal', receipt_socials: { facebook: { on: true, handle: '' }, tiktok: { on: true, handle: '' } } });
+  const s2 = (await api.get('/admin/stores')).stores.find((x) => x.id === st.id);
+  assert.equal(s2.receipt_social_mode, 'one'); assert.equal(s2.receipt_social_one, '@angkorformal');
+});

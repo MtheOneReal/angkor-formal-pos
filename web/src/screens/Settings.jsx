@@ -64,12 +64,16 @@ function Stores() {
         <label>Receipt footer</label><input defaultValue={s.receipt_footer} key={`f${s.id}`} onBlur={(e) => e.target.value !== s.receipt_footer && save({ receipt_footer: e.target.value })} />
         <label>Shop contact on receipt (phone, address)</label><input defaultValue={s.receipt_contact || ''} key={`c${s.id}`} placeholder="e.g. 012 345 678 · Wat Koh, Siem Reap" onBlur={(e) => e.target.value !== (s.receipt_contact || '') && save({ receipt_contact: e.target.value })} />
         <label>Social media icons on receipt (tick to show)</label>
+        <label style={{ display: 'flex', gap: 12, alignItems: 'center', textTransform: 'none', fontSize: 15, color: 'var(--text)', margin: '4px 0' }}>
+          <input type="checkbox" checked={s.receipt_social_mode === 'one'} onChange={(e) => save({ receipt_social_mode: e.target.checked ? 'one' : 'each' })} style={{ width: 22, height: 22, minHeight: 0 }} />
+          <span><b>Use one handle for all icons</b><span className="muted small"> — the ticked icons print in a row, followed by this one name</span></span></label>
+        {s.receipt_social_mode === 'one' && <input defaultValue={s.receipt_social_one || ''} key={`one${s.id}`} placeholder="@name (same on every platform)" style={{ marginBottom: 8 }} onBlur={(e) => e.target.value !== (s.receipt_social_one || '') && save({ receipt_social_one: e.target.value })} />}
         <div style={{ display: 'grid', gap: 8 }} key={`soc${s.id}`}>
           {SOCIALS.map((so) => { const cur = (s.receipt_socials || {})[so.key] || { on: false, handle: '' };
             return (<div key={so.key} className="row" style={{ gap: 10 }}>
               <input type="checkbox" checked={!!cur.on} onChange={(e) => save({ receipt_socials: { [so.key]: { on: e.target.checked, handle: cur.handle } } })} style={{ width: 22, height: 22, minHeight: 0, flex: 'none' }} aria-label={so.label} />
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, width: 110, flex: 'none' }}><SocialIcon path={so.path} size={18} /> {so.label}</span>
-              <input defaultValue={cur.handle} key={`h${s.id}${so.key}${cur.handle}`} placeholder="@name or link" style={{ flex: 1, minWidth: 0 }} onBlur={(e) => e.target.value !== cur.handle && save({ receipt_socials: { [so.key]: { on: cur.on, handle: e.target.value } } })} />
+              {s.receipt_social_mode !== 'one' ? <input defaultValue={cur.handle} key={`h${s.id}${so.key}${cur.handle}`} placeholder="@name or link" style={{ flex: 1, minWidth: 0 }} onBlur={(e) => e.target.value !== cur.handle && save({ receipt_socials: { [so.key]: { on: cur.on, handle: e.target.value } } })} /> : <span className="muted small" style={{ flex: 1 }}>{cur.on ? 'shown' : ''}</span>}
             </div>); })}
         </div>
         <label>Other text under the icons (optional)</label><input defaultValue={s.receipt_social || ''} key={`so${s.id}`} placeholder="e.g. Facebook / TikTok: @angkorformal" onBlur={(e) => e.target.value !== (s.receipt_social || '') && save({ receipt_social: e.target.value })} />
