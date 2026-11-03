@@ -19,7 +19,7 @@ export const ROLE_PERMS = {
   owner: ALL_PERMS,
   manager: ['pos.sell', 'pos.discount', 'pos.approve', 'shift.use', 'shift.review', 'catalog.view', 'cost.view', 'stock.view', 'stock.view_other', 'stock.in', 'stock.adjust',
     'transfer.request', 'transfer.approve', 'transfer.send', 'transfer.receive', 'customers.manage', 'expenses.manage', 'attendance.use', 'attendance.manage', 'sales.view', 'sales.void', 'sales.return', 'rates.set', 'audit.view', 'dashboard.view', 'rank.view'],
-  shareholder: ['capital.view', 'report.view', 'rank.view'],
+  shareholder: ['capital.view', 'report.view', 'rank.view', 'dashboard.view'],
   cashier: ['pos.sell', 'pos.discount', 'shift.use', 'catalog.view', 'stock.view', 'stock.view_other', 'transfer.request', 'customers.manage', 'attendance.use', 'sales.view', 'rank.view'],
 };
 export const SWITCH_DEFAULTS = {

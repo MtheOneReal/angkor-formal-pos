@@ -17,7 +17,7 @@ export default function Report({ merged }) {
   const payback = t.capital_paid_cents > 0 ? Math.round((t.total_net_cents / t.capital_paid_cents) * 100) : null;
   return (
     <div>
-      <div className="row between wrap"><div className="row wrap"><h1>{merged ? L('Dashboard', 'ផ្ទាំងគ្រប់គ្រង') : L('Report', 'របាយការណ៍')}</h1>{merged && me.perms.includes('dashboard.view') && <DailySummary />}</div>
+      <div className="row between wrap"><div className="row wrap"><h1>{merged ? L('Dashboard', 'ផ្ទាំងគ្រប់គ្រង') : L('Report', 'របាយការណ៍')}</h1>{merged && me.perms.includes('customers.manage') && <DailySummary />}</div>
         <div className="row wrap"><select value={sel} onChange={(e) => setSel(e.target.value)} style={{ width: 'auto', minWidth: 210 }}><option value="all">{L('All stores combined', 'គ្រប់សាខារួមគ្នា')}</option>{d.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           <input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} style={{ width: 'auto' }} /></div></div>
       {me.perms.includes('dashboard.view') && <Overview sel={sel} stores={d.stores} L={L} />}

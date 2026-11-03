@@ -50,7 +50,7 @@ function Bars({ rows, label, value, fmt, colors }) {
 const COL = ['var(--chart1)', '#3b6ea5', '#7a9e6c', '#b9573f', '#8b6aa8'];
 
 
-function Follow({ sel, L }) {
+function Follow({ sel, L, calls }) {
   const [days, setDays] = useState(60); const [d, setD] = useState(null); const [err, setErr] = useState(''); const [copied, setCopied] = useState('');
   useEffect(() => { setD(null); setErr(''); api.get(`/report/follow${qs({ store_id: sel, days })}`).then(setD).catch((e) => setErr(e.message)); }, [sel, days]);
   const msg = (r) => `សួស្តី ${r.customer_name || ''} ពី ${r.store_name}។ សូមរំលឹកថាអ្នកនៅសល់ប្រាក់ ${usd(r.balance_cents)} សម្រាប់វិក្កយបត្រ ${r.receipt_no}។ សូមអញ្ជើញមកយកទំនិញ និងបង់ប្រាក់ដែលនៅសល់។ សូមអរគុណ!`;
@@ -64,7 +64,7 @@ function Follow({ sel, L }) {
       {err && <div className="error">{err}</div>}
       {!d && !err && <p className="muted">…</p>}
       {d && <div className="grid g2" style={{ marginTop: 8 }}>
-        <div className="card"><h3>{L('Customers to call', 'អតិថិជនត្រូវទូរស័ព្ទ')}</h3>
+        {calls && <div className="card"><h3>{L('Customers to call', 'អតិថិជនត្រូវទូរស័ព្ទ')}</h3>
           {!rows.length ? <p className="muted">{L('No open deposits. 👍', 'គ្មានការកក់ទេ។ 👍')}</p> : <div className="col">{rows.slice(0, 10).map((r) => (
             <div key={r.receipt_no} style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
               <div className="row between"><b>{r.customer_name || r.receipt_no}</b><b className="num">{usd(r.balance_cents)}</b></div>
@@ -74,7 +74,7 @@ function Follow({ sel, L }) {
                 {r.customer_phone && <a className="btn" href={`tel:${tel(r.customer_phone)}`}>📞 {L('Call', 'ទូរស័ព្ទ')} {r.customer_phone}</a>}
                 <button className="btn" onClick={() => copy(r)}>{copied === r.receipt_no ? L('Copied ✓', 'បានចម្លង ✓') : L('Copy Khmer message', 'ចម្លងសារខ្មែរ')}</button>
                 {r.customer_phone && <a className="btn" href={`sms:${tel(r.customer_phone)}?&body=${encodeURIComponent(msg(r))}`}>✉️ SMS</a>}</div></div>))}
-            {rows.length > 10 && <p className="small muted">{L(`+ ${rows.length - 10} more`, `+ ទៀត ${rows.length - 10}`)}</p>}</div>}</div>
+            {rows.length > 10 && <p className="small muted">{L(`+ ${rows.length - 10} more`, `+ ទៀត ${rows.length - 10}`)}</p>}</div>}</div>}
         <div className="card"><div className="row between wrap"><h3>{L('Not selling', 'មិនសូវលក់ដាច់')}</h3>
           <div className="row" style={{ gap: 6 }}>{[30, 60, 90].map((n) => <button key={n} className={`chip ${days === n ? 'on' : ''}`} onClick={() => setDays(n)}>{n} {L('days', 'ថ្ងៃ')}</button>)}</div></div>
           <p className="small muted" style={{ margin: '4px 0 8px' }}>{L(`In stock but nothing sold in ${days} days. Try moving them to another shop or discounting.`, `មានស្តុក តែមិនបានលក់ក្នុង ${days} ថ្ងៃ។ ព្យាយាមផ្ទេរទៅហាងផ្សេង ឬបញ្ចុះតម្លៃ។`)}</p>
@@ -132,11 +132,11 @@ export default function Overview({ sel, stores, L }) {
         <div className="card"><h3>{L('How customers paid', 'អតិថិជនបង់ដោយរបៀបណា')}</h3>{d.c.methods.length ? <Bars rows={d.c.methods} label={(r) => ({ cash: L('Cash', 'សាច់ប្រាក់'), usd: L('Cash USD', 'សាច់ប្រាក់ USD'), khr: L('Cash Riel', 'សាច់ប្រាក់រៀល'), khqr: 'KHQR' }[r.method] || r.method.toUpperCase())} value={(r) => r.cents} fmt={usd} colors={COL} /> : <p className="muted">—</p>}</div>
         {d.x.expenses_by_category.length > 0 && <div className="card"><h3>{L('What the shop spent on', 'ចំណាយលើអ្វីខ្លះ')}</h3><Bars rows={d.x.expenses_by_category.slice(0, 6)} label={(r) => r.category} value={(r) => r.cents} fmt={usd} colors={COL} />
           <p className="small muted" style={{ marginTop: 6 }}>{L('Total', 'សរុប')}: <b>{usd(d.x.expenses_total_cents)}</b></p></div>}
-        <div className="card"><h3>{L('Customers still owe you', 'អតិថិជនជំពាក់អ្នក')}</h3>
+        {!d.x.restricted && <div className="card"><h3>{L('Customers still owe you', 'អតិថិជនជំពាក់អ្នក')}</h3>
           {d.x.owed.count === 0 ? <p className="muted">{L('Nobody owes anything. 👍', 'គ្មានអ្នកជំពាក់ទេ។ 👍')}</p> : <>
             <p style={{ margin: '0 0 6px' }}><b className="num" style={{ fontSize: 22 }}>{usd(d.x.owed.total_cents)}</b> <span className="muted small">{L(`from ${d.x.owed.count} deposit sales`, `ពីការកក់ ${d.x.owed.count}`)}</span></p>
             {d.x.owed.overdue_count > 0 && <p className="small" style={{ color: 'var(--bad)', fontWeight: 600, margin: '0 0 6px' }}>⚠ {L(`${d.x.owed.overdue_count} past pickup date (${usd(d.x.owed.overdue_cents)})`, `${d.x.owed.overdue_count} លើសថ្ងៃយក (${usd(d.x.owed.overdue_cents)})`)}</p>}
-            <div className="col small">{d.x.owed.rows.slice(0, 5).map((r) => <div key={r.receipt_no} className="row between"><span>{r.customer_name || r.receipt_no}{r.due_date && <span className="muted"> · {r.due_date.slice(5)}</span>}{r.overdue && ' ⚠'}</span><b className="num">{usd(r.balance_cents)}</b></div>)}</div></>}</div>
+            <div className="col small">{d.x.owed.rows.slice(0, 5).map((r) => <div key={r.receipt_no} className="row between"><span>{r.customer_name || r.receipt_no}{r.due_date && <span className="muted"> · {r.due_date.slice(5)}</span>}{r.overdue && ' ⚠'}</span><b className="num">{usd(r.balance_cents)}</b></div>)}</div></>}</div>}
         {d.x.cashiers.length > 0 && <div className="card"><h3>{L('Who sold the most', 'អ្នកលក់ណាច្រើនជាង')}</h3>
           <Bars rows={d.x.cashiers.slice(0, 8)} label={(r) => `${r.name} · ${r.orders} ${L(r.orders === 1 ? 'sale' : 'sales', 'ការលក់')}`} value={(r) => r.sales_cents} fmt={usd} colors={COL} /></div>}
         {d.c.alerts.some((a) => a.kind !== 'low_stock') && <div className="card"><h3>{L('Needs your attention', 'ត្រូវការការយកចិត្តទុកដាក់')}</h3><div className="col">{d.c.alerts.filter((a) => a.kind !== 'low_stock').slice(0, 8).map((a, i) => <div key={i} className="row"><span className="badge low">{a.kind.replace('_', ' ')}</span><span className="small">{a.text}</span></div>)}</div></div>}
@@ -157,7 +157,7 @@ export default function Overview({ sel, stores, L }) {
       {err && <div className="error">{err}</div>}
       {!d && !err && <p className="muted">…</p>}
       {body}
-      <Follow sel={sel} L={L} />
+      <Follow sel={sel} L={L} calls={!d || !d.x.restricted} />
     </div>
   );
 }

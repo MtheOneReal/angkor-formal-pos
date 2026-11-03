@@ -157,7 +157,7 @@ service cloud.firestore {
 
     // Daily totals the dashboard reads. Cashiers may add to them but never read them.
     match /dailyStats/{key} {
-      allow read: if active() && isLead() && inStore(resource.data.storeId);
+      allow read: if active() && ((isLead() && inStore(resource.data.storeId)) || isPartner());
       allow create, update: if active() && inStore(request.resource.data.storeId);
       allow delete: if testReset();
     }
