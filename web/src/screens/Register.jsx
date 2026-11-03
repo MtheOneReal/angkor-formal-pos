@@ -56,7 +56,7 @@ function Receipt({ sale, onDone }) {
         {sale.deposit && <><div className="l"><span>Deposit paid / បានកក់</span><span>{usd(sale.total_cents - sale.balance_cents)}</span></div><div className="l"><b>Balance to pay / នៅខ្វះ</b><b>{usd(sale.balance_cents)}</b></div>{sale.due_date && <div className="small">Pickup / ថ្ងៃមកយក: {sale.due_date}</div>}</>}
         {sale.customer_name && <div className="small">{sale.customer_name} {sale.customer_phone || ''}</div>}
         <div className="small">Rate / អត្រា: {sale.rate_khr_per_usd} ៛ / $1</div>
-        <hr /><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you / អរគុណ'}</div>
+        <hr /><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you'}</div><div style={{ textAlign: 'center' }}>{sale.receipt_footer_km || `សូមអរគុណដែលបានជ្រើសរើស ${sale.store_name}។`}</div>
         {sale.receipt_social_mode === 'one'
           ? (SOCIALS.some((so) => sale.receipt_socials?.[so.key]?.on) && sale.receipt_social_one && <div className="small" style={{ textAlign: 'center', marginTop: 4 }}>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>{SOCIALS.filter((so) => sale.receipt_socials?.[so.key]?.on).map((so) => <SocialIcon key={so.key} path={so.path} size={16} />)}</div>
