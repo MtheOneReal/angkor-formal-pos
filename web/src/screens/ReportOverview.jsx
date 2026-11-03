@@ -15,6 +15,7 @@ function ranges(p) {
   if (p === 'yesterday') { const y = addDays(today, -1); return { cur: [y, y], prev: [addDays(y, -1), addDays(y, -1)] }; }
   if (p === '7d') return { cur: [addDays(today, -6), today], prev: [addDays(today, -13), addDays(today, -7)] };
   if (p === 'month') { const a = mStart(today); const n = diff(a, today); const pa = mStart(today, -1); const pe = addDays(pa, n); return { cur: [a, today], prev: [pa, pe > mEnd(today, -1) ? mEnd(today, -1) : pe] }; }
+  if (p === 'year') return { cur: [`${today.slice(0, 4)}-01-01`, today], prev: null };
   const a = mStart(today, -1); return { cur: [a, mEnd(today, -1)], prev: [mStart(today, -2), mEnd(today, -2)] };
 }
 const fill = ([a, b], trend) => { const m = new Map(trend.map((t) => [t.day, t])); const o = []; for (let d = a; d <= b; d = addDays(d, 1)) o.push({ day: d, cents: m.get(d)?.cents || 0, n: m.get(d)?.n || 0 }); return o; };
@@ -27,9 +28,9 @@ function Change({ cur, prev, L, good = 'up' }) {
 }
 const Tile = ({ l, v, cur, prev, L, good, sub }) => <div className="card kpi"><div className="l">{l}</div><div className="v num">{v}</div><Change cur={cur} prev={prev} L={L} good={good} />{sub && <div className="small muted">{sub}</div>}</div>;
 
-function Days({ a, b, L }) {
+function Days({ a, b, L, monthly }) {
   const w = 640; const h = 150; const cap = 46; const max = Math.max(1, ...a.map((x) => x.cents), ...b.map((x) => x.cents)); const n = Math.max(a.length, 1); const bw = Math.min(w / n, 70); const x0 = (w - bw * n) / 2;
-  const lab = (d) => d.slice(5).replace('-', '/');
+  const lab = (d) => (monthly ? d.slice(0, 7) : d.slice(5).replace('-', '/'));
   return (
     <svg viewBox={`0 0 ${w} ${h + 22}`} style={{ width: '100%' }} role="img" aria-label="Sales per day">
       {a.map((x, i) => { const bh = (x.cents / max) * h; const pb = b[i] ? (b[i].cents / max) * h : 0; return (
@@ -91,17 +92,18 @@ export default function Overview({ sel, stores, L }) {
   const R = useMemo(() => ranges(p), [p]);
   useEffect(() => {
     setD(null); setErr('');
-    const q = (r) => api.get(`/dashboard${qs({ store: sel, period: 'custom', from: r[0], to: r[1] })}`);
-    Promise.all([q(R.cur), q(R.prev), api.get(`/report/extras${qs({ store_id: sel, from: R.cur[0], to: R.cur[1] })}`)])
+    const q = (r) => api.get(`/dashboard${qs(p === 'year' ? { store: sel, period: 'year' } : { store: sel, period: 'custom', from: r[0], to: r[1] })}`);
+    const none = { cards: { sales_cents: 0, orders: 0, avg_basket_cents: 0, gross_profit_cents: 0, net_profit_cents: 0 }, trend: [] };
+    Promise.all([q(R.cur), R.prev ? q(R.prev) : Promise.resolve(none), api.get(`/report/extras${qs({ store_id: sel, from: R.cur[0], to: R.cur[1] })}`)])
       .then(([c, pv, x]) => setD({ c, pv, x })).catch((e) => setErr(e.message));
   }, [sel, p]);
-  const tabs = [['today', L('Today', 'ថ្ងៃនេះ'), L('yesterday', 'ម្សិលមិញ')], ['yesterday', L('Yesterday', 'ម្សិលមិញ'), L('the day before', 'មុននេះមួយថ្ងៃ')], ['7d', L('Last 7 days', '៧ថ្ងៃចុងក្រោយ'), L('the 7 days before', '៧ថ្ងៃមុន')], ['month', L('This month', 'ខែនេះ'), L('same days last month', 'ថ្ងៃដូចគ្នាខែមុន')], ['lastmonth', L('Last month', 'ខែមុន'), L('the month before', 'ខែមុនទៀត')]];
+  const tabs = [['today', L('Today', 'ថ្ងៃនេះ'), L('yesterday', 'ម្សិលមិញ')], ['yesterday', L('Yesterday', 'ម្សិលមិញ'), L('the day before', 'មុននេះមួយថ្ងៃ')], ['7d', L('Last 7 days', '៧ថ្ងៃចុងក្រោយ'), L('the 7 days before', '៧ថ្ងៃមុន')], ['month', L('This month', 'ខែនេះ'), L('same days last month', 'ថ្ងៃដូចគ្នាខែមុន')], ['lastmonth', L('Last month', 'ខែមុន'), L('the month before', 'ខែមុនទៀត')], ['year', L('This year', 'ឆ្នាំនេះ'), L('last year', 'ឆ្នាំមុន')]];
   const vs = tabs.find((t) => t[0] === p)[2];
   let body = null;
   if (d) {
     const c = d.c.cards; const pc = d.pv.cards; const seeCost = c.gross_profit_cents != null;
     const profit = c.net_profit_cents ?? c.gross_profit_cents; const pprofit = pc.net_profit_cents ?? pc.gross_profit_cents;
-    const A = fill(R.cur, d.c.trend); const B = fill(R.prev, d.pv.trend);
+    const A = p === 'year' ? d.c.trend.map((x) => ({ day: x.day, cents: x.cents, n: x.n })) : fill(R.cur, d.c.trend); const B = p === 'year' ? [] : fill(R.prev, d.pv.trend);
     const best = A.reduce((m, x) => (x.cents > m.cents ? x : m), A[0]); const single = d.c.scope.stores.length === 1;
     const sentences = [];
     if (!c.orders) sentences.push(L('No sales in this period yet.', 'មិនទាន់មានការលក់ក្នុងអំឡុងពេលនេះទេ។'));
@@ -116,13 +118,13 @@ export default function Overview({ sel, stores, L }) {
     body = (<>
       <div className="card" style={{ margin: '12px 0' }}><b>{L('In plain words', 'និយាយងាយៗ')}</b><p style={{ margin: '6px 0 0' }}>{sentences.join(' ')}</p></div>
       <div className="grid g4">
-        <Tile l={L('Money in (sales)', 'លុយចូល (ការលក់)')} v={usd(c.sales_cents)} cur={c.sales_cents} prev={pc.sales_cents} L={L} sub={`${L('vs', 'ធៀបនឹង')} ${vs}: ${usd(pc.sales_cents)}`} />
+        <Tile l={L('Money in (sales)', 'លុយចូល (ការលក់)')} v={usd(c.sales_cents)} cur={c.sales_cents} prev={pc.sales_cents} L={L} sub={R.prev ? `${L('vs', 'ធៀបនឹង')} ${vs}: ${usd(pc.sales_cents)}` : ''} />
         {seeCost && <Tile l={L('Money kept (profit)', 'លុយនៅសល់ (ចំណេញ)')} v={usd(profit)} cur={profit} prev={pprofit} L={L} sub={c.net_profit_cents != null ? L('after clothes cost and expenses', 'ក្រោយដកថ្លៃទំនិញ និងចំណាយ') : L('after clothes cost', 'ក្រោយដកថ្លៃទំនិញ')} />}
         <Tile l={L('Customers', 'អតិថិជន')} v={c.orders} cur={c.orders} prev={pc.orders} L={L} sub={L('number of sales', 'ចំនួនការលក់')} />
         <Tile l={L('Average per customer', 'មធ្យមក្នុងម្នាក់')} v={usd(c.avg_basket_cents)} cur={c.avg_basket_cents} prev={pc.avg_basket_cents} L={L} />
       </div>
-      {A.length > 1 && <div className="card" style={{ marginTop: 12 }}><h3>{L('Sales each day', 'ការលក់ក្នុងមួយថ្ងៃ')}</h3><Days a={A} b={B} L={L} />
-        <p className="small muted" style={{ marginTop: 4 }}><span style={{ color: 'var(--chart1)' }}>■</span> {L('this period', 'អំឡុងពេលនេះ')} &nbsp; <span style={{ color: 'var(--muted)' }}>▭</span> {L(`dotted = ${vs}`, `ចំណុច = ${vs}`)}</p></div>}
+      {A.length > 1 && <div className="card" style={{ marginTop: 12 }}><h3>{p === 'year' ? L('Sales each month', 'ការលក់ក្នុងមួយខែ') : L('Sales each day', 'ការលក់ក្នុងមួយថ្ងៃ')}</h3><Days a={A} b={B} L={L} monthly={p === 'year'} />
+        <p className="small muted" style={{ marginTop: 4 }}><span style={{ color: 'var(--chart1)' }}>■</span> {L('this period', 'អំឡុងពេលនេះ')} &nbsp; {p !== 'year' && <><span style={{ color: 'var(--muted)' }}>▭</span> {L(`dotted = ${vs}`, `ចំណុច = ${vs}`)}</>}</p></div>}
       <div className="grid g2" style={{ marginTop: 12 }}>
         {!single && d.c.by_store.length > 1 && <div className="card"><h3>{L('Which shop sold most', 'ហាងណាលក់ច្រើនជាង')}</h3>
           <Bars rows={[...d.c.by_store].sort((a, b) => b.sales_cents - a.sales_cents)} label={(r) => r.name} value={(r) => r.sales_cents} fmt={usd} colors={COL} /></div>}
@@ -137,6 +139,11 @@ export default function Overview({ sel, stores, L }) {
             <div className="col small">{d.x.owed.rows.slice(0, 5).map((r) => <div key={r.receipt_no} className="row between"><span>{r.customer_name || r.receipt_no}{r.due_date && <span className="muted"> · {r.due_date.slice(5)}</span>}{r.overdue && ' ⚠'}</span><b className="num">{usd(r.balance_cents)}</b></div>)}</div></>}</div>
         {d.x.cashiers.length > 0 && <div className="card"><h3>{L('Who sold the most', 'អ្នកលក់ណាច្រើនជាង')}</h3>
           <Bars rows={d.x.cashiers.slice(0, 8)} label={(r) => `${r.name} · ${r.orders} ${L(r.orders === 1 ? 'sale' : 'sales', 'ការលក់')}`} value={(r) => r.sales_cents} fmt={usd} colors={COL} /></div>}
+        {d.c.alerts.some((a) => a.kind !== 'low_stock') && <div className="card"><h3>{L('Needs your attention', 'ត្រូវការការយកចិត្តទុកដាក់')}</h3><div className="col">{d.c.alerts.filter((a) => a.kind !== 'low_stock').slice(0, 8).map((a, i) => <div key={i} className="row"><span className="badge low">{a.kind.replace('_', ' ')}</span><span className="small">{a.text}</span></div>)}</div></div>}
+        <div className="card"><h3>{L('Stock and pieces sold', 'ស្តុក និងចំនួនលក់')}</h3><div className="col small">
+          <div className="row between"><span>{L('Pieces in the shops', 'ចំនួនដុំក្នុងហាង')}</span><b className="num">{c.pieces}</b></div>
+          {c.stock_value_cents != null && <div className="row between"><span>{L('Stock value (at cost)', 'តម្លៃស្តុក (តម្លៃដើម)')}</span><b className="num">{usd(c.stock_value_cents)}</b></div>}
+          <div className="row between"><span>{L('Pieces sold in this period', 'ដុំបានលក់ក្នុងអំឡុងពេលនេះ')}</span><b className="num">{c.units}</b></div></div></div>
         {c.discount_cents > 0 && <div className="card kpi"><div className="l">{L('Discounts you gave', 'បញ្ចុះតម្លៃដែលបានឲ្យ')}</div><div className="v num">{usd(c.discount_cents)}</div><div className="small muted">{L('Money you gave up to win sales', 'លុយដែលអ្នកបញ្ចុះដើម្បីលក់')}</div></div>}
         <div className="card"><h3>{L('Running low on stock', 'ស្តុកជិតអស់')}</h3>{low.length ? <div className="col small">{low.slice(0, 8).map((a, i) => <div key={i} className="row between"><span>{a.text.split(':')[0]}{!single && <span className="muted"> · {shopsName(a.store_id)}</span>}</span><b className="num">{a.text.split(':')[1]} {L('left', 'នៅសល់')}</b></div>)}</div> : <p className="muted">{L('Everything is well stocked. 👍', 'ស្តុកគ្រប់គ្រាន់។ 👍')}</p>}</div>
       </div>
@@ -146,7 +153,7 @@ export default function Overview({ sel, stores, L }) {
   return (
     <div>
       <div className="row wrap" style={{ gap: 8, margin: '8px 0 0' }}>{tabs.map(([k, lab]) => <button key={k} className={`chip ${p === k ? 'on' : ''}`} onClick={() => setP(k)}>{lab}</button>)}</div>
-      <p className="small muted" style={{ margin: '6px 0 0' }}>{R.cur[0] === R.cur[1] ? R.cur[0] : `${R.cur[0]} → ${R.cur[1]}`} · {L('compared with', 'ធៀបនឹង')} {vs}</p>
+      <p className="small muted" style={{ margin: '6px 0 0' }}>{R.cur[0] === R.cur[1] ? R.cur[0] : `${R.cur[0]} → ${R.cur[1]}`}{R.prev && <> · {L('compared with', 'ធៀបនឹង')} {vs}</>}</p>
       {err && <div className="error">{err}</div>}
       {!d && !err && <p className="muted">…</p>}
       {body}

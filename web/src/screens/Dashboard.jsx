@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api, qs } from '../api.js';
 import { useApp, useT, StoreSelect, Spinner, Modal } from '../ui.jsx';
 import { usd, usdShort, day } from '../format.js';
+import Report from './Report.jsx';
 
 const PERIODS = [['today', 'today'], ['7d', 'week'], ['month', 'month'], ['year', 'year']];
 const COLORS = ['var(--chart1)', '#3b6ea5', '#7a9e6c', '#b9573f', '#8b6aa8'];
@@ -26,7 +27,7 @@ function HBars({ rows, label, value, fmt }) {
     <div key={label(r)}><div className="row between small"><span>{label(r)}</span><b className="num">{fmt(value(r))}</b></div><div className="hbar" style={{ width: `${(value(r) / max) * 100}%`, background: COLORS[i % COLORS.length] }} /></div>))}</div>;
 }
 
-function DailySummary() {
+export function DailySummary() {
   const [open, setOpen] = useState(false); const [s, setS] = useState(null); const [err, setErr] = useState(''); const [copied, setCopied] = useState(false);
   const show = async () => { setOpen(true); setErr(''); try { setS(await api.get('/summary/daily')); } catch (e) { setErr(e.message); } };
   const link = () => `https://t.me/share/url?url=${encodeURIComponent(location.origin + location.pathname)}&text=${encodeURIComponent(s.text)}`;
@@ -43,6 +44,11 @@ function DailySummary() {
 }
 
 export default function Dashboard() {
+  const { me } = useApp();
+  return me.perms.includes('report.view') ? <Report merged /> : <DashboardClassic />;
+}
+
+function DashboardClassic() {
   const { me } = useApp(); const t = useT();
   const [sel, setSel] = useState(me.perms.includes('dashboard.all_stores') ? 'all' : String(me.store_id));
   const [period, setPeriod] = useState('7d'); const [d, setD] = useState(null); const [err, setErr] = useState('');

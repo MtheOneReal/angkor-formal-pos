@@ -165,7 +165,7 @@ export default function App() {
   if (me.role === 'owner' && me.stores.length === 0) return <FinishSetup onDone={load} />;
   const inWh = me.stores.find((s) => s.id === me.store_id)?.kind === 'warehouse';
   const SHOP_ONLY = ['bestsellers', 'register', 'jobs', 'sales', 'customers', 'expenses', 'attendance'];
-  const allowed = NAV.filter(([k, p]) => me.perms.includes(p) && !(inWh && SHOP_ONLY.includes(k)) && !(k === 'settings' && !me.perms.includes('settings.manage') && !me.perms.includes('users.manage')));
+  const allowed = NAV.filter(([k, p]) => me.perms.includes(p) && !(k === 'report' && me.perms.includes('dashboard.view')) && !(inWh && SHOP_ONLY.includes(k)) && !(k === 'settings' && !me.perms.includes('settings.manage') && !me.perms.includes('users.manage')));
   const first = allowed[0]?.[0] || 'register';
   const cur = (allowed.find(([k]) => k === route) || route === 'account') ? route : first;
   const Screen = SCREENS[cur];
