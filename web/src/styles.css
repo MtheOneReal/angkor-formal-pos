@@ -52,7 +52,7 @@ td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middl
 .chip.on { background:var(--accent); color:var(--accentText); border-color:var(--accent); }
 .chip.disabled { opacity:.4; text-decoration:line-through; }
 .swatch { display:inline-block; width:14px; height:14px; border-radius:50%; border:1px solid var(--line); vertical-align:-2px; margin-right:6px; }
-.pos { display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:16px; height:calc(100vh - 100px); }
+.pos { display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:16px; height:calc(100vh - 100px); height:calc(100dvh - 100px); }
 .filters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:10px; }
 .pgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px; margin-top:14px; }
 .pcard { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:12px; display:flex; flex-direction:column; gap:6px; }
