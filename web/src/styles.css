@@ -162,4 +162,4 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .pos .cart .paysum input, .pos .cart .paypanel input { width:100%; }
 
 /* receipt: tighter lines to save paper (Khmer needs a little room above/below) */
-.receipt { line-height:1.3; padding:6px 12px; } .receipt hr { margin:3px 0; } .receipt .small { margin:0; line-height:1.3; } .receipt p, .receipt div { margin:0; }
+.receipt { line-height:1.38; padding:7px 12px; } .receipt hr { margin:4px 0; } .receipt .small { margin:0; line-height:1.38; } .receipt p, .receipt div { margin:0; }
