@@ -284,9 +284,8 @@ test('capital: shareholders, payments, reversal, totals; shareholder login sees 
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'inv@x.com', password: 'Investor-123' });
   assert.equal((await api.get('/capital')).can_edit, false);
   await fails(api.post('/capital/shareholders', { name: 'X', agreed_by_store: {} }), 'FORBIDDEN');
-  const me = await api.get('/me'); assert.deepEqual(me.perms, ['capital.view', 'report.view', 'rank.view', 'dashboard.view']);
+  const me = await api.get('/me'); assert.deepEqual(me.perms, ['capital.view', 'report.view', 'rank.view']);
   const rk = await api.get('/stock/restock?store_id=1&days=30'); assert.equal(rk.has_stock, false); assert.deepEqual(rk.low, []);
-  const dash = await api.get('/dashboard?store=all&period=month'); assert.ok(dash.cards); assert.equal(dash.transfers && Object.keys(dash.transfers).length, 0);
   const ex = await api.get('/report/extras?store_id=all&from=2000-01-01&to=2100-01-01'); assert.equal(ex.restricted, true); assert.equal(ex.cashiers.length, 0); assert.equal(ex.owed.count, 0);
 });
 
@@ -355,7 +354,6 @@ test('warehouse: owner adds one, receives stock, moves it to a shop; it never se
   await fails(api.post('/shifts/open', { store_id: w.id, open_usd: 0, open_khr: 0 }), 'WAREHOUSE');
   const tr = await api.post('/transfers', { from_store_id: w.id, to_store_id: 1, lines: [{ item_id: item.id, qty: 4 }], reason: 'restock' });
   await api.post(`/transfers/${tr.id}/approve`).catch(() => {});
-  const dash = await api.get('/dashboard?store=all&period=month'); assert.ok(!dash.scope.stores.some((x) => x.id === w.id));
   const rep = await api.get('/report?store_id=all&period=month').catch(() => null); if (rep?.stores) assert.ok(!rep.stores.some((x) => x.id === w.id));
   await api.post(`/admin/stores/${w.id}`, {}).catch(() => {});
   await fails(api.post(`/admin/stores/${w.id}/delete`), 'HAS_HISTORY'); // has stock

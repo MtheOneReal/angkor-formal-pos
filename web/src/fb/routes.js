@@ -940,13 +940,13 @@ export function createApi(B, extra = {}) {
     const sel = String(q.store || 'all');
     if (sel === 'all') ids = (can('dashboard.all_stores') ? stores.filter((s) => s.active !== false).map((s) => s.id) : S().stores).filter((i) => stores.find((s) => s.id === i)?.kind !== 'warehouse'); else ids = sel.split(',').map((x) => assertStore(x));
     if (!ids.length) throw bad('NO_STORES', 'No store selected.');
-    const pr = periodRange(q); const seeCost = can('cost.view') || can('report.view'); const costs = seeCost ? await B.loadCosts() : new Map(); const cat = await B.loadCatalog();
+    const pr = periodRange(q); const seeCost = can('cost.view'); const costs = seeCost ? await B.loadCosts() : new Map(); const cat = await B.loadCatalog();
     const useMonths = q.period === 'year';
     const keys = [];
     if (useMonths) { for (let m = Number(pr.from.slice(5, 7)); m <= Number(pr.to.slice(5, 7)); m++) for (const id of ids) keys.push(['monthStats', `${id}_${pr.from.slice(0, 4)}-${String(m).padStart(2, '0')}`]); }
     else { for (let d = pr.from; d <= pr.to; d = dstr(d, 1)) for (const id of ids) keys.push(['dailyStats', `${id}_${d}`]); }
     const docs = (await Promise.all(keys.map(([c, k]) => read(c, k).catch(() => null)))).filter(Boolean);
-    const expRows = (can('expenses.manage') || can('report.view')) ? await X.expensesFor(ids, pr.from, pr.to) : null;
+    const expRows = can('expenses.manage') ? await X.expensesFor(ids, pr.from, pr.to) : null;
     const stockRows = await B.stockOfAll();
     const by = ids.map((id) => {
       const st = stores.find((s) => s.id === id); const mine = docs.filter((d) => Number(d.storeId) === id);
@@ -973,7 +973,7 @@ export function createApi(B, extra = {}) {
     const mm = new Map(); for (const d of docs) for (const [m, c] of Object.entries(d.byMethod || {})) mm.set(m, (mm.get(m) || 0) + c);
     const methods = [...mm.entries()].map(([method, cents]) => ({ method, cents }));
     const alerts = [];
-    const trs = S().user.role === 'shareholder' ? [] : S().user.role === 'owner' ? (await list('transfers')).filter((t) => ids.includes(Number(t.fromStoreId)) || ids.includes(Number(t.toStoreId))) : [...new Map((await Promise.all(ids.flatMap((id) => [list('transfers', where('fromStoreId', '==', id)), list('transfers', where('toStoreId', '==', id))]))).flat().map((t) => [t.id, t])).values()];
+    const trs = S().user.role === 'owner' ? (await list('transfers')).filter((t) => ids.includes(Number(t.fromStoreId)) || ids.includes(Number(t.toStoreId))) : [...new Map((await Promise.all(ids.flatMap((id) => [list('transfers', where('fromStoreId', '==', id)), list('transfers', where('toStoreId', '==', id))]))).flat().map((t) => [t.id, t])).values()];
     for (const t of trs) { if (t.status === 'discrepancy') alerts.push({ kind: 'transfer_discrepancy', store_id: Number(t.toStoreId), text: t.code, ref: t.id }); if (['requested', 'awaiting_owner'].includes(t.status) && t.requestedTs < ts() - 86400000) alerts.push({ kind: 'transfer_waiting', store_id: Number(t.fromStoreId), text: t.code, ref: t.id }); }
     for (const s of by) for (const r of s._low.slice(0, 8)) { const it = cat.items.find((i) => i.id === Number(r.itemId)); alerts.push({ kind: 'low_stock', store_id: s.store_id, text: `${it?.sku}: ${Math.max(0, r.onHand || 0)}` }); }
     const trc = {}; for (const t of trs) if (['requested', 'awaiting_owner', 'approved', 'in_transit', 'discrepancy'].includes(t.status)) trc[t.status] = (trc[t.status] || 0) + 1;
