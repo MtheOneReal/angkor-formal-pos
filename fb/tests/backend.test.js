@@ -549,9 +549,9 @@ test('report extras: expenses by category and money customers still owe', async 
   await api.post('/shifts/open', { store_id: 1, open_usd: 0, open_khr: 0 });
   await api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 5000 }], deposit: true, customer_name: 'Dara', customer_phone: '012111222' });
   const day = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
-  const x = await api.get(`/report/extras?store_id=all&from=${day.slice(0, 8)}01&to=${day.slice(0, 8)}31`);
+  const x = await api.get(`/report/extras?store_id=all&from=2000-01-01&to=2100-01-01`);
   assert.equal(x.owed.count, 1); assert.equal(x.owed.total_cents, 15000); assert.equal(x.owed.rows[0].customer_name, 'Dara');
-  assert.ok(Array.isArray(x.expenses_by_category));
+  assert.ok(Array.isArray(x.expenses_by_category)); assert.equal(x.cashiers.length, 1); assert.equal(x.cashiers[0].orders, 1); assert.equal(x.cashiers[0].sales_cents, 20000);
   await fails(api.get('/report/extras?store_id=99&from=2026-01-01&to=2026-01-02'), 'BAD_INPUT');
 });
 

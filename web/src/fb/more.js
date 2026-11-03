@@ -65,12 +65,17 @@ export function createMore(B) {
     for (const id of ids) for (const m of months) for (const r of await list('expenses', where('storeId', '==', id), where('month', '==', m))) {
       if (r.date >= from && r.date <= to) { const k = r.category || 'Other'; cats.set(k, (cats.get(k) || 0) + (r.amountCents || 0)); expTotal += r.amountCents || 0; }
     }
+    const byCashier = new Map();
+    for (const id of ids) for (const sl of await list('sales', where('storeId', '==', id))) {
+      if (sl.status === 'voided') continue; const dd = new Date((sl.ts || 0) + 7 * 3600000).toISOString().slice(0, 10); if (dd < from || dd > to) continue;
+      const k = String(sl.cashierId || sl.cashierName); const v = byCashier.get(k) || { name: sl.cashierName || '—', orders: 0, sales_cents: 0 }; v.orders += 1; v.sales_cents += sl.totalCents || 0; byCashier.set(k, v);
+    }
     const today = dateOf(now()); const nm = new Map(stores.map((x) => [Number(x.id), x.name]));
     const open = (await list('balances')).filter((r) => !r.settled && ids.includes(Number(r.storeId)));
     const owedRows = open.sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999'))).slice(0, 8)
       .map((r) => ({ receipt_no: r.receiptNo, customer_name: r.customerName || '', customer_phone: r.customerPhone || '', balance_cents: r.balanceCents || 0, due_date: r.dueDate || null, store_name: nm.get(Number(r.storeId)) || '', overdue: !!(r.dueDate && r.dueDate < today) }));
     return {
-      from, to, expenses_total_cents: expTotal, expenses_by_category: [...cats.entries()].map(([category, cents]) => ({ category, cents })).sort((a, b) => b.cents - a.cents),
+      from, to, cashiers: [...byCashier.values()].sort((x, y) => y.sales_cents - x.sales_cents), expenses_total_cents: expTotal, expenses_by_category: [...cats.entries()].map(([category, cents]) => ({ category, cents })).sort((a, b) => b.cents - a.cents),
       owed: { count: open.length, total_cents: open.reduce((n, r) => n + (r.balanceCents || 0), 0), overdue_count: open.filter((r) => r.dueDate && r.dueDate < today).length, overdue_cents: open.filter((r) => r.dueDate && r.dueDate < today).reduce((n, r) => n + (r.balanceCents || 0), 0), rows: owedRows },
     };
   }
