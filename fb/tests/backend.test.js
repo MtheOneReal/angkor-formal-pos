@@ -573,7 +573,9 @@ test('attendance QR: scan code and live selfie are required once the shop QR is 
   const staff = await api.get('/public/stores/1/staff'); await api.post('/auth/logout');
   await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
   await fails(api.get('/attendance/code?store_id=1'), 'NO_CODE'); // only the owner switches it on
+  await fails(api.post('/attendance/settings', { store_id: 1, qr: true }), 'FORBIDDEN');
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
+  assert.equal((await api.post('/attendance/settings', { store_id: 1, qr: true })).qr, true);
   const qr = await api.get('/attendance/code?store_id=1'); assert.match(qr.code, /^\d{6}$/); assert.equal(qr.payload, `AFQR:1:${qr.code}`);
   await api.post('/auth/logout'); await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
   assert.equal((await api.get('/attendance/me?store_id=1')).scan_required, true);
@@ -585,4 +587,19 @@ test('attendance QR: scan code and live selfie are required once the shop QR is 
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
   const l = await api.get('/attendance?store_id=all&month=2026-10'); assert.equal(l.rows.length, 1); assert.equal(l.rows[0].has_selfie, true);
   assert.equal((await api.get(`/attendance/${l.rows[0].id}/selfie`)).selfie, 'data:image/jpeg;base64,AAAA');
+});
+
+test('attendance location: phone-only shops need a selfie and to be at the shop', async () => {
+  const { api } = await setup();
+  const staff = await api.get('/public/stores/1/staff');
+  const set = await api.post('/attendance/settings', { store_id: 1, lat: 11.5564, lng: 104.9282, radius: 150 }); assert.equal(set.geo.radius, 150); assert.equal(set.qr, false);
+  await api.post('/auth/logout'); await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  const me = await api.get('/attendance/me?store_id=1'); assert.equal(me.checks.qr, false); assert.ok(me.checks.geo);
+  const selfie = 'data:image/jpeg;base64,AAAA';
+  await fails(api.post('/attendance/clock-in', { store_id: 1, selfie }), 'NO_LOCATION');
+  await fails(api.post('/attendance/clock-in', { store_id: 1, selfie, lat: 11.58, lng: 104.93, acc: 10 }), 'TOO_FAR');
+  await fails(api.post('/attendance/clock-in', { store_id: 1, lat: 11.5565, lng: 104.9283, acc: 10 }), 'SELFIE_REQUIRED');
+  const ok = await api.post('/attendance/clock-in', { store_id: 1, selfie, lat: 11.5565, lng: 104.9283, acc: 10 }); assert.ok(ok.record);
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
+  const l = await api.get('/attendance?store_id=1&month=2026-10'); assert.ok(l.rows[0].dist_m < 30);
 });

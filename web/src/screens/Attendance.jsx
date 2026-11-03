@@ -18,13 +18,13 @@ function Mine() {
     <div className="card" style={{ maxWidth: 460 }}>
       <h3>My attendance — {m.date}</h3>
       <p className="muted">Work starts at {hhmm(m.work_start_minutes)}{m.late_grace_minutes ? ` (${m.late_grace_minutes} min allowed)` : ''}.</p>
-      {!r && <button className="btn primary big" style={{ width: '100%' }} disabled={busy} onClick={() => (m.scan_required ? setScan(true) : act('clock-in'))}>{m.scan_required ? '📷 ' : ''}Clock in</button>}
+      {!r && <button className="btn primary big" style={{ width: '100%' }} disabled={busy} onClick={() => (m.checks?.qr || m.checks?.geo ? setScan(true) : act('clock-in'))}>{m.checks?.qr || m.checks?.geo ? '📷 ' : ''}Clock in</button>}
       {r && <>
         <p>Arrived at <b>{clock(r.in_ts)}</b> {r.late_minutes > 0 && <span className={`badge ${r.excused ? 'ok' : 'out'}`}>{r.excused ? 'late (excused)' : `late ${r.late_minutes} min`}</span>}</p>
         {r.out_ts ? <p>Left at <b>{clock(r.out_ts)}</b></p> : <button className="btn primary big" style={{ width: '100%' }} disabled={busy} onClick={() => act('clock-out')}>Clock out</button>}
       </>}
       {err && <div className="error">{err}</div>}
-      {scan && <ClockInFlow storeId={me.store_id} onClose={() => setScan(false)} onDone={() => { setScan(false); load(); }} />}
+      {scan && <ClockInFlow storeId={me.store_id} checks={m.checks} onClose={() => setScan(false)} onDone={() => { setScan(false); load(); }} />}
     </div>
   );
 }
@@ -34,7 +34,11 @@ function Team() {
   const [store, setStore] = useState(me.store_id); const [month, setMonth] = useState(todayISO().slice(0, 7));
   const [d, setD] = useState(null); const [staff, setStaff] = useState([]); const [err, setErr] = useState('');
   const [f, setF] = useState({ user_id: '', date: todayISO(), in_time: '09:00', out_time: '' }); const [photo, setPhoto] = useState(null); const [fee, setFee] = useState('');
-  const all = store === 'all'; const today = todayISO();
+  const all = store === 'all'; const today = todayISO(); const [cs, setCs] = useState(null); const [rad, setRad] = useState('150');
+  const loadCs = () => { if (store === 'all' || me.role !== 'owner') return; api.get(`/attendance/settings${qs({ store_id: store })}`).then((x) => { setCs(x); setRad(String(x.geo?.radius || 150)); }).catch(() => {}); };
+  useEffect(loadCs, [store]); // eslint-disable-line react-hooks/exhaustive-deps
+  const saveCs = (body) => run(async () => { await api.post('/attendance/settings', { store_id: store, ...body }); loadCs(); show('Saved'); });
+  const here = () => { if (!navigator.geolocation) { setErr('This device cannot share its location.'); return; } navigator.geolocation.getCurrentPosition((p) => saveCs({ lat: p.coords.latitude, lng: p.coords.longitude, radius: Number(rad) }), () => setErr('Allow location for this site, then try again.'), { enableHighAccuracy: true, timeout: 20000 }); };
   const load = () => api.get(`/attendance${qs({ store_id: store, month })}`).then((x) => { setD(x); setFee(String(x.late_fee_cents / 100)); }).catch((e) => setErr(e.message));
   useEffect(() => { load(); if (store !== 'all') api.get(`/attendance/staff${qs({ store_id: store })}`).then((s) => { setStaff(s); setF((x) => ({ ...x, user_id: s[0]?.id || '' })); }).catch(() => {}); }, [store, month]);
   const showPhoto = async (r) => { try { const x = await api.get(`/attendance/${r.id}/selfie`); setPhoto({ name: r.user_name, date: r.date, src: x.selfie }); } catch (e) { setErr(e.message); } };
@@ -49,10 +53,18 @@ function Team() {
       </div>
       {err && <div className="error">{err}</div>}
       {d && <>
+        {!all && me.role === 'owner' && cs && <div className="card" style={{ marginBottom: 12 }}><h3>Clock-in checks for this shop</h3>
+          <p className="muted small" style={{ margin: '4px 0 8px' }}>Staff always take a live selfie when a check is on. Turn on at least one.</p>
+          <div className="row wrap" style={{ gap: 8 }}>
+            <button className="btn" onClick={here}>📍 {cs.geo ? 'Update shop location (use at the shop)' : 'Set shop location (use at the shop)'}</button>
+            <label className="small muted">Allowed distance (m)</label><input type="number" min="30" max="2000" value={rad} onChange={(e) => setRad(e.target.value)} style={{ width: 90 }} />
+            {cs.geo && <><button className="btn" onClick={() => saveCs({ radius: Number(rad) })}>Save distance</button><button className="btn" onClick={() => saveCs({ clear_location: true })}>Turn location check off</button></>}</div>
+          <p className="small" style={{ margin: '8px 0 0' }}>{cs.geo ? `✅ Staff must be within ${cs.geo.radius} m of the shop.` : 'Location check is off.'}</p>
+          <label className="row" style={{ gap: 8, marginTop: 8 }}><input type="checkbox" checked={cs.qr} onChange={(e) => saveCs({ qr: e.target.checked })} style={{ width: 'auto' }} /><span className="small">Also require the shop QR (needs a spare phone or screen left at the shop showing it)</span></label></div>}
         {!all && <div className="card" style={{ marginBottom: 12 }}><h3>Today</h3>
           <div className="col">{staff.map((st) => { const r = d.rows.find((x) => x.user_id === st.id && x.date === today); const started = new Date(Date.now() + 7 * 3600000).getUTCHours() * 60 + new Date(Date.now() + 7 * 3600000).getUTCMinutes() > d.work_start_minutes;
             return (<div key={st.id} className="row between" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}><b>{st.name}</b>
-              <span className="row" style={{ gap: 8 }}>{r ? <><span>{clock(r.in_ts)}</span>{r.late_minutes > 0 ? <span className={`badge ${r.excused ? 'ok' : 'out'}`}>{r.excused ? 'late (excused)' : `late ${r.late_minutes} min`}</span> : <span className="badge ok">on time</span>}{r.has_selfie && <button className="btn" onClick={() => showPhoto(r)}>📷</button>}</>
+              <span className="row" style={{ gap: 8 }}>{r ? <><span>{clock(r.in_ts)}</span>{r.late_minutes > 0 ? <span className={`badge ${r.excused ? 'ok' : 'out'}`}>{r.excused ? 'late (excused)' : `late ${r.late_minutes} min`}</span> : <span className="badge ok">on time</span>}{r.dist_m != null && <span className="small muted">{r.dist_m} m</span>}{r.has_selfie && <button className="btn" onClick={() => showPhoto(r)}>📷</button>}</>
                 : <span className={`badge ${started ? 'out' : 'low'}`}>{started ? 'Not in yet' : 'Not in yet (shift not started)'}</span>}</span></div>); })}
             {!staff.length && <p className="muted">No staff are set up for this shop yet.</p>}</div></div>}
         <div className="card" style={{ marginBottom: 12 }}><h3>Lateness this month</h3>

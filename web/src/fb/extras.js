@@ -94,7 +94,7 @@ export function createExtras(B) {
   // ---------- attendance ----------
   const swOf = async (storeId) => (await B.loadStores()).find((s) => s.id === Number(storeId))?.switches;
   const lateInfo = (a, sw) => { const start = sw?.work_start_minutes ?? 540; const grace = sw?.late_grace_minutes ?? 0; const mins = localMinutes(a.inTs) - start; return { late_minutes: mins > grace ? mins : 0, late: mins > grace && !a.excused }; };
-  const attView = (a, sw) => ({ id: a.id, store_id: a.storeId, user_id: a.userId, user_name: a.userName, date: a.date, in_ts: a.inTs, out_ts: a.outTs ?? null, manual: !!a.manual, excused: !!a.excused, has_selfie: !!a.selfie, ...lateInfo(a, sw) });
+  const attView = (a, sw) => ({ id: a.id, store_id: a.storeId, user_id: a.userId, user_name: a.userName, date: a.date, in_ts: a.inTs, out_ts: a.outTs ?? null, manual: !!a.manual, excused: !!a.excused, has_selfie: !!a.selfie, dist_m: a.distM ?? null, ...lateInfo(a, sw) });
   const attId = (storeId, uid, date) => `${storeId}_${uid}_${date}`;
   // Shop QR: a 6-digit code that changes every 30 seconds, made from a secret the owner's first visit creates.
   const SLOT = 30000;
@@ -114,26 +114,49 @@ export function createExtras(B) {
     need('attendance.use'); const storeId = assertStore(q.store_id || S().storeId); const secret = await codeSecret(true); const t = now(); const slot = Math.floor(t / SLOT);
     const code = await hmacCode(secret, storeId, slot); return { store_id: storeId, code, payload: `AFQR:${storeId}:${code}`, seconds_left: Math.max(1, Math.ceil(((slot + 1) * SLOT - t) / 1000)) };
   }
+  // Per-shop clock-in checks the owner can switch on: shop location (for phone-only shops) and/or the shop QR (needs a spare screen).
+  const checksOf = async (storeId) => { const c = (await read('settings', 'attendanceChecks'))?.stores?.[String(storeId)] || {}; return { geo: c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng, radius: c.radius || 150 } : null, qr: !!c.qr }; };
+  const meters = (a, b, c, d) => { const R = 6371000; const r = (x) => (x * Math.PI) / 180; const h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+  async function attSettings(q) { need('attendance.manage'); const storeId = assertStore(q.store_id || S().storeId); return { store_id: storeId, ...(await checksOf(storeId)) }; }
+  async function attSettingsSave(b) {
+    if (S().user.role !== 'owner') throw forbidden('Only the owner can change the clock-in checks.');
+    const storeId = assertStore(b.store_id); const all = (await read('settings', 'attendanceChecks'))?.stores || {}; const cur = all[String(storeId)] || {};
+    const next = { ...cur };
+    if (b.clear_location) { delete next.lat; delete next.lng; }
+    if (b.lat != null && b.lng != null) { const la = Number(b.lat); const lo = Number(b.lng); if (!(Math.abs(la) <= 90 && Math.abs(lo) <= 180)) throw bad('BAD_INPUT', 'That location is not valid.'); next.lat = la; next.lng = lo; }
+    if (b.radius != null) { const r = Math.round(Number(b.radius)); if (!(r >= 30 && r <= 2000)) throw bad('BAD_INPUT', 'Choose a distance between 30 and 2000 metres.'); next.radius = r; }
+    if (b.qr != null) { next.qr = !!b.qr; if (next.qr) await codeSecret(true); }
+    all[String(storeId)] = next; await setDoc(ref('settings', 'attendanceChecks'), { stores: all, ts: now(), setBy: S().uid }).catch(wrap('Could not save'));
+    await audit(storeId, 'attendance.checks', 'settings', 'attendanceChecks', { geo: next.lat != null, qr: !!next.qr, radius: next.radius || null }); return attSettings({ store_id: storeId });
+  }
   async function attSelfie(id) {
     need('attendance.manage'); const a = await read('attendance', id); if (!a) throw notFound(); assertStore(a.storeId); if (!a.selfie) throw notFound('No photo for this record.'); return { selfie: a.selfie };
   }
   async function attMine(q) {
     need('attendance.use'); const storeId = assertStore(q.store_id || S().storeId); const date = dateOf(now());
     const a = await read('attendance', attId(storeId, S().uid, date)); const sw = await swOf(storeId);
-    return { date, scan_required: !!(await codeSecret(false)), record: a ? attView(a, sw) : null, work_start_minutes: sw.work_start_minutes, late_grace_minutes: sw.late_grace_minutes };
+    return { date, checks: await checksOf(storeId), scan_required: (await checksOf(storeId)).qr, record: a ? attView(a, sw) : null, work_start_minutes: sw.work_start_minutes, late_grace_minutes: sw.late_grace_minutes };
   }
   async function clockIn(b) {
     need('attendance.use'); const storeId = assertStore(b.store_id); const t = now(); const date = dateOf(t); const id = attId(storeId, S().uid, date);
     if (await read('attendance', id)) throw bad('ALREADY_IN', 'You have already clocked in today.');
-    const secret = await codeSecret(false); let selfie = null;
-    if (secret) {
-      const slot = Math.floor(t / SLOT); let okCode = false; const got = String(b.code || '');
-      for (let k = 0; k < 4 && !okCode; k++) okCode = got === await hmacCode(secret, storeId, slot - k);
+    const chk = await checksOf(storeId); let selfie = null; let distM = null;
+    if (chk.qr) {
+      const secret = await codeSecret(false); const slot = Math.floor(t / SLOT); let okCode = false; const got = String(b.code || '');
+      if (secret) for (let k = 0; k < 4 && !okCode; k++) okCode = got === await hmacCode(secret, storeId, slot - k);
       if (!okCode) throw bad('BAD_CODE', 'The QR code is old or wrong. Scan the shop screen again.');
+    }
+    if (chk.geo) {
+      const la = Number(b.lat); const lo = Number(b.lng); const acc = Math.min(Math.max(Number(b.acc) || 0, 0), 50);
+      if (!Number.isFinite(la) || !Number.isFinite(lo) || b.lat == null) throw bad('NO_LOCATION', 'Allow your phone to share its location, then try again.');
+      distM = Math.round(meters(chk.geo.lat, chk.geo.lng, la, lo));
+      if (distM > chk.geo.radius + acc) throw bad('TOO_FAR', `You are about ${distM} m from the shop. Clock in when you are at the shop.`);
+    }
+    if (chk.qr || chk.geo) {
       if (typeof b.selfie !== 'string' || !b.selfie.startsWith('data:image/jpeg') || b.selfie.length > 150000) throw bad('SELFIE_REQUIRED', 'Take a selfie to clock in.');
       selfie = b.selfie;
     }
-    await setDoc(ref('attendance', id), { storeId, userId: S().uid, userName: S().user.name, date, month: date.slice(0, 7), inTs: t, outTs: null, manual: false, excused: false, ...(selfie ? { selfie } : {}) }).catch(wrap('Could not clock in'));
+    await setDoc(ref('attendance', id), { storeId, userId: S().uid, userName: S().user.name, date, month: date.slice(0, 7), inTs: t, outTs: null, manual: false, excused: false, ...(selfie ? { selfie } : {}), ...(distM != null ? { distM } : {}) }).catch(wrap('Could not clock in'));
     return attMine({ store_id: storeId });
   }
   async function clockOut(b) {
@@ -287,6 +310,8 @@ export function createExtras(B) {
     if (method === 'POST' && (m = path.match(/^\/expenses\/([^/]+)\/delete$/))) return expenseDelete(m[1]);
     if (method === 'GET' && path === '/attendance/me') return attMine(q);
     if (method === 'GET' && path === '/attendance/code') return attCode(q);
+    if (method === 'GET' && path === '/attendance/settings') return attSettings(q);
+    if (method === 'POST' && path === '/attendance/settings') return attSettingsSave(b);
     if (method === 'GET' && (m = path.match(/^\/attendance\/([^/]+)\/selfie$/))) return attSelfie(m[1]);
     if (method === 'POST' && path === '/attendance/clock-in') return clockIn(b);
     if (method === 'POST' && path === '/attendance/clock-out') return clockOut(b);
