@@ -66,12 +66,13 @@ export function createMore(B) {
       if (r.date >= from && r.date <= to) { const k = r.category || 'Other'; cats.set(k, (cats.get(k) || 0) + (r.amountCents || 0)); expTotal += r.amountCents || 0; }
     }
     const byCashier = new Map(); const seeCust = can('customers.manage');
-    for (const id of ids) if (seeCust) for (const sl of await list('sales', where('storeId', '==', id))) {
-      if (sl.status === 'voided') continue; const dd = new Date((sl.ts || 0) + 7 * 3600000).toISOString().slice(0, 10); if (dd < from || dd > to) continue;
+    const t0 = Date.parse(`${from}T00:00:00Z`) - 7 * 3600000; const t1 = Date.parse(`${to}T00:00:00Z`) - 7 * 3600000 + 86400000 - 1;
+    if (seeCust) for (const sl of await list('sales', where('ts', '>=', t0), where('ts', '<=', t1))) {
+      if (sl.status === 'voided' || !ids.includes(Number(sl.storeId))) continue; const dd = new Date((sl.ts || 0) + 7 * 3600000).toISOString().slice(0, 10); if (dd < from || dd > to) continue;
       const k = String(sl.cashierId || sl.cashierName); const v = byCashier.get(k) || { name: sl.cashierName || '—', orders: 0, sales_cents: 0 }; v.orders += 1; v.sales_cents += sl.totalCents || 0; byCashier.set(k, v);
     }
     const today = dateOf(now()); const nm = new Map(stores.map((x) => [Number(x.id), x.name]));
-    const open = (seeCust ? await list('balances') : []).filter((r) => !r.settled && ids.includes(Number(r.storeId)));
+    const open = (seeCust ? await list('balances', where('settled', '==', false)) : []).filter((r) => ids.includes(Number(r.storeId)));
     const owedRows = open.sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999'))).slice(0, 8)
       .map((r) => ({ receipt_no: r.receiptNo, customer_name: r.customerName || '', customer_phone: r.customerPhone || '', balance_cents: r.balanceCents || 0, due_date: r.dueDate || null, store_name: nm.get(Number(r.storeId)) || '', overdue: !!(r.dueDate && r.dueDate < today) }));
     return {
@@ -88,7 +89,7 @@ export function createMore(B) {
     const days = [30, 60, 90].includes(Number(q.days)) ? Number(q.days) : 60;
     const today = dateOf(now()); const nm = new Map(stores.map((x) => [Number(x.id), x.name]));
     const addD = (d, n) => { const t = new Date(`${d}T00:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
-    const pickups = (can('customers.manage') ? await list('balances') : []).filter((r) => !r.settled && ids.includes(Number(r.storeId)))
+    const pickups = (can('customers.manage') ? await list('balances', where('settled', '==', false)) : []).filter((r) => ids.includes(Number(r.storeId)))
       .sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')))
       .map((r) => ({ receipt_no: r.receiptNo, customer_name: r.customerName || '', customer_phone: r.customerPhone || '', balance_cents: r.balanceCents || 0, due_date: r.dueDate || null, store_name: nm.get(Number(r.storeId)) || '', days_late: r.dueDate && r.dueDate < today ? Math.round((new Date(`${today}T00:00:00Z`) - new Date(`${r.dueDate}T00:00:00Z`)) / 86400000) : 0 }));
     // slow movers: designs with stock in the shop but nothing sold in the last N days
