@@ -159,7 +159,7 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
         </>
       ) : <p className="muted">Show the customer the KHQR code and confirm the payment arrived in the bank app before you continue.</p>}
       {err && <div className="error">{err}</div>}
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row payactions" style={{ marginTop: 12 }}>
         <button className="btn" disabled={!cart.length || busy} onClick={onCancel}>{t('cancel')}</button>
         <button className="btn primary big grow" disabled={!ok || busy || (dv > 0 && disc.reason.trim().length < 3)} onClick={() => submit().catch(() => {})}>{t('pay')}</button>
       </div>
