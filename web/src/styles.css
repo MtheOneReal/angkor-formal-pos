@@ -171,3 +171,6 @@ body[data-inv-tab="find"] .topbar { display:none; }
 
 /* search/scan box: the 2px brown border already shows focus, so no second outline ring */
 
+
+/* the left column scrolls (overflow:auto), which clipped the focus ring on the search box; leave room for the ring */
+.pos .left { padding:4px 4px 0; }
