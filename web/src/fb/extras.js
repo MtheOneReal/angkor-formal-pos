@@ -93,8 +93,10 @@ export function createExtras(B) {
 
   // ---------- attendance ----------
   const swOf = async (storeId) => (await B.loadStores()).find((s) => s.id === Number(storeId))?.switches;
-  const lateInfo = (a, sw) => { const start = sw?.work_start_minutes ?? 540; const grace = sw?.late_grace_minutes ?? 0; const mins = localMinutes(a.inTs) - start; return { late_minutes: mins > grace ? mins : 0, late: mins > grace && !a.excused }; };
-  const attView = (a, sw) => ({ id: a.id, store_id: a.storeId, user_id: a.userId, user_name: a.userName, date: a.date, in_ts: a.inTs, out_ts: a.outTs ?? null, manual: !!a.manual, excused: !!a.excused, has_selfie: !!a.selfie, dist_m: a.distM ?? null, ...lateInfo(a, sw) });
+  const lateInfo = (a, sw) => { const start = a.schedStart ?? sw?.work_start_minutes ?? 540; const grace = sw?.late_grace_minutes ?? 0; const mins = localMinutes(a.inTs) - start; return { late_minutes: mins > grace ? mins : 0, late: mins > grace && !a.excused }; };
+  const earlyInfo = (a) => { if (a.outTs == null || a.schedEnd == null) return 0; const m = a.schedEnd - localMinutes(a.outTs); return m > 0 && m < 720 ? m : 0; };
+  const schedOf = async (uid) => { const d = await read('staffDirectory', uid).catch(() => null); return { schedStart: Number.isInteger(d?.workStartMin) ? d.workStartMin : null, schedEnd: Number.isInteger(d?.workEndMin) ? d.workEndMin : null, dayOff: Number.isInteger(d?.dayOff) ? d.dayOff : null }; };
+  const attView = (a, sw) => ({ id: a.id, store_id: a.storeId, user_id: a.userId, user_name: a.userName, date: a.date, in_ts: a.inTs, out_ts: a.outTs ?? null, manual: !!a.manual, excused: !!a.excused, has_selfie: !!a.selfie, dist_m: a.distM ?? null, sched_start: a.schedStart ?? null, sched_end: a.schedEnd ?? null, left_early_minutes: earlyInfo(a), ...lateInfo(a, sw) });
   const attId = (storeId, uid, date) => `${storeId}_${uid}_${date}`;
   // Shop QR: a 6-digit code that changes every 30 seconds, made from a secret the owner's first visit creates.
   const SLOT = 30000;
@@ -135,12 +137,13 @@ export function createExtras(B) {
   async function attMine(q) {
     need('attendance.use'); const storeId = assertStore(q.store_id || S().storeId); const date = dateOf(now());
     const a = await read('attendance', attId(storeId, S().uid, date)); const sw = await swOf(storeId);
-    return { date, checks: await checksOf(storeId), scan_required: (await checksOf(storeId)).qr, record: a ? attView(a, sw) : null, work_start_minutes: sw.work_start_minutes, late_grace_minutes: sw.late_grace_minutes };
+    const mySched = await schedOf(S().uid);
+    return { date, my_start_minutes: mySched.schedStart ?? sw.work_start_minutes, my_end_minutes: mySched.schedEnd, checks: await checksOf(storeId), scan_required: (await checksOf(storeId)).qr, record: a ? attView(a, sw) : null, work_start_minutes: sw.work_start_minutes, late_grace_minutes: sw.late_grace_minutes };
   }
   async function clockIn(b) {
     need('attendance.use'); const storeId = assertStore(b.store_id); const t = now(); const date = dateOf(t); const id = attId(storeId, S().uid, date);
     if (await read('attendance', id)) throw bad('ALREADY_IN', 'You have already clocked in today.');
-    const chk = await checksOf(storeId); let selfie = null; let distM = null;
+    const chk = await checksOf(storeId); let selfie = null; let distM = null; const sch = await schedOf(S().uid);
     if (chk.qr) {
       const secret = await codeSecret(false); const slot = Math.floor(t / SLOT); let okCode = false; const got = String(b.code || '');
       if (secret) for (let k = 0; k < 4 && !okCode; k++) okCode = got === await hmacCode(secret, storeId, slot - k);
@@ -156,7 +159,7 @@ export function createExtras(B) {
       if (typeof b.selfie !== 'string' || !b.selfie.startsWith('data:image/jpeg') || b.selfie.length > 150000) throw bad('SELFIE_REQUIRED', 'Take a selfie to clock in.');
       selfie = b.selfie;
     }
-    await setDoc(ref('attendance', id), { storeId, userId: S().uid, userName: S().user.name, date, month: date.slice(0, 7), inTs: t, outTs: null, manual: false, excused: false, ...(selfie ? { selfie } : {}), ...(distM != null ? { distM } : {}) }).catch(wrap('Could not clock in'));
+    await setDoc(ref('attendance', id), { storeId, userId: S().uid, userName: S().user.name, date, month: date.slice(0, 7), inTs: t, outTs: null, manual: false, excused: false, ...(selfie ? { selfie } : {}), ...(distM != null ? { distM } : {}), ...(sch.schedStart != null ? { schedStart: sch.schedStart } : {}), ...(sch.schedEnd != null ? { schedEnd: sch.schedEnd } : {}) }).catch(wrap('Could not clock in'));
     return attMine({ store_id: storeId });
   }
   async function clockOut(b) {
@@ -172,13 +175,23 @@ export function createExtras(B) {
     for (const id of ids) { const w = await swOf(id); sw = sw || w; for (const r of await list('attendance', where('storeId', '==', id), where('month', '==', month))) rows.push({ ...attView(r, w), store_name: nm.get(id) || '' }); }
     rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.user_name.localeCompare(b.user_name)));
     const per = {};
-    for (const v of rows) { const p = per[v.user_id] || (per[v.user_id] = { user_id: v.user_id, user_name: v.user_name, days: 0, late_days: 0, late_minutes: 0, fee_cents: 0 }); p.days += 1; if (v.late) { p.late_days += 1; p.late_minutes += v.late_minutes; p.fee_cents += fee; } }
+    for (const v of rows) { const p = per[v.user_id] || (per[v.user_id] = { user_id: v.user_id, user_name: v.user_name, days: 0, late_days: 0, late_minutes: 0, fee_cents: 0, early_days: 0, early_minutes: 0 }); p.days += 1; if (v.left_early_minutes > 0) { p.early_days += 1; p.early_minutes += v.left_early_minutes; } if (v.late) { p.late_days += 1; p.late_minutes += v.late_minutes; p.fee_cents += fee; } }
     const summary = Object.values(per).sort((a, b) => b.late_days - a.late_days || b.late_minutes - a.late_minutes || a.user_name.localeCompare(b.user_name));
     return { month, store_id: all ? 'all' : ids[0], work_start_minutes: sw?.work_start_minutes ?? 540, late_grace_minutes: sw?.late_grace_minutes ?? 0, late_fee_cents: fee, total_fee_cents: summary.reduce((n, x) => n + x.fee_cents, 0), summary, rows };
   }
+  async function attHours(b) {
+    if (S().user.role !== 'owner') throw forbidden('Only the owner can set working hours.');
+    const storeId = assertStore(b.store_id); const dir = await read('staffDirectory', b.user_id); if (!dir || !(dir.storeIds || []).map(Number).includes(storeId)) throw bad('BAD_INPUT', 'Choose someone who works in this store.');
+    const st = b.start ? parseTime(b.start) : null; const en = b.end ? parseTime(b.end) : null;
+    if ((b.start && st == null) || (b.end && en == null)) throw bad('BAD_INPUT', 'Enter the times like 08:30.');
+    if (st != null && en != null && en <= st) throw bad('BAD_INPUT', 'The finishing time must be after the starting time.');
+    const off = b.day_off === '' || b.day_off == null ? null : Number(b.day_off); if (off != null && !(Number.isInteger(off) && off >= 0 && off <= 6)) throw bad('BAD_INPUT', 'Choose a day off.');
+    await updateDoc(ref('staffDirectory', b.user_id), { workStartMin: st, workEndMin: en, dayOff: off }).catch(wrap('Could not save'));
+    await audit(storeId, 'attendance.hours', 'staff', b.user_id, { start: b.start || null, end: b.end || null, dayOff: off }); return { ok: true };
+  }
   async function attStaff(q) {
     need('attendance.manage'); const storeId = assertStore(q.store_id || S().storeId);
-    const rows = await list('staffDirectory'); return rows.filter((r) => r.active !== false && (r.storeIds || []).map(Number).includes(storeId)).map((r) => ({ id: r.id, name: r.name, role: r.role }));
+    const rows = await list('staffDirectory'); return rows.filter((r) => r.active !== false && (r.storeIds || []).map(Number).includes(storeId)).map((r) => ({ id: r.id, name: r.name, role: r.role, start_min: Number.isInteger(r.workStartMin) ? r.workStartMin : null, end_min: Number.isInteger(r.workEndMin) ? r.workEndMin : null, day_off: Number.isInteger(r.dayOff) ? r.dayOff : null }));
   }
   const parseTime = (s) => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '')); if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null; return Number(m[1]) * 60 + Number(m[2]); };
   const atLocal = (date, minutes) => Date.parse(`${date}T00:00:00Z`) - PP + minutes * 60000;
@@ -188,8 +201,8 @@ export function createExtras(B) {
     if (b.out_time && outM == null) throw bad('BAD_INPUT', 'The leaving time is not valid.');
     if (b.user_id === S().uid && S().user.role !== 'owner') throw forbidden('You cannot edit your own attendance.');
     const dir = await read('staffDirectory', b.user_id); if (!dir || !(dir.storeIds || []).map(Number).includes(storeId)) throw bad('BAD_INPUT', 'Choose someone who works in this store.');
-    const id = attId(storeId, b.user_id, date); const old = await read('attendance', id);
-    await setDoc(ref('attendance', id), { storeId, userId: b.user_id, userName: dir.name, date, month: date.slice(0, 7), inTs: atLocal(date, inM), outTs: outM == null ? null : atLocal(date, outM), manual: true, excused: old?.excused || false }).catch(wrap('Could not save'));
+    const id = attId(storeId, b.user_id, date); const old = await read('attendance', id); const sch2 = await schedOf(b.user_id);
+    await setDoc(ref('attendance', id), { storeId, userId: b.user_id, userName: dir.name, date, month: date.slice(0, 7), inTs: atLocal(date, inM), outTs: outM == null ? null : atLocal(date, outM), manual: true, excused: old?.excused || false, ...(sch2.schedStart != null ? { schedStart: sch2.schedStart } : {}), ...(sch2.schedEnd != null ? { schedEnd: sch2.schedEnd } : {}) }).catch(wrap('Could not save'));
     await audit(storeId, 'attendance.manual', 'attendance', id, { by: S().uid, in: b.in_time, out: b.out_time || null }); return { id };
   }
   async function attExcuse(id, b) {
@@ -318,6 +331,7 @@ export function createExtras(B) {
     if (method === 'GET' && path === '/attendance/staff') return attStaff(q);
     if (method === 'GET' && path === '/attendance') return attList(q);
     if (method === 'POST' && path === '/attendance/manual') return attManual(b);
+    if (method === 'POST' && path === '/attendance/hours') return attHours(b);
     if (method === 'POST' && (m = path.match(/^\/attendance\/([^/]+)\/excuse$/))) return attExcuse(m[1], b);
     if (method === 'POST' && (m = path.match(/^\/attendance\/([^/]+)\/delete$/))) return attDelete(m[1]);
     if (method === 'GET' && path === '/payroll') return payroll(q);

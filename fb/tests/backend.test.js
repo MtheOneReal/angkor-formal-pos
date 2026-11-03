@@ -603,3 +603,20 @@ test('attendance location: phone-only shops need a selfie and to be at the shop'
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
   const l = await api.get('/attendance?store_id=1&month=2026-10'); assert.ok(l.rows[0].dist_m < 30);
 });
+
+test('attendance: each person has their own start/end time; late and left-early follow it', async () => {
+  const { api, cas } = await setup();
+  const staff = await api.get('/attendance/staff?store_id=1'); const me = staff.find((x) => x.name === 'Cashier');
+  assert.equal(me.start_min, null);
+  await fails(api.post('/attendance/hours', { store_id: 1, user_id: me.id, start: '10:30', end: '09:00' }), 'BAD_INPUT');
+  await api.post('/attendance/hours', { store_id: 1, user_id: me.id, start: '10:30', end: '19:30', day_off: 0 });
+  const after = (await api.get('/attendance/staff?store_id=1')).find((x) => x.name === 'Cashier'); assert.equal(after.start_min, 630); assert.equal(after.end_min, 1170); assert.equal(after.day_off, 0);
+  const pub = await api.get('/public/stores/1/staff'); await api.post('/auth/logout');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: pub.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  const mine = await api.get('/attendance/me?store_id=1'); assert.equal(mine.my_start_minutes, 630); assert.equal(mine.my_end_minutes, 1170);
+  const inn = await api.post('/attendance/clock-in', { store_id: 1, selfie: 'data:image/jpeg;base64,AAAA' }); assert.equal(inn.record.late, false); // test clock is 10:00, this person starts 10:30
+  const out = await api.post('/attendance/clock-out', { store_id: 1 }); assert.ok(out.record.left_early_minutes > 0);
+  await fails(api.post('/attendance/hours', { store_id: 1, user_id: me.id, start: '08:00' }), 'FORBIDDEN');
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
+  const l = await api.get('/attendance?store_id=1&month=2026-10'); assert.equal(l.summary[0].late_days, 0); assert.equal(l.summary[0].early_days, 1);
+});
