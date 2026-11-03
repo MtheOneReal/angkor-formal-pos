@@ -292,14 +292,14 @@ export default function Register() {
           {groups.map((g) => {
             const here = g.items.reduce((n, i) => n + i.available, 0); const oth = g.items.some((i) => i.others == null) ? null : g.items.reduce((n, i) => n + i.others, 0);
             return (
-              <div className="pcard" key={g.id}>
-                <div className="ph">{photo(g.d.photo) ? <img src={photo(g.d.photo)} alt="" loading="lazy" /> : <GarmentArt code={g.d.type_code} name={g.d.type_name_en} nameKm={g.d.type_name_km} />}<span className="code">{g.d.design_code}</span></div>
+              <div className="pcard" key={g.id} role="button" tabIndex={0} onClick={() => setPick(g)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPick(g); } }}>
+                <div className="ph">{photo(g.d.photo) ? <img src={photo(g.d.photo)} alt="" loading="lazy" /> : <GarmentArt code={g.d.type_code} name={g.d.type_name_en} nameKm={g.d.type_name_km} />}</div>
                 <div className="pinfo">
-                  <div className="small muted">{nm({ name_en: g.d.type_name_en, name_km: g.d.type_name_km })} · {g.d.brand_code}</div>
+                  <div className="pmeta"><span className="code2">{g.d.design_code}</span><span>{nm({ name_en: g.d.type_name_en, name_km: g.d.type_name_km })} · {g.d.brand_code}</span></div>
                   <b className="pname">{nm(g.d)}</b>
-                  <div className="pstock small"><span>{t('this_store')}: <b>{here} pcs</b></span>{oth != null && <span>{t('other_stores')}: <b>{oth} pcs</b></span>}</div>
+                  <div className="pstock"><span>{t('this_store')}: <b>{here}</b></span>{oth != null && <span>{t('other_stores')}: <b>{oth}</b></span>}</div>
+                  <div className="pfoot"><b className="num">{usd(g.d.price_cents)}</b><button className="padd" aria-label={t('select_size')} title={t('select_size')} onClick={(e) => { e.stopPropagation(); setPick(g); }}>＋</button></div>
                 </div>
-                <div className="pright"><b className="num" style={{ fontSize: 17 }}>{usd(g.d.price_cents)}</b><button className="btn primary" style={{ minHeight: 36, padding: '4px 12px', whiteSpace: 'nowrap' }} onClick={() => setPick(g)}>{t('select_size')} →</button></div>
               </div>
             );
           })}
