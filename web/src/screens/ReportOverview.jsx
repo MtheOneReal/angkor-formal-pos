@@ -103,9 +103,6 @@ export default function Overview({ sel, stores, L }) {
     const profit = c.net_profit_cents ?? c.gross_profit_cents; const pprofit = pc.net_profit_cents ?? pc.gross_profit_cents;
     const A = fill(R.cur, d.c.trend); const B = fill(R.prev, d.pv.trend);
     const best = A.reduce((m, x) => (x.cents > m.cents ? x : m), A[0]); const single = d.c.scope.stores.length === 1;
-    const cogs = seeCost ? c.sales_cents - c.gross_profit_cents : null; const exp = c.expenses_cents || 0;
-    const per100 = c.sales_cents > 0 && seeCost ? { cost: Math.round((cogs / c.sales_cents) * 100), exp: Math.round((exp / c.sales_cents) * 100) } : null;
-    if (per100) per100.profit = 100 - per100.cost - per100.exp;
     const sentences = [];
     if (!c.orders) sentences.push(L('No sales in this period yet.', 'មិនទាន់មានការលក់ក្នុងអំឡុងពេលនេះទេ។'));
     else {
@@ -127,12 +124,6 @@ export default function Overview({ sel, stores, L }) {
       {A.length > 1 && <div className="card" style={{ marginTop: 12 }}><h3>{L('Sales each day', 'ការលក់ក្នុងមួយថ្ងៃ')}</h3><Days a={A} b={B} L={L} />
         <p className="small muted" style={{ marginTop: 4 }}><span style={{ color: 'var(--chart1)' }}>■</span> {L('this period', 'អំឡុងពេលនេះ')} &nbsp; <span style={{ color: 'var(--muted)' }}>▭</span> {L(`dotted = ${vs}`, `ចំណុច = ${vs}`)}</p></div>}
       <div className="grid g2" style={{ marginTop: 12 }}>
-        {per100 && <div className="card"><h3>{L('Where each $100 went', 'រាល់ $100 ទៅឯណា')}</h3>
-          <div style={{ display: 'flex', height: 18, borderRadius: 9, overflow: 'hidden', margin: '8px 0' }}>
-            <div style={{ width: `${Math.max(0, per100.cost)}%`, background: '#3b6ea5' }} /><div style={{ width: `${Math.max(0, per100.exp)}%`, background: '#b9573f' }} /><div style={{ width: `${Math.max(0, per100.profit)}%`, background: 'var(--ok)' }} /></div>
-          <div className="col small"><div className="row between"><span><span style={{ color: '#3b6ea5' }}>■</span> {L('Buying the clothes', 'ទិញទំនិញ')}</span><b className="num">${per100.cost}</b></div>
-            <div className="row between"><span><span style={{ color: '#b9573f' }}>■</span> {L('Shop costs (rent, salary…)', 'ចំណាយហាង (ជួល ប្រាក់ខែ…)')}</span><b className="num">${per100.exp}</b></div>
-            <div className="row between"><span><span style={{ color: 'var(--ok)' }}>■</span> {L('You keep', 'អ្នកទុកបាន')}</span><b className="num" style={{ color: per100.profit < 0 ? 'var(--bad)' : undefined }}>${per100.profit}</b></div></div></div>}
         {!single && d.c.by_store.length > 1 && <div className="card"><h3>{L('Which shop sold most', 'ហាងណាលក់ច្រើនជាង')}</h3>
           <Bars rows={[...d.c.by_store].sort((a, b) => b.sales_cents - a.sales_cents)} label={(r) => r.name} value={(r) => r.sales_cents} fmt={usd} colors={COL} /></div>}
         <div className="card"><h3>{L('Best sellers', 'ទំនិញលក់ដាច់')}</h3>{d.c.top_items.length ? <Bars rows={d.c.top_items.slice(0, 6)} label={(r) => r.name_en || r.sku} value={(r) => r.qty} fmt={(v) => `${v} ${L('pcs', 'ដុំ')}`} colors={COL} /> : <p className="muted">{L('Nothing sold yet.', 'មិនទាន់លក់ទេ។')}</p>}</div>
