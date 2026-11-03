@@ -294,10 +294,12 @@ export default function Register() {
             return (
               <div className="pcard" key={g.id}>
                 <div className="ph">{photo(g.d.photo) ? <img src={photo(g.d.photo)} alt="" loading="lazy" /> : <GarmentArt code={g.d.type_code} name={g.d.type_name_en} nameKm={g.d.type_name_km} />}<span className="code">{g.d.design_code}</span></div>
-                <div className="row between small"><span className="muted">{nm({ name_en: g.d.type_name_en, name_km: g.d.type_name_km })}</span><span className="muted">{g.d.brand_code}</span></div>
-                <b style={{ fontSize: 14, lineHeight: 1.3 }}>{nm(g.d)}</b>
-                <div className="stockbox"><div><span>{t('this_store')}:</span><b>{here} pcs</b></div>{oth != null && <div><span>{t('other_stores')}:</span><b>{oth} pcs</b></div>}</div>
-                <div className="row between" style={{ marginTop: 'auto', paddingTop: 6 }}><b className="num" style={{ fontSize: 18 }}>{usd(g.d.price_cents)}</b><button className="btn primary" style={{ minHeight: 38, padding: '6px 12px' }} onClick={() => setPick(g)}>{t('select_size')} →</button></div>
+                <div className="pinfo">
+                  <div className="small muted">{nm({ name_en: g.d.type_name_en, name_km: g.d.type_name_km })} · {g.d.brand_code}</div>
+                  <b className="pname">{nm(g.d)}</b>
+                  <div className="pstock small"><span>{t('this_store')}: <b>{here} pcs</b></span>{oth != null && <span>{t('other_stores')}: <b>{oth} pcs</b></span>}</div>
+                </div>
+                <div className="pright"><b className="num" style={{ fontSize: 17 }}>{usd(g.d.price_cents)}</b><button className="btn primary" style={{ minHeight: 36, padding: '4px 12px', whiteSpace: 'nowrap' }} onClick={() => setPick(g)}>{t('select_size')} →</button></div>
               </div>
             );
           })}
