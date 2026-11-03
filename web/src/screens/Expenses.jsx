@@ -34,7 +34,7 @@ export default function Expenses() {
           <select value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })} style={{ width: 'auto' }}><option value="USD">USD</option><option value="KHR">៛ Riel</option></select>
           <input placeholder="Note (optional)" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} className="grow" />
           <label className="btn" style={{ cursor: 'pointer' }}>📷 {f.photo ? 'Photo added' : 'Receipt photo'}<input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => pick(e.target.files[0])} /></label>
-          {f.photo && <img src={f.photo} alt="" style={{ height: 40, borderRadius: 6 }} />}
+          {f.photo && <div style={{ width: 40, height: 50, borderRadius: 6, overflow: 'hidden', flex: 'none' }}><img src={f.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /></div>}
           <button className="btn primary">Add expense</button>
         </div>
         {data && data.photo_required_cents > 0 && <p className="muted small">A receipt photo is required for expenses of {usd(data.photo_required_cents)} or more.</p>}
@@ -51,7 +51,7 @@ export default function Expenses() {
           <tbody>{data.rows.map((r) => <tr key={r.id}><td>{r.date}</td><td>{r.category}</td><td>{r.note}{r.input_currency === 'KHR' && <span className="small muted"> ({Math.round(r.input_amount).toLocaleString()} ៛)</span>}</td><td className="small muted">{r.created_by_name}</td><td className="right num">{usd(r.amount_cents)}</td><td className="row">{r.has_photo && <button className="btn" onClick={() => showPhoto(r)}>📷</button>}<button className="btn" onClick={() => del(r)}>Delete</button></td></tr>)}
             {!data.rows.length && <tr><td colSpan="6" className="muted">No expenses this month.</td></tr>}</tbody></table></div>
       </>}
-      {view && <div className="modal-bg" onClick={() => setView(null)}><div className="modal" style={{ maxWidth: 720 }}><img src={view} alt="Receipt" style={{ width: '100%', borderRadius: 8 }} /><button className="btn" style={{ marginTop: 10 }} onClick={() => setView(null)}>Close</button></div></div>}
+      {view && <div className="modal-bg" onClick={() => setView(null)}><div className="modal" style={{ maxWidth: 720 }}><img src={view} alt="Receipt" style={{ width: '100%', maxHeight: '78vh', objectFit: 'contain', borderRadius: 8 }} /><button className="btn" style={{ marginTop: 10 }} onClick={() => setView(null)}>Close</button></div></div>}
       {toast}
     </div>
   );

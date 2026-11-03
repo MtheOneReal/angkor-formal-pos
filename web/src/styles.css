@@ -228,3 +228,6 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .pcard .ph { position:relative; overflow:hidden; }
 .pcard .ph img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .pcard { min-height:108px; }
+
+/* every picture box has a fixed shape; the picture is cropped to fit it and never stretches the box */
+.tile .ph { position:relative; overflow:hidden; } .tile .ph img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }

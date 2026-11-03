@@ -98,7 +98,7 @@ function NewDesign({ reload, design, dcode, rows, meta, owner, editLists, onClos
         {(!design || design.cost_cents != null) && <div><label>{L('Cost (USD)', 'តម្លៃទិញចូល (USD)')}</label><input inputMode="decimal" value={f.cost_usd} onChange={(e) => setF({ ...f, cost_usd: e.target.value })} /></div>}
       </div>
       <label>{L('Photo', 'រូបភាព')}</label><input type="file" accept="image/*" onChange={(e) => pickPhoto(e.target.files[0])} />
-      {f.photo && <img src={f.photo} alt="" style={{ height: 120, borderRadius: 8, marginTop: 8 }} />}
+      {f.photo && <div style={{ width: 96, height: 120, borderRadius: 8, marginTop: 8, overflow: 'hidden' }}><img src={f.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /></div>}
       {design && <div style={{ marginTop: 12 }}><label>{L('Sizes', 'ទំហំ')}</label>
         <div className="row wrap">{design.items.filter((i) => i.active).map((i) => <span key={i.id} className="chip on">{i.size}</span>)}{!design.items.some((i) => i.active) && <span className="muted small">{L('No sizes yet.', 'មិនទាន់មានទំហំទេ។')}</span>}</div>
         <details style={{ marginTop: 8 }} open={!design.items.some((i) => i.active)}><summary className="small" style={{ cursor: 'pointer' }}>＋ {L('Add sizes', 'បន្ថែមទំហំ')}</summary><VariantPicker meta={meta} owner={owner} editLists={editLists} design={design} onAdded={reload} /></details></div>}
