@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useApp, useT, Modal, useToast } from '../ui.jsx';
 import { dt } from '../format.js';
+import { SOCIALS, SocialIcon } from '../socials.jsx';
 
 const SWITCHES = [
   ['require_scan_to_sell', 'Require scan to sell', 'Typed items need a manager PIN.'], ['blind_counts', 'Blind cash count', 'Cashier does not see the difference at shift close.'],
@@ -62,7 +63,16 @@ function Stores() {
         {!wh && <>
         <label>Receipt footer</label><input defaultValue={s.receipt_footer} key={`f${s.id}`} onBlur={(e) => e.target.value !== s.receipt_footer && save({ receipt_footer: e.target.value })} />
         <label>Shop contact on receipt (phone, address)</label><input defaultValue={s.receipt_contact || ''} key={`c${s.id}`} placeholder="e.g. 012 345 678 · Wat Koh, Siem Reap" onBlur={(e) => e.target.value !== (s.receipt_contact || '') && save({ receipt_contact: e.target.value })} />
-        <label>Social media on receipt</label><input defaultValue={s.receipt_social || ''} key={`so${s.id}`} placeholder="e.g. Facebook / TikTok: @angkorformal" onBlur={(e) => e.target.value !== (s.receipt_social || '') && save({ receipt_social: e.target.value })} />
+        <label>Social media icons on receipt (tick to show)</label>
+        <div style={{ display: 'grid', gap: 8 }} key={`soc${s.id}`}>
+          {SOCIALS.map((so) => { const cur = (s.receipt_socials || {})[so.key] || { on: false, handle: '' };
+            return (<div key={so.key} className="row" style={{ gap: 10 }}>
+              <input type="checkbox" checked={!!cur.on} onChange={(e) => save({ receipt_socials: { [so.key]: { on: e.target.checked, handle: cur.handle } } })} style={{ width: 22, height: 22, minHeight: 0, flex: 'none' }} aria-label={so.label} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, width: 110, flex: 'none' }}><SocialIcon path={so.path} size={18} /> {so.label}</span>
+              <input defaultValue={cur.handle} key={`h${s.id}${so.key}${cur.handle}`} placeholder="@name or link" style={{ flex: 1, minWidth: 0 }} onBlur={(e) => e.target.value !== cur.handle && save({ receipt_socials: { [so.key]: { on: cur.on, handle: e.target.value } } })} />
+            </div>); })}
+        </div>
+        <label>Other text under the icons (optional)</label><input defaultValue={s.receipt_social || ''} key={`so${s.id}`} placeholder="e.g. Facebook / TikTok: @angkorformal" onBlur={(e) => e.target.value !== (s.receipt_social || '') && save({ receipt_social: e.target.value })} />
         <label>Auto-lock after (minutes, 0 = off)</label><input type="number" min="0" defaultValue={s.switches.autolock_minutes} key={`a${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { autolock_minutes: Number(e.target.value) } })} />
         <label>Work starts at (staff arriving later are marked late)</label><input type="time" defaultValue={`${String(Math.floor((s.switches.work_start_minutes ?? 540) / 60)).padStart(2, '0')}:${String((s.switches.work_start_minutes ?? 540) % 60).padStart(2, '0')}`} key={`w${s.id}`} style={{ width: 140 }} onBlur={(e) => { const [h, m] = e.target.value.split(':').map(Number); if (!Number.isNaN(h)) save({ switches: { work_start_minutes: h * 60 + (m || 0) } }); }} />
         <label>Minutes allowed after start before it counts as late</label><input type="number" min="0" defaultValue={s.switches.late_grace_minutes ?? 0} key={`g${s.id}`} style={{ width: 120 }} onBlur={(e) => save({ switches: { late_grace_minutes: Number(e.target.value) } })} />

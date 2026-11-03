@@ -516,3 +516,13 @@ test('a shop can be moved to another brand, which frees the old brand for deleti
   await api.put(`/admin/stores/${st.id}`, { brand_id: other.id });
   assert.equal((await api.get('/admin/stores')).stores.find((x) => x.id === st.id).brand_id, other.id);
 });
+
+test('receipt contact and social icons are saved per shop and ignore unknown platforms', async () => {
+  const { api } = await setup();
+  const st = (await api.get('/admin/stores')).stores.find((x) => x.kind !== 'warehouse');
+  await api.put(`/admin/stores/${st.id}`, { receipt_contact: '012 345 678', receipt_socials: { facebook: { on: true, handle: '@angkor' }, myspace: { on: true, handle: 'x' } } });
+  await api.put(`/admin/stores/${st.id}`, { receipt_socials: { telegram: { on: false, handle: '@t' } } });
+  const s2 = (await api.get('/admin/stores')).stores.find((x) => x.id === st.id);
+  assert.equal(s2.receipt_contact, '012 345 678');
+  assert.deepEqual(s2.receipt_socials, { facebook: { on: true, handle: '@angkor' }, telegram: { on: false, handle: '@t' } });
+});

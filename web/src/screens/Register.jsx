@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { SOCIALS, SocialIcon } from '../socials.jsx';
 import { api, qs } from '../api.js';
 import GarmentArt from '../GarmentArt.jsx';
 import FilterBar, { useFilterConfig, passes } from './FilterBar.jsx';
@@ -55,6 +56,9 @@ function Receipt({ sale, onDone }) {
         {sale.customer_name && <div className="small">{sale.customer_name} {sale.customer_phone || ''}</div>}
         <div className="small">Rate / អត្រា: {sale.rate_khr_per_usd} ៛ / $1</div>
         <hr /><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you / អរគុណ'}</div>
+        {SOCIALS.some((so) => sale.receipt_socials?.[so.key]?.on && sale.receipt_socials[so.key].handle) && <div className="small" style={{ display: 'grid', gap: 2, justifyContent: 'center', marginTop: 4 }}>
+          {SOCIALS.filter((so) => sale.receipt_socials?.[so.key]?.on && sale.receipt_socials[so.key].handle).map((so) => <div key={so.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><SocialIcon path={so.path} size={13} />{sale.receipt_socials[so.key].handle}</div>)}
+        </div>}
         {sale.receipt_social && <div className="small" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>{sale.receipt_social}</div>}
       </div>
       <div className="row" style={{ marginTop: 14 }}>

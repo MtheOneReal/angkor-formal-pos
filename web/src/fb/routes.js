@@ -402,7 +402,7 @@ export function createApi(B, extra = {}) {
   // ---------- sales ----------
   const saleView = (s, returns = []) => {
     const lines = (s.lines || []).map((l, i) => { const r = returns.filter((x) => x.saleId === s.id).flatMap((x) => x.lines).filter((x) => x.lineIndex === i); return { id: i, item_id: l.itemId, qty: l.qty, unit_price_cents: l.unitCents, discount_cents: l.discountCents, line_total_cents: l.totalCents, entry: l.entry, sku: l.sku, size: l.size, name_en: l.nameEn, name_km: l.nameKm, colour_en: l.colourEn, colour_km: l.colourKm, returned_qty: r.reduce((a, x) => a + x.qty, 0), returned_cents: r.reduce((a, x) => a + x.refundCents, 0) }; });
-    return { id: s.id, store_id: s.storeId, seq: s.seq, receipt_no: s.receiptNo, ts: s.ts, cashier_id: s.cashierId, cashier_name: s.cashierName, status: s.status, subtotal_cents: s.subtotalCents, discount_cents: s.discountCents, total_cents: s.totalCents, rate_khr_per_usd: s.rate, discount_reason: s.discountReason || null, approved_by_name: s.approvedByName || null, customer_name: s.customerName || null, customer_phone: s.customerPhone || null, alteration: !!s.alteration, deposit: !!s.deposit, balance_cents: s.balanceCents || 0, due_date: s.dueDate || null, store_name: s.storeName, store_code: s.storeCode, receipt_footer: s.receiptFooter, receipt_contact: s.receiptContact || '', receipt_social: s.receiptSocial || '', lines, payments: (s.payments || []).map((p) => ({ kind: p.kind, method: p.method, currency: p.currency, amount: p.amount, usd_cents: p.usd })), total_khr: usdCentsToKhr(s.totalCents, s.rate) };
+    return { id: s.id, store_id: s.storeId, seq: s.seq, receipt_no: s.receiptNo, ts: s.ts, cashier_id: s.cashierId, cashier_name: s.cashierName, status: s.status, subtotal_cents: s.subtotalCents, discount_cents: s.discountCents, total_cents: s.totalCents, rate_khr_per_usd: s.rate, discount_reason: s.discountReason || null, approved_by_name: s.approvedByName || null, customer_name: s.customerName || null, customer_phone: s.customerPhone || null, alteration: !!s.alteration, deposit: !!s.deposit, balance_cents: s.balanceCents || 0, due_date: s.dueDate || null, store_name: s.storeName, store_code: s.storeCode, receipt_footer: s.receiptFooter, receipt_contact: s.receiptContact || '', receipt_social: s.receiptSocial || '', receipt_socials: s.receiptSocials || {}, lines, payments: (s.payments || []).map((p) => ({ kind: p.kind, method: p.method, currency: p.currency, amount: p.amount, usd_cents: p.usd })), total_khr: usdCentsToKhr(s.totalCents, s.rate) };
   };
   async function getSale(id) {
     const s = await read('sales', id); if (!s) throw notFound('Receipt not found.');
@@ -513,7 +513,7 @@ export function createApi(B, extra = {}) {
         storeId, seq, receiptNo: `${store.code}-${String(seq).padStart(6, '0')}`, ts: ts(), dayKey: `${storeId}_${date}`, cashierId: S().uid, cashierName: S().user.name, shiftId: String(shift.id),
         customerId: customer ? customer.id : null, customerName: custName, customerPhone: custPhone, alteration: !!b.alteration, deposit, balanceCents: balance, dueDate, subtotalCents: subtotal, discountCents: discount,
         totalCents: total, rate, discountReason: dsc?.reason ? txt(dsc.reason, 200) : null, approvalId, approvedByName: approver?.name || null, status: 'completed',
-        storeName: store.name, storeCode: store.code, receiptFooter: store.receiptFooter || '', receiptContact: store.receiptContact || '', receiptSocial: store.receiptSocial || '', lines: saleLines,
+        storeName: store.name, storeCode: store.code, receiptFooter: store.receiptFooter || '', receiptContact: store.receiptContact || '', receiptSocial: store.receiptSocial || '', receiptSocials: store.receiptSocials || {}, lines: saleLines,
         payments: [...tender, ...change], note: b.note ? txt(b.note, 200) : null,
       });
       const receiptNo = `${store.code}-${String(seq).padStart(6, '0')}`;
@@ -788,7 +788,7 @@ export function createApi(B, extra = {}) {
   // ---------- owner / admin ----------
   async function adminStores() {
     need('settings.manage'); const stores = await B.loadStores(true); const brands = (await B.loadCatalog()).brandsList;
-    return { stores: stores.map((s) => ({ id: s.id, code: s.code, name: s.name, kind: s.kind === 'warehouse' ? 'warehouse' : 'shop', brand_id: s.brandId, receipt_footer: s.receiptFooter || '', receipt_contact: s.receiptContact || '', receipt_social: s.receiptSocial || '', active: s.active === false ? 0 : 1, brand_code: brands.find((b) => String(b.id) === String(s.brandId))?.code, brand_name: brands.find((b) => String(b.id) === String(s.brandId))?.name, switches: s.switches })), defaults: SWITCH_DEFAULTS };
+    return { stores: stores.map((s) => ({ id: s.id, code: s.code, name: s.name, kind: s.kind === 'warehouse' ? 'warehouse' : 'shop', brand_id: s.brandId, receipt_footer: s.receiptFooter || '', receipt_contact: s.receiptContact || '', receipt_social: s.receiptSocial || '', receipt_socials: s.receiptSocials || {}, active: s.active === false ? 0 : 1, brand_code: brands.find((b) => String(b.id) === String(s.brandId))?.code, brand_name: brands.find((b) => String(b.id) === String(s.brandId))?.name, switches: s.switches })), defaults: SWITCH_DEFAULTS };
   }
   async function adminStoreCreate(b) {
     need('settings.manage');
@@ -835,6 +835,12 @@ export function createApi(B, extra = {}) {
     if ((await list('sales', where('customerId', '==', String(id)))).length) throw noHistory('This customer has purchases.');
     const wb = writeBatch(db); wb.delete(ref('customers', id)); auditIn(wb, null, 'customer.delete', 'customer', id, { name: c.name }); await wb.commit().catch(wrap('Could not delete')); return { ok: true };
   }
+  const SOCIAL_KEYS = ['facebook', 'telegram', 'tiktok', 'instagram', 'whatsapp', 'youtube'];
+  function cleanSocials(inp, cur) {
+    const out = { ...(cur || {}) };
+    if (inp && typeof inp === 'object') for (const k of SOCIAL_KEYS) if (inp[k] && typeof inp[k] === 'object') out[k] = { on: !!inp[k].on, handle: txt(inp[k].handle ?? out[k]?.handle ?? '', 80) };
+    return out;
+  }
   async function adminStoreUpdate(id, b) {
     need('settings.manage'); const s = await storeById(id); if (!s) throw notFound();
     const sw = { ...s.switches }; const changed = {};
@@ -847,7 +853,7 @@ export function createApi(B, extra = {}) {
     let brandId = s.brandId; const cat0 = await B.loadCatalog();
     if (b.brand_id !== undefined && s.kind !== 'warehouse') { const nb = cat0.brandsList.find((x) => String(x.id) === String(b.brand_id)); if (!nb) throw bad('BAD_INPUT', 'Choose a brand.'); brandId = Number(nb.id); }
     const wb = writeBatch(db);
-    wb.update(ref('stores', id), { ...(s.kind !== 'warehouse' ? { brandId } : {}), name: nm, receiptFooter: txt(b.receipt_footer ?? s.receiptFooter ?? '', 200), receiptContact: txt(b.receipt_contact ?? s.receiptContact ?? '', 200), receiptSocial: txt(b.receipt_social ?? s.receiptSocial ?? '', 200), active: act, switches: sw });
+    wb.update(ref('stores', id), { ...(s.kind !== 'warehouse' ? { brandId } : {}), name: nm, receiptFooter: txt(b.receipt_footer ?? s.receiptFooter ?? '', 200), receiptContact: txt(b.receipt_contact ?? s.receiptContact ?? '', 200), receiptSocial: txt(b.receipt_social ?? s.receiptSocial ?? '', 200), receiptSocials: cleanSocials(b.receipt_socials, s.receiptSocials), active: act, switches: sw });
     if (s.kind !== 'warehouse') wb.set(ref('publicStores', id), { id: Number(id), code: s.code, name: nm, active: act, brandCode: cat0.brandsList.find((x) => String(x.id) === String(brandId))?.code || null });
     await wb.commit();
     await audit(Number(id), 'store.update', 'store', id, { name: b.name, switches: changed }); await B.loadStores(true); await B.startSession(); return { ok: true };
