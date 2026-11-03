@@ -27,6 +27,8 @@ const NAV = [
 ];
 const SCREENS = { bestsellers: Restock, register: Register, inventory: Inventory, account: Account, jobs: Jobs, report: Report, capital: Capital, transfers: Transfers, sales: Sales, customers: Customers, dashboard: Dashboard, settings: Settings, expenses: Expenses, attendance: Attendance, payroll: Payroll };
 
+function BgSync({ dark }) { useEffect(() => { document.documentElement.classList.toggle('bg-dark', dark); return () => document.documentElement.classList.remove('bg-dark'); }, [dark]); return null; }
+
 function Login({ onDone }) {
   const [mode, setMode] = useState('till');
   const [stores, setStores] = useState([]);
@@ -74,7 +76,7 @@ function Login({ onDone }) {
               <div className="col">{stores.map((s) => <button key={s.id} className="stafftile" onClick={() => setStore(s)}>{s.name}</button>)}</div></div>
           ) : !who ? (
             <div><div className="row between"><h3>{t('who_are_you')}</h3><button className="btn" onClick={() => setStore(null)}>{t('back')}</button></div>
-              <div className="grid g2" style={{ marginTop: 10 }}>{staff.map((u) => <button key={u.id} className="stafftile" onClick={() => setWho(u)}>{u.name}</button>)}</div></div>
+              <div className="grid g2" style={{ marginTop: 10 }}>{staff.map((u) => <button key={u.id} className="stafftile" onClick={() => setWho(u)}>{u.name}</button>)}</div>{!staff.length && <p className="muted" style={{ textAlign: 'center', margin: '14px 0 4px' }}>No staff have been added for this shop yet. The owner can sign in under “Owner / manager”, then add staff with a PIN in Settings → Staff.</p>}</div>
           ) : (
             <div><div className="row between"><h3>{who.name}</h3>{who.pin_length ? null : <button className="btn" onClick={() => { setWho(null); setErr(''); }}>{t('back')}</button>}</div>
               <p className="muted" style={{ textAlign: 'center' }}>{t('enter_pin')}</p>
@@ -181,6 +183,7 @@ export default function App() {
   return (
     <Ctx.Provider value={{ me, lang, store, go, reload: load, setStore }}>
       <div className={`theme-${effTheme}`} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <BgSync dark={effTheme === 'dark'} />
         {me.demo && <div className="banner">{t('demo_banner')}</div>}
         <div className="shell" style={{ flex: 1, minHeight: 0 }}>
           <aside className="side">
