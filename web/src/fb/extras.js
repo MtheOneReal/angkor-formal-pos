@@ -94,17 +94,46 @@ export function createExtras(B) {
   // ---------- attendance ----------
   const swOf = async (storeId) => (await B.loadStores()).find((s) => s.id === Number(storeId))?.switches;
   const lateInfo = (a, sw) => { const start = sw?.work_start_minutes ?? 540; const grace = sw?.late_grace_minutes ?? 0; const mins = localMinutes(a.inTs) - start; return { late_minutes: mins > grace ? mins : 0, late: mins > grace && !a.excused }; };
-  const attView = (a, sw) => ({ id: a.id, store_id: a.storeId, user_id: a.userId, user_name: a.userName, date: a.date, in_ts: a.inTs, out_ts: a.outTs ?? null, manual: !!a.manual, excused: !!a.excused, ...lateInfo(a, sw) });
+  const attView = (a, sw) => ({ id: a.id, store_id: a.storeId, user_id: a.userId, user_name: a.userName, date: a.date, in_ts: a.inTs, out_ts: a.outTs ?? null, manual: !!a.manual, excused: !!a.excused, has_selfie: !!a.selfie, ...lateInfo(a, sw) });
   const attId = (storeId, uid, date) => `${storeId}_${uid}_${date}`;
+  // Shop QR: a 6-digit code that changes every 30 seconds, made from a secret the owner's first visit creates.
+  const SLOT = 30000;
+  async function hmacCode(secret, storeId, slot) {
+    const enc = new TextEncoder(); const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(`${storeId}:${slot}`)));
+    return String((((sig[0] << 24) | (sig[1] << 16) | (sig[2] << 8) | sig[3]) >>> 0) % 1000000).padStart(6, '0');
+  }
+  async function codeSecret(create) {
+    const d = await read('settings', 'attendanceCode'); if (d?.secret) return d.secret;
+    if (!create) return null;
+    if (S().user.role !== 'owner') throw bad('NO_CODE', 'The shop QR is not switched on yet. Ask the owner to open Attendance once.');
+    const secret = Array.from(crypto.getRandomValues(new Uint8Array(16)), (x) => x.toString(16).padStart(2, '0')).join('');
+    await setDoc(ref('settings', 'attendanceCode'), { secret, ts: now(), setBy: S().uid }).catch(wrap('Could not switch on the QR')); return secret;
+  }
+  async function attCode(q) {
+    need('attendance.use'); const storeId = assertStore(q.store_id || S().storeId); const secret = await codeSecret(true); const t = now(); const slot = Math.floor(t / SLOT);
+    const code = await hmacCode(secret, storeId, slot); return { store_id: storeId, code, payload: `AFQR:${storeId}:${code}`, seconds_left: Math.max(1, Math.ceil(((slot + 1) * SLOT - t) / 1000)) };
+  }
+  async function attSelfie(id) {
+    need('attendance.manage'); const a = await read('attendance', id); if (!a) throw notFound(); assertStore(a.storeId); if (!a.selfie) throw notFound('No photo for this record.'); return { selfie: a.selfie };
+  }
   async function attMine(q) {
     need('attendance.use'); const storeId = assertStore(q.store_id || S().storeId); const date = dateOf(now());
     const a = await read('attendance', attId(storeId, S().uid, date)); const sw = await swOf(storeId);
-    return { date, record: a ? attView(a, sw) : null, work_start_minutes: sw.work_start_minutes, late_grace_minutes: sw.late_grace_minutes };
+    return { date, scan_required: !!(await codeSecret(false)), record: a ? attView(a, sw) : null, work_start_minutes: sw.work_start_minutes, late_grace_minutes: sw.late_grace_minutes };
   }
   async function clockIn(b) {
     need('attendance.use'); const storeId = assertStore(b.store_id); const t = now(); const date = dateOf(t); const id = attId(storeId, S().uid, date);
     if (await read('attendance', id)) throw bad('ALREADY_IN', 'You have already clocked in today.');
-    await setDoc(ref('attendance', id), { storeId, userId: S().uid, userName: S().user.name, date, month: date.slice(0, 7), inTs: t, outTs: null, manual: false, excused: false }).catch(wrap('Could not clock in'));
+    const secret = await codeSecret(false); let selfie = null;
+    if (secret) {
+      const slot = Math.floor(t / SLOT); let okCode = false; const got = String(b.code || '');
+      for (let k = 0; k < 4 && !okCode; k++) okCode = got === await hmacCode(secret, storeId, slot - k);
+      if (!okCode) throw bad('BAD_CODE', 'The QR code is old or wrong. Scan the shop screen again.');
+      if (typeof b.selfie !== 'string' || !b.selfie.startsWith('data:image/jpeg') || b.selfie.length > 150000) throw bad('SELFIE_REQUIRED', 'Take a selfie to clock in.');
+      selfie = b.selfie;
+    }
+    await setDoc(ref('attendance', id), { storeId, userId: S().uid, userName: S().user.name, date, month: date.slice(0, 7), inTs: t, outTs: null, manual: false, excused: false, ...(selfie ? { selfie } : {}) }).catch(wrap('Could not clock in'));
     return attMine({ store_id: storeId });
   }
   async function clockOut(b) {
@@ -113,11 +142,16 @@ export function createExtras(B) {
     await updateDoc(ref('attendance', id), { outTs: now() }).catch(wrap('Could not clock out')); return attMine({ store_id: storeId });
   }
   async function attList(q) {
-    need('attendance.manage'); const storeId = assertStore(q.store_id || S().storeId); const month = monthOk(q.month); const sw = await swOf(storeId);
-    const rows = (await list('attendance', where('storeId', '==', storeId), where('month', '==', month))).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.userName.localeCompare(b.userName)));
-    const views = rows.map((r) => attView(r, sw)); const per = {};
-    for (const v of views) { const p = per[v.user_id] || (per[v.user_id] = { user_id: v.user_id, user_name: v.user_name, days: 0, late_days: 0 }); p.days += 1; if (v.late) p.late_days += 1; }
-    return { month, store_id: storeId, work_start_minutes: sw.work_start_minutes, late_grace_minutes: sw.late_grace_minutes, summary: Object.values(per).sort((a, b) => a.user_name.localeCompare(b.user_name)), rows: views };
+    need('attendance.manage'); const month = monthOk(q.month); const fee = await deductionCents();
+    const all = String(q.store_id) === 'all' && can('dashboard.all_stores');
+    const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse'); const ids = all ? stores.filter((x) => S().stores.includes(x.id)).map((x) => x.id) : [assertStore(q.store_id || S().storeId)];
+    const nm = new Map(stores.map((x) => [x.id, x.name])); const rows = []; let sw = null;
+    for (const id of ids) { const w = await swOf(id); sw = sw || w; for (const r of await list('attendance', where('storeId', '==', id), where('month', '==', month))) rows.push({ ...attView(r, w), store_name: nm.get(id) || '' }); }
+    rows.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.user_name.localeCompare(b.user_name)));
+    const per = {};
+    for (const v of rows) { const p = per[v.user_id] || (per[v.user_id] = { user_id: v.user_id, user_name: v.user_name, days: 0, late_days: 0, late_minutes: 0, fee_cents: 0 }); p.days += 1; if (v.late) { p.late_days += 1; p.late_minutes += v.late_minutes; p.fee_cents += fee; } }
+    const summary = Object.values(per).sort((a, b) => b.late_days - a.late_days || b.late_minutes - a.late_minutes || a.user_name.localeCompare(b.user_name));
+    return { month, store_id: all ? 'all' : ids[0], work_start_minutes: sw?.work_start_minutes ?? 540, late_grace_minutes: sw?.late_grace_minutes ?? 0, late_fee_cents: fee, total_fee_cents: summary.reduce((n, x) => n + x.fee_cents, 0), summary, rows };
   }
   async function attStaff(q) {
     need('attendance.manage'); const storeId = assertStore(q.store_id || S().storeId);
@@ -157,7 +191,7 @@ export function createExtras(B) {
     for (const u of users) {
       if (only && homeOf(u) !== only) continue;
       const mine = att.filter((x) => x.a.userId === u.id); const lateDays = mine.filter((x) => lateInfo(x.a, x.sw).late).length; const excused = mine.filter((x) => x.a.excused && lateInfo({ ...x.a, excused: false }, x.sw).late).length;
-      const base = u.salaryCents || 0; const deduction = Math.min(base, lateDays * ded);
+      const base = u.salaryCents || 0; const deduction = 0; // late fees are paid daily by staff, never taken from salary
       const paid = !!(await read('expenses', `salary_${u.id}_${month}`));
       rows.push({ user_id: u.id, name: u.name, role: u.role, store_ids: u.storeIds || [], store_id: homeOf(u), store_name: stores.find((s) => s.id === homeOf(u))?.name || '', multi_store: (u.storeIds || []).length > 1, base_cents: base, days_present: mine.length, late_days: lateDays, excused_days: excused, deduction_cents: deduction, net_cents: base - deduction, recorded: paid });
     }
@@ -252,6 +286,8 @@ export function createExtras(B) {
     if (method === 'POST' && path === '/expenses') return expenseAdd(b);
     if (method === 'POST' && (m = path.match(/^\/expenses\/([^/]+)\/delete$/))) return expenseDelete(m[1]);
     if (method === 'GET' && path === '/attendance/me') return attMine(q);
+    if (method === 'GET' && path === '/attendance/code') return attCode(q);
+    if (method === 'GET' && (m = path.match(/^\/attendance\/([^/]+)\/selfie$/))) return attSelfie(m[1]);
     if (method === 'POST' && path === '/attendance/clock-in') return clockIn(b);
     if (method === 'POST' && path === '/attendance/clock-out') return clockOut(b);
     if (method === 'GET' && path === '/attendance/staff') return attStaff(q);

@@ -165,7 +165,7 @@ test('expenses: add, list, categories, delete; cashier cannot', async () => {
   await fails(api.get('/expenses?store_id=1'), 'FORBIDDEN');
 });
 
-test('attendance and payroll: late clock-in costs $5 a day unless excused; payroll recorded as expense; net profit', async () => {
+test('attendance and payroll: late clock-ins are counted and fees shown, but never taken from salary; payroll recorded as expense; net profit', async () => {
   const { api, cas, mgr } = await setup();
   await api.put(`/admin/users/${cas.id}`, { salary_usd: 300 });
   await api.put(`/admin/users/${mgr.id}`, { salary_usd: 600 });
@@ -180,7 +180,7 @@ test('attendance and payroll: late clock-in costs $5 a day unless excused; payro
   // manager sees it and can excuse others but not self
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'mgr@x.com', password: 'Mgr-pass-123' });
   const list = await api.get('/attendance?store_id=1&month=2026-10');
-  assert.equal(list.rows.length, 1); assert.equal(list.summary[0].late_days, 1);
+  assert.equal(list.rows.length, 1); assert.equal(list.summary[0].late_days, 1); assert.equal(list.summary[0].fee_cents, 500); assert.equal(list.total_fee_cents, 500);
   await api.post('/attendance/clock-in', { store_id: 1 });
   const mine = list.rows[0];
   await fails(api.post('/attendance/manual', { store_id: 1, user_id: mgr.id, date: '2026-10-20', in_time: '08:00' }), 'FORBIDDEN');
@@ -189,7 +189,7 @@ test('attendance and payroll: late clock-in costs $5 a day unless excused; payro
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
   let p = await api.get('/payroll?month=2026-10');
   let c = p.rows.find((r) => r.name === 'Cashier');
-  assert.equal(c.base_cents, 30000); assert.equal(c.late_days, 1); assert.equal(c.deduction_cents, 500); assert.equal(c.net_cents, 29500);
+  assert.equal(c.base_cents, 30000); assert.equal(c.late_days, 1); assert.equal(c.deduction_cents, 0); assert.equal(c.net_cents, 30000);
   const m = p.rows.find((r) => r.name === 'Mgr'); assert.equal(m.late_days, 1);
   await api.post(`/attendance/${mine.id}/excuse`, { excused: true });
   p = await api.get('/payroll?month=2026-10'); c = p.rows.find((r) => r.name === 'Cashier'); assert.equal(c.late_days, 0); assert.equal(c.net_cents, 30000); assert.equal(c.excused_days, 1);
@@ -566,4 +566,23 @@ test('report follow: deposit pickups and slow movers', async () => {
   f = await api.get('/report/follow?store_id=all&days=30');
   assert.equal(f.pickups.length, 1); assert.equal(f.pickups[0].customer_name, 'Dara');
   assert.ok(f.slow_pieces < before);
+});
+
+test('attendance QR: scan code and live selfie are required once the shop QR is on', async () => {
+  const { api, cas } = await setup();
+  const staff = await api.get('/public/stores/1/staff'); await api.post('/auth/logout');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  await fails(api.get('/attendance/code?store_id=1'), 'NO_CODE'); // only the owner switches it on
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
+  const qr = await api.get('/attendance/code?store_id=1'); assert.match(qr.code, /^\d{6}$/); assert.equal(qr.payload, `AFQR:1:${qr.code}`);
+  await api.post('/auth/logout'); await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
+  assert.equal((await api.get('/attendance/me?store_id=1')).scan_required, true);
+  await fails(api.post('/attendance/clock-in', { store_id: 1 }), 'BAD_CODE');
+  await fails(api.post('/attendance/clock-in', { store_id: 1, code: '000000', selfie: 'data:image/jpeg;base64,AAAA' }), 'BAD_CODE');
+  const mine = await api.get('/attendance/code?store_id=1');
+  await fails(api.post('/attendance/clock-in', { store_id: 1, code: mine.code }), 'SELFIE_REQUIRED');
+  const ok = await api.post('/attendance/clock-in', { store_id: 1, code: mine.code, selfie: 'data:image/jpeg;base64,AAAA' }); assert.ok(ok.record);
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
+  const l = await api.get('/attendance?store_id=all&month=2026-10'); assert.equal(l.rows.length, 1); assert.equal(l.rows[0].has_selfie, true);
+  assert.equal((await api.get(`/attendance/${l.rows[0].id}/selfie`)).selfie, 'data:image/jpeg;base64,AAAA');
 });
