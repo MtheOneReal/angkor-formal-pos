@@ -94,7 +94,7 @@ td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middl
 .tabs { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
 .bottomnav { display:none; }
 @media (max-width:860px) {
-  .shell { grid-template-columns:1fr; grid-template-rows:1fr 62px; } .side { display:none; }
+  .shell { grid-template-columns:1fr; grid-template-rows:1fr; } .side { display:none; }
   .bottomnav { display:flex; border-top:1px solid var(--line); background:var(--surface); overflow-x:auto; } .bottomnav button { flex:1; min-width:70px; border:0; background:none; font-size:11px; color:var(--muted); padding:6px; } .bottomnav button.on { color:var(--accent); font-weight:600; }
   .main { padding:14px 12px 24px; } .pos { grid-template-columns:minmax(0,1fr); height:auto; } .pos .left { overflow:visible; } .g4,.g3 { grid-template-columns:repeat(2,1fr); }
   .filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .pgrid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; }
@@ -266,3 +266,6 @@ html { background:#F2EBDD; min-height:100%; }
 html.bg-dark { background:#0C0A08; }
 body { min-height:100vh; min-height:100dvh; }
 @supports (-webkit-touch-callout: none) { #root, .login { min-height:100dvh; } }
+
+/* phone: keep the bottom menu clear of the home bar when installed on the home screen */
+@media (max-width:860px) { .bottomnav { padding-bottom:env(safe-area-inset-bottom); } }
