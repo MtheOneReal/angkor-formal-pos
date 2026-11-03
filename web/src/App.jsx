@@ -5,7 +5,6 @@ import { Ctx, useApp, useT, PinPad, Modal, Spinner } from './ui.jsx';
 import { tr } from './i18n.js';
 import Register from './screens/Register.jsx';
 import Clock from './screens/Clock.jsx';
-import { ShopQR } from './screens/AttendanceScan.jsx';
 import Capital from './screens/Capital.jsx';
 import Restock from './screens/Restock.jsx';
 import Jobs from './screens/Jobs.jsx';
@@ -202,7 +201,7 @@ export default function App() {
               <div className="topbar" style={cur === 'register' ? { flexWrap: 'nowrap' } : undefined}>
                 {me.stores.length > 1 && <select value={me.store_id} onChange={(e) => setStore(e.target.value)} style={{ width: 'auto', minWidth: 220 }} aria-label="Store">
                   {me.stores.map((s) => <option key={s.id} value={s.id}>{s.kind === 'warehouse' ? '🏬 ' : ''}{s.name}</option>)}</select>}
-                {cur === 'register' && <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>{me.perms.includes('attendance.use') && me.store_id && <ShopQR storeId={me.store_id} />}<Clock /></span>}
+                {cur === 'register' && <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}><Clock /></span>}
               </div>
             )}
             {cur === 'account' && <div className="row mobileprefs" style={{ marginBottom: 12 }}>
