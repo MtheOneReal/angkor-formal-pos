@@ -62,7 +62,8 @@ function Stores() {
           <span><b>{wh ? 'This warehouse is in use' : 'This store is in use'}</b><span className="muted small"> — untick to remove it from the lists (history is kept)</span></span></label>
         {!wh && <>
         <label>Receipt footer</label><input defaultValue={s.receipt_footer} key={`f${s.id}`} onBlur={(e) => e.target.value !== s.receipt_footer && save({ receipt_footer: e.target.value })} />
-        <label>Shop contact on receipt (phone, address)</label><input defaultValue={s.receipt_contact || ''} key={`c${s.id}`} placeholder="e.g. 012 345 678 · Wat Koh, Siem Reap" onBlur={(e) => e.target.value !== (s.receipt_contact || '') && save({ receipt_contact: e.target.value })} />
+        <label>Shop address on receipt (printed under the shop name)</label><textarea rows={3} defaultValue={s.receipt_address || ''} key={`ad${s.id}`} placeholder="House no., street, village, commune, district, city" onBlur={(e) => e.target.value !== (s.receipt_address || '') && save({ receipt_address: e.target.value })} />
+        <label>Shop contact on receipt (phone)</label><input defaultValue={s.receipt_contact || ''} key={`c${s.id}`} placeholder="e.g. 012 345 678 · Wat Koh, Siem Reap" onBlur={(e) => e.target.value !== (s.receipt_contact || '') && save({ receipt_contact: e.target.value })} />
         <label>Social media icons on receipt (tick to show)</label>
         <label style={{ display: 'flex', gap: 12, alignItems: 'center', textTransform: 'none', fontSize: 15, color: 'var(--text)', margin: '4px 0' }}>
           <input type="checkbox" checked={s.receipt_social_mode === 'one'} onChange={(e) => save({ receipt_social_mode: e.target.checked ? 'one' : 'each' })} style={{ width: 22, height: 22, minHeight: 0 }} />

@@ -534,3 +534,10 @@ test('receipt can use one handle for all social icons', async () => {
   const s2 = (await api.get('/admin/stores')).stores.find((x) => x.id === st.id);
   assert.equal(s2.receipt_social_mode, 'one'); assert.equal(s2.receipt_social_one, '@angkorformal');
 });
+
+test('shop address for the receipt is editable and kept on the sale', async () => {
+  const { api } = await setup();
+  const st = (await api.get('/admin/stores')).stores.find((x) => x.kind !== 'warehouse');
+  await api.put(`/admin/stores/${st.id}`, { receipt_address: 'ផ្ទះNS-15A មហាវិថីនរា' });
+  assert.equal((await api.get('/admin/stores')).stores.find((x) => x.id === st.id).receipt_address, 'ផ្ទះNS-15A មហាវិថីនរា');
+});

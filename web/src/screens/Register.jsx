@@ -43,6 +43,7 @@ function Receipt({ sale, onDone }) {
     <Modal title={t('receipt')} onClose={onDone}>
       <div className="receipt" id="receipt">
         <div style={{ textAlign: 'center' }}><b style={{ fontSize: 15 }}>{sale.store_name}</b>
+          {sale.receipt_address && <div className="small" style={{ whiteSpace: 'pre-line' }}>{sale.receipt_address}</div>}
           {sale.receipt_contact && <div className="small" style={{ whiteSpace: 'pre-line' }}>{sale.receipt_contact}</div>}
           <div>{new Date(sale.ts).toLocaleString('en-GB', { timeZone: 'Asia/Phnom_Penh' })}</div><div>{sale.receipt_no}</div></div>
         {sale.cashier_name && <div className="l" style={{ marginTop: 4 }}><span>Cashier / អ្នកលក់</span><b>{sale.cashier_name}</b></div>}
