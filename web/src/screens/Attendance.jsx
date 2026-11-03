@@ -18,7 +18,7 @@ function Mine() {
     <div className="card" style={{ maxWidth: 460 }}>
       <h3>My attendance — {m.date}</h3>
       <p className="muted">Work starts at {hhmm(m.work_start_minutes)}{m.late_grace_minutes ? ` (${m.late_grace_minutes} min allowed)` : ''}.</p>
-      {!r && <button className="btn primary big" style={{ width: '100%' }} disabled={busy} onClick={() => (m.checks?.qr || m.checks?.geo ? setScan(true) : act('clock-in'))}>{m.checks?.qr || m.checks?.geo ? '📷 ' : ''}Clock in</button>}
+      {!r && <button className="btn primary big" style={{ width: '100%' }} disabled={busy} onClick={() => setScan(true)}>📷 Clock in</button>}
       {r && <>
         <p>Arrived at <b>{clock(r.in_ts)}</b> {r.late_minutes > 0 && <span className={`badge ${r.excused ? 'ok' : 'out'}`}>{r.excused ? 'late (excused)' : `late ${r.late_minutes} min`}</span>}</p>
         {r.out_ts ? <p>Left at <b>{clock(r.out_ts)}</b></p> : <button className="btn primary big" style={{ width: '100%' }} disabled={busy} onClick={() => act('clock-out')}>Clock out</button>}
@@ -54,7 +54,7 @@ function Team() {
       {err && <div className="error">{err}</div>}
       {d && <>
         {!all && me.role === 'owner' && cs && <div className="card" style={{ marginBottom: 12 }}><h3>Clock-in checks for this shop</h3>
-          <p className="muted small" style={{ margin: '4px 0 8px' }}>Staff always take a live selfie when a check is on. Turn on at least one.</p>
+          <p className="muted small" style={{ margin: '4px 0 8px' }}>Staff always take a live selfie to clock in. These checks also confirm they are at the shop.</p>
           <div className="row wrap" style={{ gap: 8 }}>
             <button className="btn" onClick={here}>📍 {cs.geo ? 'Update shop location (use at the shop)' : 'Set shop location (use at the shop)'}</button>
             <label className="small muted">Allowed distance (m)</label><input type="number" min="30" max="2000" value={rad} onChange={(e) => setRad(e.target.value)} style={{ width: 90 }} />

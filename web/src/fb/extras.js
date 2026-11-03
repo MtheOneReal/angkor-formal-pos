@@ -152,7 +152,7 @@ export function createExtras(B) {
       distM = Math.round(meters(chk.geo.lat, chk.geo.lng, la, lo));
       if (distM > chk.geo.radius + acc) throw bad('TOO_FAR', `You are about ${distM} m from the shop. Clock in when you are at the shop.`);
     }
-    if (chk.qr || chk.geo) {
+    {
       if (typeof b.selfie !== 'string' || !b.selfie.startsWith('data:image/jpeg') || b.selfie.length > 150000) throw bad('SELFIE_REQUIRED', 'Take a selfie to clock in.');
       selfie = b.selfie;
     }

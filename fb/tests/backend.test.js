@@ -172,8 +172,8 @@ test('attendance and payroll: late clock-ins are counted and fees shown, but nev
   const staff = await api.get('/public/stores/1/staff'); await api.post('/auth/logout');
   await api.post('/auth/pin-login', { store_id: 1, user_id: staff.find((x) => x.name === 'Cashier').id, pin: '123456' });
   const me0 = await api.get('/attendance/me?store_id=1'); assert.equal(me0.record, null);
-  const inn = await api.post('/attendance/clock-in', { store_id: 1 }); assert.equal(inn.record.late, true); // test clock is 10:00 local, work starts 09:00
-  await fails(api.post('/attendance/clock-in', { store_id: 1 }), 'ALREADY_IN');
+  const inn = await api.post('/attendance/clock-in', { store_id: 1, selfie: 'data:image/jpeg;base64,AAAA' }); assert.equal(inn.record.late, true); // test clock is 10:00 local, work starts 09:00
+  await fails(api.post('/attendance/clock-in', { store_id: 1, selfie: 'data:image/jpeg;base64,AAAA' }), 'ALREADY_IN');
   await api.post('/attendance/clock-out', { store_id: 1 });
   await fails(api.get('/attendance?store_id=1'), 'FORBIDDEN');
   await fails(api.get('/payroll'), 'FORBIDDEN');
@@ -181,7 +181,7 @@ test('attendance and payroll: late clock-ins are counted and fees shown, but nev
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'mgr@x.com', password: 'Mgr-pass-123' });
   const list = await api.get('/attendance?store_id=1&month=2026-10');
   assert.equal(list.rows.length, 1); assert.equal(list.summary[0].late_days, 1); assert.equal(list.summary[0].fee_cents, 500); assert.equal(list.total_fee_cents, 500);
-  await api.post('/attendance/clock-in', { store_id: 1 });
+  await api.post('/attendance/clock-in', { store_id: 1, selfie: 'data:image/jpeg;base64,AAAA' });
   const mine = list.rows[0];
   await fails(api.post('/attendance/manual', { store_id: 1, user_id: mgr.id, date: '2026-10-20', in_time: '08:00' }), 'FORBIDDEN');
   await api.post('/attendance/manual', { store_id: 1, user_id: mine.user_id, date: '2026-10-20', in_time: '08:55', out_time: '18:00' });
