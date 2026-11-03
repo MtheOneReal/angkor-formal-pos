@@ -201,6 +201,10 @@ export default function App() {
                 {cur === 'register' && <span style={{ marginLeft: 'auto' }}><Clock /></span>}
               </div>
             )}
+            {cur === 'account' && <div className="row mobileprefs" style={{ marginBottom: 12 }}>
+              <button className="chip" onClick={() => prefs({ lang: lang === 'en' ? 'km' : 'en' })}>{lang === 'en' ? 'ខ្មែរ' : 'EN'}</button>
+              <button className="chip" onClick={() => prefs({ theme: effTheme === 'dark' ? 'light' : 'dark' })} aria-label={t('theme')}>{effTheme === 'dark' ? '☀' : '☾'}</button>
+            </div>}
             {store && <Screen key={`${cur}-${me.store_id}`} />}
           </main>
         </div>

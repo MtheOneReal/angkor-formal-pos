@@ -123,7 +123,7 @@ function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCance
   return (
     <div className="paypanel">
       <div className="payrow">
-        <select value={method === 'khqr' ? 'khqr' : cur === 'KHR' ? 'khr' : 'usd'} onChange={(e) => { const v = e.target.value; if (v === 'khqr') setMethod('khqr'); else { setMethod('cash'); setCur(v === 'khr' ? 'KHR' : 'USD'); } }} aria-label="Payment method"><option value="usd">{t('cash')} USD $</option><option value="khr">{t('cash')} KHR ៛</option><option value="khqr">{t('khqr')}</option></select>
+        <select value={method === 'khqr' ? 'khqr' : cur === 'KHR' ? 'khr' : 'usd'} onChange={(e) => { const v = e.target.value; if (v === 'khqr') setMethod('khqr'); else { setMethod('cash'); setCur(v === 'khr' ? 'KHR' : 'USD'); } }} aria-label="Payment method"><option value="usd">{t('cash')} $</option><option value="khr">{t('cash')} ៛</option><option value="khqr">{t('khqr')}</option></select>
         <select value={dep ? 'dep' : 'full'} onChange={(e) => setDep(e.target.value === 'dep')} aria-label="Full or deposit"><option value="full">{t('pay_full')}</option><option value="dep">{t('deposit')}</option></select>
       </div>
       <div className="paysum">

@@ -53,7 +53,7 @@ function Stores() {
   const wh = s.kind === 'warehouse';
   return (
     <div>
-      <select value={sid} onChange={(e) => setSid(Number(e.target.value))} style={{ width: 'auto', minWidth: 260 }}>{data.stores.map((x) => <option key={x.id} value={x.id}>{x.kind === 'warehouse' ? '🏬 ' : ''}{x.name}{x.kind !== 'warehouse' && brandList.length ? ` — ${brandList.find((b) => Number(b.id) === Number(x.brand_id))?.name || '?'} (${brandList.find((b) => Number(b.id) === Number(x.brand_id))?.code || '?'})` : ''}</option>)}</select>
+      <select value={sid} onChange={(e) => setSid(Number(e.target.value))} style={{ width: 'auto', minWidth: 260, maxWidth: '100%' }}>{data.stores.map((x) => <option key={x.id} value={x.id}>{x.kind === 'warehouse' ? '🏬 ' : ''}{x.name}{x.kind !== 'warehouse' && brandList.length ? ` — ${brandList.find((b) => Number(b.id) === Number(x.brand_id))?.name || '?'} (${brandList.find((b) => Number(b.id) === Number(x.brand_id))?.code || '?'})` : ''}</option>)}</select>
       <div className="card" style={{ marginTop: 12 }}>
         <label>{wh ? 'Warehouse name' : 'Store name'}</label><input defaultValue={s.name} key={`n${s.id}`} onBlur={(e) => e.target.value !== s.name && save({ name: e.target.value })} />
         {!wh && <><label>Brand</label><select key={`b${s.id}`} value={s.brand_id ?? ''} onChange={(e) => save({ brand_id: Number(e.target.value) })}>{brandList.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></>}

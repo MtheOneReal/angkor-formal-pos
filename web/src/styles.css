@@ -174,3 +174,14 @@ body[data-inv-tab="find"] .topbar { display:none; }
 
 /* the left column scrolls (overflow:auto), which clipped the focus ring on the search box; leave room for the ring */
 .pos .left { padding:4px 4px 0; }
+
+/* cropping fixes found by the layout audit */
+.pos .cart .payrow select { padding-right:34px; }
+@media (max-width:860px) { .pos .left > .row { flex-wrap:wrap; } .pos .left > .row > .scanbox { flex:1 1 100%; } }
+.pos .cart .g2 input { padding-left:10px; padding-right:8px; font-size:14px; }
+
+.modal label a, .modal a { color:var(--accent); }
+@media (max-height:900px) and (min-width:861px) { .nav { padding:7px 12px; } .side img.logo { width:120px; margin:2px 8px 8px; } .side { padding:10px 12px; gap:2px; } }
+
+.row.wrap > .grow { min-width:160px; }
+.mobileprefs { display:none; } @media (max-width:860px) { .mobileprefs { display:flex; } }
