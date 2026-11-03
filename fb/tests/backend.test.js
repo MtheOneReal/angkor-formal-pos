@@ -554,3 +554,16 @@ test('report extras: expenses by category and money customers still owe', async 
   assert.ok(Array.isArray(x.expenses_by_category));
   await fails(api.get('/report/extras?store_id=99&from=2026-01-01&to=2026-01-02'), 'BAD_INPUT');
 });
+
+test('report follow: deposit pickups and slow movers', async () => {
+  const { api, d } = await setup();
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 5 }] });
+  await api.post('/shifts/open', { store_id: 1, open_usd: 0, open_khr: 0 });
+  let f = await api.get('/report/follow?store_id=all&days=30');
+  assert.ok(f.slow_count >= 1 && f.slow_pieces >= 5); const before = f.slow_pieces;
+  await api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 5000 }], deposit: true, customer_name: 'Dara', customer_phone: '012111222' });
+  f = await api.get('/report/follow?store_id=all&days=30');
+  assert.equal(f.pickups.length, 1); assert.equal(f.pickups[0].customer_name, 'Dara');
+  assert.ok(f.slow_pieces < before);
+});

@@ -48,6 +48,44 @@ function Bars({ rows, label, value, fmt, colors }) {
 }
 const COL = ['var(--chart1)', '#3b6ea5', '#7a9e6c', '#b9573f', '#8b6aa8'];
 
+
+function Follow({ sel, L }) {
+  const [days, setDays] = useState(60); const [d, setD] = useState(null); const [err, setErr] = useState(''); const [copied, setCopied] = useState('');
+  useEffect(() => { setD(null); setErr(''); api.get(`/report/follow${qs({ store_id: sel, days })}`).then(setD).catch((e) => setErr(e.message)); }, [sel, days]);
+  const msg = (r) => `សួស្តី ${r.customer_name || ''} ពី ${r.store_name}។ សូមរំលឹកថាអ្នកនៅសល់ប្រាក់ ${usd(r.balance_cents)} សម្រាប់វិក្កយបត្រ ${r.receipt_no}។ សូមអញ្ជើញមកយកទំនិញ និងបង់ប្រាក់ដែលនៅសល់។ សូមអរគុណ!`;
+  const copy = async (r) => { try { await navigator.clipboard.writeText(msg(r)); setCopied(r.receipt_no); setTimeout(() => setCopied(''), 2000); } catch { setErr(L('Could not copy.', 'មិនអាចចម្លងបានទេ។')); } };
+  const tel = (x) => String(x || '').replace(/[^\d+]/g, '');
+  const rank = (r) => (r.days_late > 0 ? 0 : r.due_date === iso(phnom()) ? 1 : 2);
+  const rows = d ? [...d.pickups].sort((a, b) => rank(a) - rank(b)) : [];
+  return (
+    <div style={{ marginTop: 22 }}>
+      <h2 style={{ margin: '0 0 4px' }}>{L('Follow up', 'តាមដាន')}</h2>
+      {err && <div className="error">{err}</div>}
+      {!d && !err && <p className="muted">…</p>}
+      {d && <div className="grid g2" style={{ marginTop: 8 }}>
+        <div className="card"><h3>{L('Customers to call', 'អតិថិជនត្រូវទូរស័ព្ទ')}</h3>
+          {!rows.length ? <p className="muted">{L('No open deposits. 👍', 'គ្មានការកក់ទេ។ 👍')}</p> : <div className="col">{rows.slice(0, 10).map((r) => (
+            <div key={r.receipt_no} style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+              <div className="row between"><b>{r.customer_name || r.receipt_no}</b><b className="num">{usd(r.balance_cents)}</b></div>
+              <div className="small" style={{ color: r.days_late > 0 ? 'var(--bad)' : 'var(--muted)', fontWeight: r.days_late > 0 ? 600 : 400 }}>
+                {r.days_late > 0 ? L(`${r.days_late} days late`, `យឺត ${r.days_late} ថ្ងៃ`) : r.due_date === iso(phnom()) ? L('Pickup today', 'យកថ្ងៃនេះ') : r.due_date ? `${L('Pickup', 'យក')} ${r.due_date.slice(5)}` : L('No pickup date', 'គ្មានកាលបរិច្ឆេទ')} · {r.store_name}</div>
+              <div className="row wrap" style={{ gap: 6, marginTop: 6 }}>
+                {r.customer_phone && <a className="btn" href={`tel:${tel(r.customer_phone)}`}>📞 {L('Call', 'ទូរស័ព្ទ')} {r.customer_phone}</a>}
+                <button className="btn" onClick={() => copy(r)}>{copied === r.receipt_no ? L('Copied ✓', 'បានចម្លង ✓') : L('Copy Khmer message', 'ចម្លងសារខ្មែរ')}</button>
+                {r.customer_phone && <a className="btn" href={`sms:${tel(r.customer_phone)}?&body=${encodeURIComponent(msg(r))}`}>✉️ SMS</a>}</div></div>))}
+            {rows.length > 10 && <p className="small muted">{L(`+ ${rows.length - 10} more`, `+ ទៀត ${rows.length - 10}`)}</p>}</div>}</div>
+        <div className="card"><div className="row between wrap"><h3>{L('Not selling', 'មិនសូវលក់ដាច់')}</h3>
+          <div className="row" style={{ gap: 6 }}>{[30, 60, 90].map((n) => <button key={n} className={`chip ${days === n ? 'on' : ''}`} onClick={() => setDays(n)}>{n} {L('days', 'ថ្ងៃ')}</button>)}</div></div>
+          <p className="small muted" style={{ margin: '4px 0 8px' }}>{L(`In stock but nothing sold in ${days} days. Try moving them to another shop or discounting.`, `មានស្តុក តែមិនបានលក់ក្នុង ${days} ថ្ងៃ។ ព្យាយាមផ្ទេរទៅហាងផ្សេង ឬបញ្ចុះតម្លៃ។`)}</p>
+          {!d.slow.length ? <p className="muted">{L('Everything has sold recently. 👍', 'ទំនិញទាំងអស់បានលក់ថ្មីៗ។ 👍')}</p> : <>
+            <p style={{ margin: '0 0 6px' }}><b className="num" style={{ fontSize: 22 }}>{d.slow_pieces}</b> <span className="muted small">{L('pieces', 'ដុំ')}{d.slow_value_cents != null && <> · {L('money tied up', 'លុយជាប់')} <b>{usd(d.slow_value_cents)}</b></>}</span></p>
+            <div className="col small">{d.slow.map((x, i) => <div key={i} className="row between"><span>{(L(x.name_en, x.name_km || x.name_en))}{sel === 'all' && <span className="muted"> · {x.store_name}</span>}</span><b className="num">{x.pieces} {L('pcs', 'ដុំ')}{x.value_cents != null && <span className="muted"> · {usdShort(x.value_cents)}</span>}</b></div>)}
+              {d.slow_count > d.slow.length && <span className="muted">{L(`+ ${d.slow_count - d.slow.length} more designs`, `+ ម៉ូដែលទៀត ${d.slow_count - d.slow.length}`)}</span>}</div></>}</div>
+      </div>}
+    </div>
+  );
+}
+
 export default function Overview({ sel, stores, L }) {
   const [p, setP] = useState('today'); const [d, setD] = useState(null); const [err, setErr] = useState('');
   const R = useMemo(() => ranges(p), [p]);
@@ -119,6 +157,7 @@ export default function Overview({ sel, stores, L }) {
       {err && <div className="error">{err}</div>}
       {!d && !err && <p className="muted">…</p>}
       {body}
+      <Follow sel={sel} L={L} />
     </div>
   );
 }

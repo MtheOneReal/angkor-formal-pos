@@ -74,6 +74,36 @@ export function createMore(B) {
       owed: { count: open.length, total_cents: open.reduce((n, r) => n + (r.balanceCents || 0), 0), overdue_count: open.filter((r) => r.dueDate && r.dueDate < today).length, overdue_cents: open.filter((r) => r.dueDate && r.dueDate < today).reduce((n, r) => n + (r.balanceCents || 0), 0), rows: owedRows },
     };
   }
+  // ---------- follow-up lists: deposit pickups and slow-moving stock ----------
+  async function reportFollow(q) {
+    need('report.view');
+    const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse'); const sel = String(q.store_id || 'all');
+    const ids = sel === 'all' ? stores.map((x) => Number(x.id)) : [Number(sel)];
+    if (sel !== 'all' && !stores.find((x) => Number(x.id) === ids[0])) throw bad('BAD_INPUT', 'Unknown store.');
+    const days = [30, 60, 90].includes(Number(q.days)) ? Number(q.days) : 60;
+    const today = dateOf(now()); const nm = new Map(stores.map((x) => [Number(x.id), x.name]));
+    const addD = (d, n) => { const t = new Date(`${d}T00:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+    const pickups = (await list('balances')).filter((r) => !r.settled && ids.includes(Number(r.storeId)))
+      .sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999')))
+      .map((r) => ({ receipt_no: r.receiptNo, customer_name: r.customerName || '', customer_phone: r.customerPhone || '', balance_cents: r.balanceCents || 0, due_date: r.dueDate || null, store_name: nm.get(Number(r.storeId)) || '', days_late: r.dueDate && r.dueDate < today ? Math.round((new Date(`${today}T00:00:00Z`) - new Date(`${r.dueDate}T00:00:00Z`)) / 86400000) : 0 }));
+    // slow movers: designs with stock in the shop but nothing sold in the last N days
+    const cat = await B.loadCatalog(); const costs = can('cost.view') ? await B.loadCosts() : null; const stock = await B.stockOfAll();
+    const sold = new Set();
+    for (const id of ids) for (let i = 0; i < days; i++) {
+      const doc = await read('dailyStats', `${id}_${addD(today, -i)}`).catch(() => null);
+      for (const [iid, v] of Object.entries(doc?.byItem || {})) if ((v.qty || 0) > 0) { const it = cat.items.find((x) => x.id === Number(iid)); if (it) sold.add(`${id}_${it.designId}`); }
+    }
+    const per = new Map();
+    for (const r of stock) {
+      if (!ids.includes(Number(r.storeId)) || (r.onHand || 0) <= 0) continue;
+      const it = cat.items.find((x) => x.id === Number(r.itemId)); if (!it || it.active === false || sold.has(`${r.storeId}_${it.designId}`)) continue;
+      const k = `${r.storeId}_${it.designId}`; const d = cat.designs.get(String(it.designId));
+      const v = per.get(k) || { store_name: nm.get(Number(r.storeId)) || '', name_en: d?.nameEn || it.sku, name_km: d?.nameKm || '', pieces: 0, value_cents: costs ? 0 : null };
+      v.pieces += r.onHand; if (costs) v.value_cents += r.onHand * (costs.get(String(it.designId)) ?? 0); per.set(k, v);
+    }
+    const slow = [...per.values()].sort((a, b) => (b.value_cents ?? b.pieces) - (a.value_cents ?? a.pieces));
+    return { days, pickups, slow: slow.slice(0, 15), slow_count: slow.length, slow_pieces: slow.reduce((n, x) => n + x.pieces, 0), slow_value_cents: costs ? slow.reduce((n, x) => n + x.value_cents, 0) : null };
+  }
   async function report(q) {
     need('report.view');
     const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse'); const sel = String(q.store_id || 'all'); const ids = sel === 'all' ? stores.map((x) => x.id) : [Number(sel)];
@@ -304,6 +334,7 @@ export function createMore(B) {
     if (method === 'GET' && path === '/alterations') return jobsList(q);
     if (method === 'POST' && (m = path.match(/^\/alterations\/([^/]+)$/))) return jobUpdate(m[1], b);
     if (method === 'GET' && path === '/report/extras') return reportExtras(q);
+    if (method === 'GET' && path === '/report/follow') return reportFollow(q);
     if (method === 'GET' && path === '/report') return report(q);
     if (method === 'GET' && path === '/capital/profit') return profit(q);
     if (method === 'POST' && path === '/capital/reserve') return reserveSave(b);
