@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../api.js';
+import { api, qs } from '../api.js';
 import { useApp } from '../ui.jsx';
 import { usd, usdShort } from '../format.js';
+import Overview from './ReportOverview.jsx';
 
 const thisMonth = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7);
 
@@ -18,6 +19,8 @@ export default function Report() {
       <div className="row between wrap"><h1>{L('Report', 'របាយការណ៍')}</h1>
         <div className="row wrap"><select value={sel} onChange={(e) => setSel(e.target.value)} style={{ width: 'auto', minWidth: 210 }}><option value="all">{L('All stores combined', 'គ្រប់សាខារួមគ្នា')}</option>{d.stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           <input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} style={{ width: 'auto' }} /></div></div>
+      <Overview sel={sel} stores={d.stores} L={L} />
+      <h2 style={{ margin: '22px 0 4px' }}>{L('Month in detail', 'ខែលម្អិត')} <span className="muted small">({month})</span></h2>
       <div className="grid g4" style={{ margin: '12px 0' }}>
         <Kpi l={L('Sales', 'ការលក់')} v={t.sales_cents} sub={`${t.orders} ${L('orders', 'ការបញ្ជាទិញ')}`} />
         <Kpi l={L('Cost of goods', 'ថ្លៃដើមទំនិញ')} v={t.cogs_cents} />

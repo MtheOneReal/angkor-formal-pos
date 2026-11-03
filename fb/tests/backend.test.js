@@ -541,3 +541,16 @@ test('shop address for the receipt is editable and kept on the sale', async () =
   await api.put(`/admin/stores/${st.id}`, { receipt_address: 'ផ្ទះNS-15A មហាវិថីនរា' });
   assert.equal((await api.get('/admin/stores')).stores.find((x) => x.id === st.id).receipt_address, 'ផ្ទះNS-15A មហាវិថីនរា');
 });
+
+test('report extras: expenses by category and money customers still owe', async () => {
+  const { api, d } = await setup();
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 5 }] });
+  await api.post('/shifts/open', { store_id: 1, open_usd: 0, open_khr: 0 });
+  await api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 5000 }], deposit: true, customer_name: 'Dara', customer_phone: '012111222' });
+  const day = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+  const x = await api.get(`/report/extras?store_id=all&from=${day.slice(0, 8)}01&to=${day.slice(0, 8)}31`);
+  assert.equal(x.owed.count, 1); assert.equal(x.owed.total_cents, 15000); assert.equal(x.owed.rows[0].customer_name, 'Dara');
+  assert.ok(Array.isArray(x.expenses_by_category));
+  await fails(api.get('/report/extras?store_id=99&from=2026-01-01&to=2026-01-02'), 'BAD_INPUT');
+});

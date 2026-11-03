@@ -53,6 +53,27 @@ export function createMore(B) {
   }
 
   // ---------- shareholder / owner monthly report ----------
+  // ---------- owner overview extras: where the shop money went, and what customers still owe ----------
+  async function reportExtras(q) {
+    need('report.view');
+    const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse'); const sel = String(q.store_id || 'all');
+    const ids = sel === 'all' ? stores.map((x) => Number(x.id)) : [Number(sel)];
+    if (sel !== 'all' && !stores.find((x) => Number(x.id) === ids[0])) throw bad('BAD_INPUT', 'Unknown store.');
+    const from = ymd(q.from); const to = ymd(q.to); if (from > to) throw bad('BAD_INPUT', 'The start date is after the end date.');
+    const months = []; for (let m = from.slice(0, 7); m <= to.slice(0, 7);) { months.push(m); const [y, mo] = m.split('-').map(Number); m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`; }
+    const cats = new Map(); let expTotal = 0;
+    for (const id of ids) for (const m of months) for (const r of await list('expenses', where('storeId', '==', id), where('month', '==', m))) {
+      if (r.date >= from && r.date <= to) { const k = r.category || 'Other'; cats.set(k, (cats.get(k) || 0) + (r.amountCents || 0)); expTotal += r.amountCents || 0; }
+    }
+    const today = dateOf(now()); const nm = new Map(stores.map((x) => [Number(x.id), x.name]));
+    const open = (await list('balances')).filter((r) => !r.settled && ids.includes(Number(r.storeId)));
+    const owedRows = open.sort((a, b) => String(a.dueDate || '9999').localeCompare(String(b.dueDate || '9999'))).slice(0, 8)
+      .map((r) => ({ receipt_no: r.receiptNo, customer_name: r.customerName || '', customer_phone: r.customerPhone || '', balance_cents: r.balanceCents || 0, due_date: r.dueDate || null, store_name: nm.get(Number(r.storeId)) || '', overdue: !!(r.dueDate && r.dueDate < today) }));
+    return {
+      from, to, expenses_total_cents: expTotal, expenses_by_category: [...cats.entries()].map(([category, cents]) => ({ category, cents })).sort((a, b) => b.cents - a.cents),
+      owed: { count: open.length, total_cents: open.reduce((n, r) => n + (r.balanceCents || 0), 0), overdue_count: open.filter((r) => r.dueDate && r.dueDate < today).length, overdue_cents: open.filter((r) => r.dueDate && r.dueDate < today).reduce((n, r) => n + (r.balanceCents || 0), 0), rows: owedRows },
+    };
+  }
   async function report(q) {
     need('report.view');
     const stores = (await B.loadStores()).filter((x) => x.active !== false && x.kind !== 'warehouse'); const sel = String(q.store_id || 'all'); const ids = sel === 'all' ? stores.map((x) => x.id) : [Number(sel)];
@@ -282,6 +303,7 @@ export function createMore(B) {
     if (method === 'POST' && (m = path.match(/^\/balances\/([^/]+)\/collect$/))) return collect(m[1], b);
     if (method === 'GET' && path === '/alterations') return jobsList(q);
     if (method === 'POST' && (m = path.match(/^\/alterations\/([^/]+)$/))) return jobUpdate(m[1], b);
+    if (method === 'GET' && path === '/report/extras') return reportExtras(q);
     if (method === 'GET' && path === '/report') return report(q);
     if (method === 'GET' && path === '/capital/profit') return profit(q);
     if (method === 'POST' && path === '/capital/reserve') return reserveSave(b);
