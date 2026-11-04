@@ -107,8 +107,20 @@ function Users() {
   return (
     <div>
       <button className="btn primary" onClick={() => setEdit({ name: '', role: 'cashier', store_ids: [], email: '', password: '', pin: '' })}>＋ Add staff</button>
-      <div className="card" style={{ marginTop: 12, overflow: 'auto' }}><table><thead><tr><th>Name</th><th>Role</th><th>Stores</th><th></th></tr></thead>
-        <tbody>{data.users.map((u) => <tr key={u.id} className="click" onClick={() => setEdit({ ...u, password: '', pin: '' })} style={{ opacity: u.active ? 1 : .5 }}><td><b>{u.name}</b>{u.is_super && <span className="badge ok" style={{ marginLeft: 8 }}>👑 Super admin</span>}{u.demo && <span className="badge low" style={{ marginLeft: 8 }}>demo</span>}<div className="small muted">{u.email}</div></td><td>{u.role}</td><td>{u.role === 'owner' ? 'All' : u.store_ids.map((id) => stores.find((s) => s.id === id)?.code).join(', ')}</td><td>{!u.active && 'inactive'}</td></tr>)}</tbody></table></div>
+      <div className="card stafflist" style={{ marginTop: 12 }}>
+        <div className="srow shead"><span>Name</span><span>Role</span><span>Shops</span><span>Phone</span><span className="r">Salary / month</span></div>
+        {data.users.map((u) => {
+          const shops = u.role === 'owner' || u.role === 'shareholder' ? 'All shops' : u.store_ids.map((id) => stores.find((s) => s.id === id)?.name).filter(Boolean).join(' · ');
+          return (
+            <div key={u.id} className="srow click" role="button" tabIndex={0} onClick={() => setEdit({ ...u, password: '', pin: '' })} onKeyDown={(e) => e.key === 'Enter' && setEdit({ ...u, password: '', pin: '' })} style={{ opacity: u.active ? 1 : .5 }}>
+              <span className="sname"><b>{u.name}</b>{u.is_super && <span className="badge ok" style={{ marginLeft: 8 }}>👑 Super admin</span>}{u.demo && <span className="badge low" style={{ marginLeft: 8 }}>demo</span>}{!u.active && <span className="badge" style={{ marginLeft: 8 }}>inactive</span>}{u.email && <div className="small muted">{u.email}</div>}</span>
+              <span><span className="badge">{u.role}</span></span>
+              <span className="sshops">{shops || '—'}</span>
+              <span className="sphone">{u.phone ? <a href={`tel:${u.phone.replace(/\s+/g, '')}`} onClick={(e) => e.stopPropagation()}>{u.phone}</a> : <span className="muted">—</span>}</span>
+              <span className="r snum">{u.salary_usd ? `$${u.salary_usd.toLocaleString()}` : <span className="muted">—</span>}</span>
+            </div>);
+        })}
+      </div>
       {edit && <UserForm u={edit} stores={stores} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
     </div>
   );
