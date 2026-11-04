@@ -46,6 +46,18 @@ export function createApi(B, extra = {}) {
     try { await auth.changePassword(String(b.current_password || ''), next); } catch { throw new ApiErr(401, 'BAD_LOGIN', 'Your current password is not correct.'); }
     await audit(S().storeId, 'password.change', 'user', S().uid, {}); return { ok: true };
   }
+  // A cashier changes their own PIN: the old PIN is checked first. The new PIN keeps the same number of digits so the till login still signs in by itself.
+  async function changePin(b) {
+    if (S().user.role !== 'cashier') throw forbidden('Only cashiers use a PIN.');
+    const cur = String(b.current_pin || ''); const next = String(b.new_pin || '');
+    if (!/^\d{4,6}$/.test(next)) throw bad('BAD_PIN', 'The new PIN must be 4 to 6 digits.');
+    if (next === cur) throw bad('SAME_PIN', 'The new PIN must be different.');
+    const dir = await read('staffDirectory', S().uid); const want = dir?.pinLength || 0;
+    if (want && next.length !== want) throw bad('PIN_LENGTH', `Your PIN has ${want} digits. Choose a new PIN with ${want} digits.`);
+    const st = await read('publicStores', S().storeId); if (!st) throw bad('NO_STORE', 'Store not found.');
+    try { await auth.changePassword(tillPassword(cur, st.code), tillPassword(next, st.code)); } catch { throw new ApiErr(401, 'BAD_LOGIN', 'Your current PIN is not correct.'); }
+    await audit(S().storeId, 'pin.change', 'user', S().uid, {}); return { ok: true };
+  }
   // TESTING ONLY. Remove this, its route, the Settings button and the testReset() rule when the app goes live.
   async function resetTest(b) {
     need('settings.manage'); if (!S().isSuper) throw forbidden('Only the super admin can reset.');
@@ -1056,6 +1068,7 @@ export function createApi(B, extra = {}) {
       if (method === 'POST' && path === '/admin/reset-test') return await resetTest(b);
       if (method === 'POST' && path === '/auth/forgot') { const e = String(b.email || '').trim().toLowerCase(); if (!e.includes('@') || e.endsWith('@till.angkor.app')) throw bad('BAD_INPUT', 'Enter your email address.'); try { await (auth.resetEmail ? auth.resetEmail(e) : Promise.resolve()); } catch { /* never reveal whether the address exists */ } return { ok: true }; }
       if (method === 'POST' && path === '/auth/change-password') return await changePassword(b);
+      if (method === 'POST' && path === '/auth/change-pin') return await changePin(b);
       if (method === 'POST' && path === '/auth/pin-login') return await pinLogin(b);
       if (method === 'POST' && path === '/auth/logout') { await auth.signOut(); B.setSession(null); B.clearCaches(); return { ok: true }; }
       if (method === 'GET' && path === '/setup/status') return { needed: !(await getDoc(ref('setup', 'state'))).exists() };

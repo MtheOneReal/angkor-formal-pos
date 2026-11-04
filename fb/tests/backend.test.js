@@ -628,3 +628,17 @@ test('staff phone number is saved and shown to the owner on the attendance staff
   const s = (await api.get('/attendance/staff?store_id=1')).find((x) => x.id === cas.id); assert.equal(s.phone, '012 345 678');
   const pub = await api.get('/public/stores/1/staff'); assert.ok(!JSON.stringify(pub).includes('012 345'));
 });
+
+test('a cashier changes their own PIN after entering the old one', async () => {
+  const { api } = await setup();
+  const staff = await api.get('/public/stores/1/staff'); const c = staff.find((x) => x.name === 'Cashier'); await api.post('/auth/logout');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: c.id, pin: '123456' });
+  await fails(api.post('/auth/change-pin', { current_pin: '999999', new_pin: '654321' }), 'BAD_LOGIN');
+  await fails(api.post('/auth/change-pin', { current_pin: '123456', new_pin: '12ab' }), 'BAD_PIN');
+  await fails(api.post('/auth/change-pin', { current_pin: '123456', new_pin: '123456' }), 'SAME_PIN');
+  if (c.pin_length) await fails(api.post('/auth/change-pin', { current_pin: '123456', new_pin: '4321' }), 'PIN_LENGTH');
+  await api.post('/auth/change-pin', { current_pin: '123456', new_pin: '654321' });
+  await api.post('/auth/logout');
+  await fails(api.post('/auth/pin-login', { store_id: 1, user_id: c.id, pin: '123456' }), 'BAD_LOGIN');
+  await api.post('/auth/pin-login', { store_id: 1, user_id: c.id, pin: '654321' });
+});
