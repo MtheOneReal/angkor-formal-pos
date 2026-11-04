@@ -93,6 +93,17 @@ service cloud.firestore {
         && request.resource.data.onHand < resource.data.onHand
         && request.resource.data.lastSaleId is string
         && existsAfter(/databases/$(database)/documents/sales/$(request.resource.data.lastSaleId));
+      // A cashier may set stock aside (reserved) for a transfer they are approving in the same batch.
+      // Nothing else on the stock record may change.
+      allow update: if isCashier()
+        && inStore(resource.data.storeId)
+        && request.resource.data.storeId == resource.data.storeId
+        && request.resource.data.onHand == resource.data.onHand
+        && request.resource.data.reserved > resource.data.reserved
+        && request.resource.data.reservedByTransfer is string
+        && getAfter(/databases/$(database)/documents/transfers/$(request.resource.data.reservedByTransfer)).data.approvedBy == request.auth.uid
+        && getAfter(/databases/$(database)/documents/transfers/$(request.resource.data.reservedByTransfer)).data.status in ['approved', 'awaiting_owner']
+        && getAfter(/databases/$(database)/documents/transfers/$(request.resource.data.reservedByTransfer)).data.fromStoreId == resource.data.storeId;
       allow delete: if testReset();
     }
     // Every change to stock is also written here. Records can only be added.
@@ -208,7 +219,7 @@ service cloud.firestore {
       allow update: if active() && (
         // approve or reject: lead of the sending store, never the requester
         (resource.data.status == 'requested'
-          && leadOf(resource.data.fromStoreId)
+          && (leadOf(resource.data.fromStoreId) || (isCashier() && inStore(resource.data.fromStoreId)))
           && resource.data.requestedBy != request.auth.uid
           && request.resource.data.status in ['approved', 'awaiting_owner', 'rejected'])
         // owner approves large transfers

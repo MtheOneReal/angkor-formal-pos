@@ -57,6 +57,7 @@ function Receipt({ sale, onDone }) {
         <div className="l"><span></span><span>{riel(sale.total_khr)}</span></div>
         {sale.deposit && <><div className="l"><span>Deposit paid / បានកក់</span><span>{usd(sale.total_cents - sale.balance_cents)}</span></div><div className="l"><b>Balance to pay / នៅខ្វះ</b><b>{usd(sale.balance_cents)}</b></div>{sale.due_date && <div className="small">Pickup / ថ្ងៃមកយក: {sale.due_date}</div>}</>}
         {sale.customer_name && <div className="small">{sale.customer_name} {sale.customer_phone || ''}</div>}
+        {sale.alteration && sale.alteration_note && <div className="small" style={{ whiteSpace: 'pre-line' }}>✂️ Alteration / កែសម្រួល: {sale.alteration_note}</div>}
         {show.rate && <div className="small">Rate / អត្រា: {sale.rate_khr_per_usd} ៛ / $1</div>}
         <hr />{show.thanks && <><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you'}</div><div style={{ textAlign: 'center' }}>{sale.receipt_footer_km || 'សូមអរគុណ។'}</div></>}
         {!show.social ? null : sale.receipt_social_mode === 'one'

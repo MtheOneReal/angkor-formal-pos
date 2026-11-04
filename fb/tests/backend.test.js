@@ -121,6 +121,24 @@ test('transfer: request, approve reserves, send, receive moves stock; own reques
   assert.equal((await api.get(`/stock?store_id=2&q=${d.skus[0]}`))[0].on_hand, 3);
 });
 
+test('a cashier can approve another person\'s transfer request, not their own; every step is in the log', async () => {
+  const { api, d } = await setup();
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 4 }] });
+  const tr = await api.post('/transfers', { from_store_id: 2, to_store_id: 1, lines: [{ item_id: item.id, qty: 2 }], reason: 'x' }); // owner asks store 1 to send
+  const tr2 = await api.post('/transfers', { from_store_id: 1, to_store_id: 2, lines: [{ item_id: item.id, qty: 1 }], reason: 'x' });
+  const staff = await api.get('/public/stores/1/staff'); const who = staff.find((x) => x.name === 'Cashier');
+  await api.post('/auth/logout'); await api.post('/auth/pin-login', { store_id: 1, user_id: who.id, pin: '123456' });
+  const mine = await api.post('/transfers', { from_store_id: 1, to_store_id: 2, lines: [{ item_id: item.id, qty: 1 }], reason: 'mine' });
+  await fails(api.post(`/transfers/${mine.id}/approve`), 'FORBIDDEN');
+  const ap = await api.post(`/transfers/${tr2.id}/approve`); assert.equal(ap.status, 'approved');
+  assert.equal((await api.get(`/stock?store_id=1&q=${d.skus[0]}`))[0].reserved, 1);
+  await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
+  const log = await api.get('/admin/audit?limit=200');
+  const acts = (log.rows || log).map((r) => r.action);
+  assert.ok(acts.includes('transfer.request') && acts.includes('transfer.approve'));
+});
+
 test('void restores stock and dashboard totals follow sales', async () => {
   const { api, d } = await setup();
   const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
