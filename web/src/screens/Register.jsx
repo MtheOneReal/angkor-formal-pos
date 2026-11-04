@@ -44,10 +44,11 @@ function Receipt({ sale, onDone }) {
     <Modal title={t('receipt')} onClose={onDone}>
       <div className="receipt" id="receipt">
         <div style={{ textAlign: 'center' }}>
+          {show.nickname && sale.receipt_nickname && <b style={{ fontSize: 15 }}>{sale.receipt_nickname}</b>}
           {show.address && sale.receipt_address && <div className="small" style={{ whiteSpace: 'pre-line' }}>{sale.receipt_address}</div>}
           {sale.receipt_contact && <div className="small" style={{ whiteSpace: 'pre-line' }}>{sale.receipt_contact}</div>}
           <div>{new Date(sale.ts).toLocaleString('en-GB', { timeZone: 'Asia/Phnom_Penh' })}</div><div>{sale.receipt_no}</div></div>
-        {sale.cashier_name && <div className="l" style={{ marginTop: 4 }}><span>Cashier / អ្នកលក់</span><b>{show.nickname && sale.cashier_nick ? sale.cashier_nick : sale.cashier_name}</b></div>}
+        {sale.cashier_name && <div className="l" style={{ marginTop: 4 }}><span>Cashier / អ្នកលក់</span><b>{sale.cashier_name}</b></div>}
         <hr />
         {sale.lines.map((l) => <div key={l.id}><div>{l.name_en}{l.name_km ? ` / ${l.name_km}` : ''} · {l.size}</div><div className="l"><span>{l.qty} × {usd(l.unit_price_cents ?? l.price_cents ?? 0)}</span><span>{usd(l.line_total_cents)}</span></div></div>)}
         <hr />
