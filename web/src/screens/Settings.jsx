@@ -63,9 +63,9 @@ function Stores() {
         {!wh && <>
         <label>Show on the receipt</label>
         <div className="row wrap" style={{ gap: 18, marginBottom: 6 }} key={`rs${s.id}`}>
-          {[['address', 'Address'], ['social', 'Social media'], ['thanks', 'Thank you']].map(([k, l]) => (
+          {[['address', 'Address'], ['social', 'Social media'], ['thanks', 'Thank you'], ['rate', 'Exchange rate']].map(([k, l]) => (
             <label key={k} style={{ display: 'flex', gap: 8, alignItems: 'center', textTransform: 'none', fontSize: 15, color: 'var(--text)', margin: 0 }}>
-              <input type="checkbox" checked={s.receipt_show?.[k] !== false} onChange={(e) => save({ receipt_show: { [k]: e.target.checked } })} style={{ width: 22, height: 22, minHeight: 0 }} />{l}</label>))}
+              <input type="checkbox" checked={k === 'rate' ? s.receipt_show?.rate === true : s.receipt_show?.[k] !== false} onChange={(e) => save({ receipt_show: { [k]: e.target.checked } })} style={{ width: 22, height: 22, minHeight: 0 }} />{l}</label>))}
         </div>
         <p className="muted small" style={{ margin: '0 0 8px' }}>The shop name is not printed on the receipt. Receipt numbers go back to 00001 after every 100 receipts.</p>
         <label>Receipt footer</label><input defaultValue={s.receipt_footer} key={`f${s.id}`} onBlur={(e) => e.target.value !== s.receipt_footer && save({ receipt_footer: e.target.value })} />
