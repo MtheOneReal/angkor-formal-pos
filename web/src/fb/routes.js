@@ -412,9 +412,13 @@ export function createApi(B, extra = {}) {
   }
 
   // ---------- sales ----------
+  // The number on the receipt goes back to 00001 after every RECEIPT_CYCLE receipts. The real counter (seq) keeps growing so every sale stays unique inside.
+  const RECEIPT_CYCLE = 100;
+  const receiptNoOf = (code, seq) => `${code}-${String(((seq - 1) % RECEIPT_CYCLE) + 1).padStart(5, '0')}`;
+  const showOf = (x) => ({ address: x?.address !== false, social: x?.social !== false, thanks: x?.thanks !== false });
   const saleView = (s, returns = []) => {
     const lines = (s.lines || []).map((l, i) => { const r = returns.filter((x) => x.saleId === s.id).flatMap((x) => x.lines).filter((x) => x.lineIndex === i); return { id: i, item_id: l.itemId, qty: l.qty, unit_price_cents: l.unitCents, discount_cents: l.discountCents, line_total_cents: l.totalCents, entry: l.entry, sku: l.sku, size: l.size, name_en: l.nameEn, name_km: l.nameKm, colour_en: l.colourEn, colour_km: l.colourKm, returned_qty: r.reduce((a, x) => a + x.qty, 0), returned_cents: r.reduce((a, x) => a + x.refundCents, 0) }; });
-    return { id: s.id, store_id: s.storeId, seq: s.seq, receipt_no: s.receiptNo, ts: s.ts, cashier_id: s.cashierId, cashier_name: s.cashierName, status: s.status, subtotal_cents: s.subtotalCents, discount_cents: s.discountCents, total_cents: s.totalCents, rate_khr_per_usd: s.rate, discount_reason: s.discountReason || null, approved_by_name: s.approvedByName || null, customer_name: s.customerName || null, customer_phone: s.customerPhone || null, alteration: !!s.alteration, deposit: !!s.deposit, balance_cents: s.balanceCents || 0, due_date: s.dueDate || null, store_name: s.storeName, store_code: s.storeCode, receipt_footer: s.receiptFooter, receipt_contact: s.receiptContact || '', receipt_address: s.receiptAddress || '', receipt_footer_km: s.receiptFooterKm || '', receipt_social: s.receiptSocial || '', receipt_socials: s.receiptSocials || {}, receipt_social_one: s.receiptSocialOne || '', receipt_social_mode: s.receiptSocialMode || 'each', lines, payments: (s.payments || []).map((p) => ({ kind: p.kind, method: p.method, currency: p.currency, amount: p.amount, usd_cents: p.usd })), total_khr: usdCentsToKhr(s.totalCents, s.rate) };
+    return { id: s.id, store_id: s.storeId, seq: s.seq, receipt_no: s.receiptNo, ts: s.ts, cashier_id: s.cashierId, cashier_name: s.cashierName, status: s.status, subtotal_cents: s.subtotalCents, discount_cents: s.discountCents, total_cents: s.totalCents, rate_khr_per_usd: s.rate, discount_reason: s.discountReason || null, approved_by_name: s.approvedByName || null, customer_name: s.customerName || null, customer_phone: s.customerPhone || null, alteration: !!s.alteration, deposit: !!s.deposit, balance_cents: s.balanceCents || 0, due_date: s.dueDate || null, store_name: s.storeName, store_code: s.storeCode, receipt_footer: s.receiptFooter, receipt_contact: s.receiptContact || '', receipt_address: s.receiptAddress || '', receipt_footer_km: s.receiptFooterKm || '', receipt_social: s.receiptSocial || '', receipt_socials: s.receiptSocials || {}, receipt_social_one: s.receiptSocialOne || '', receipt_social_mode: s.receiptSocialMode || 'each', receipt_show: showOf(s.receiptShow), lines, payments: (s.payments || []).map((p) => ({ kind: p.kind, method: p.method, currency: p.currency, amount: p.amount, usd_cents: p.usd })), total_khr: usdCentsToKhr(s.totalCents, s.rate) };
   };
   async function getSale(id) {
     const s = await read('sales', id); if (!s) throw notFound('Receipt not found.');
@@ -522,13 +526,13 @@ export function createApi(B, extra = {}) {
       t.set(ref('counters', storeId), { seq });
       const saleLines = calc.map((c) => { const x = items.get(c.item_id); return { itemId: c.item_id, sku: x.it.sku, size: x.it.size, nameEn: x.d.nameEn, nameKm: x.d.nameKm || null, colourEn: x.c?.nameEn || x.it.colourCode, colourKm: x.c?.nameKm || null, qty: c.qty, unitCents: c.unit, discountCents: c.disc, totalCents: c.gross - c.disc, entry: c.entry }; });
       t.set(saleRef, {
-        storeId, seq, receiptNo: `${store.code}-${String(seq).padStart(6, '0')}`, ts: ts(), dayKey: `${storeId}_${date}`, cashierId: S().uid, cashierName: S().user.name, shiftId: String(shift.id),
+        storeId, seq, receiptNo: receiptNoOf(store.code, seq), ts: ts(), dayKey: `${storeId}_${date}`, cashierId: S().uid, cashierName: S().user.name, shiftId: String(shift.id),
         customerId: customer ? customer.id : null, customerName: custName, customerPhone: custPhone, alteration: !!b.alteration, deposit, balanceCents: balance, dueDate, subtotalCents: subtotal, discountCents: discount,
         totalCents: total, rate, discountReason: dsc?.reason ? txt(dsc.reason, 200) : null, approvalId, approvedByName: approver?.name || null, status: 'completed',
-        storeName: store.name, storeCode: store.code, receiptFooter: store.receiptFooter || '', receiptContact: store.receiptContact || '', receiptAddress: store.receiptAddress || '', receiptFooterKm: store.receiptFooterKm || '', receiptSocial: store.receiptSocial || '', receiptSocials: store.receiptSocials || {}, receiptSocialOne: store.receiptSocialOne || '', receiptSocialMode: store.receiptSocialMode || 'each', lines: saleLines,
+        storeName: store.name, storeCode: store.code, receiptFooter: store.receiptFooter || '', receiptContact: store.receiptContact || '', receiptAddress: store.receiptAddress || '', receiptFooterKm: store.receiptFooterKm || '', receiptSocial: store.receiptSocial || '', receiptSocials: store.receiptSocials || {}, receiptSocialOne: store.receiptSocialOne || '', receiptSocialMode: store.receiptSocialMode || 'each', receiptShow: showOf(store.receiptShow), lines: saleLines,
         payments: [...tender, ...change], note: b.note ? txt(b.note, 200) : null,
       });
-      const receiptNo = `${store.code}-${String(seq).padStart(6, '0')}`;
+      const receiptNo = receiptNoOf(store.code, seq);
       if (deposit) t.set(ref('balances', saleRef.id), { storeId, saleId: saleRef.id, receiptNo, customerName: custName, customerPhone: custPhone, totalCents: total, paidCents: net, balanceCents: balance, dueDate, settled: false, createdBy: S().uid, createdByName: S().user.name, createdTs: ts() });
       if (b.alteration) t.set(doc(collection(db, 'alterations')), { storeId, saleId: saleRef.id, receiptNo, customerName: custName, customerPhone: custPhone, summary: saleLines.map((l) => `${l.qty}× ${l.nameEn} ${l.colourEn} ${l.size}`).join(', ').slice(0, 300), notes: txt(b.alteration_note, 300), dueDate, status: 'received', balanceCents: balance, createdBy: S().uid, createdByName: S().user.name, createdTs: ts(), updatedTs: ts() });
       for (const [id, q] of want) {
@@ -543,7 +547,7 @@ export function createApi(B, extra = {}) {
       t.set(ref('dailyStats', `${storeId}_${date}`), { ...bump, date }, { merge: true });
       late = qtyStats(bump, date);
       t.set(ref('monthStats', `${storeId}_${date.slice(0, 7)}`), { ...bump, date: date.slice(0, 7) }, { merge: true });
-      auditIn(t, storeId, 'sale.create', 'sale', saleRef.id, { receipt: `${store.code}-${String(seq).padStart(6, '0')}`, total, discount, approver: approver?.uid ?? null });
+      auditIn(t, storeId, 'sale.create', 'sale', saleRef.id, { receipt: receiptNoOf(store.code, seq), total, discount, approver: approver?.uid ?? null });
     }).catch(wrap('Sale failed'));
     B.invalidateStock(storeId);
     // Best-seller counts are written after the sale is safe, so they can never block or undo a sale.
@@ -800,7 +804,7 @@ export function createApi(B, extra = {}) {
   // ---------- owner / admin ----------
   async function adminStores() {
     need('settings.manage'); const stores = await B.loadStores(true); const brands = (await B.loadCatalog()).brandsList;
-    return { stores: stores.map((s) => ({ id: s.id, code: s.code, name: s.name, kind: s.kind === 'warehouse' ? 'warehouse' : 'shop', brand_id: s.brandId, receipt_footer: s.receiptFooter || '', receipt_contact: s.receiptContact || '', receipt_address: s.receiptAddress || '', receipt_footer_km: s.receiptFooterKm || '', receipt_social: s.receiptSocial || '', receipt_socials: s.receiptSocials || {}, receipt_social_one: s.receiptSocialOne || '', receipt_social_mode: s.receiptSocialMode || 'each', active: s.active === false ? 0 : 1, brand_code: brands.find((b) => String(b.id) === String(s.brandId))?.code, brand_name: brands.find((b) => String(b.id) === String(s.brandId))?.name, switches: s.switches })), defaults: SWITCH_DEFAULTS };
+    return { stores: stores.map((s) => ({ id: s.id, code: s.code, name: s.name, kind: s.kind === 'warehouse' ? 'warehouse' : 'shop', brand_id: s.brandId, receipt_footer: s.receiptFooter || '', receipt_contact: s.receiptContact || '', receipt_address: s.receiptAddress || '', receipt_footer_km: s.receiptFooterKm || '', receipt_social: s.receiptSocial || '', receipt_socials: s.receiptSocials || {}, receipt_social_one: s.receiptSocialOne || '', receipt_social_mode: s.receiptSocialMode || 'each', receipt_show: showOf(s.receiptShow), active: s.active === false ? 0 : 1, brand_code: brands.find((b) => String(b.id) === String(s.brandId))?.code, brand_name: brands.find((b) => String(b.id) === String(s.brandId))?.name, switches: s.switches })), defaults: SWITCH_DEFAULTS };
   }
   async function adminStoreCreate(b) {
     need('settings.manage');
@@ -865,7 +869,7 @@ export function createApi(B, extra = {}) {
     let brandId = s.brandId; const cat0 = await B.loadCatalog();
     if (b.brand_id !== undefined && s.kind !== 'warehouse') { const nb = cat0.brandsList.find((x) => String(x.id) === String(b.brand_id)); if (!nb) throw bad('BAD_INPUT', 'Choose a brand.'); brandId = Number(nb.id); }
     const wb = writeBatch(db);
-    wb.update(ref('stores', id), { ...(s.kind !== 'warehouse' ? { brandId } : {}), name: nm, receiptFooter: txt(b.receipt_footer ?? s.receiptFooter ?? '', 200), receiptContact: txt(b.receipt_contact ?? s.receiptContact ?? '', 200), receiptAddress: txt(b.receipt_address ?? s.receiptAddress ?? '', 300), receiptFooterKm: txt(b.receipt_footer_km ?? s.receiptFooterKm ?? '', 200), receiptSocial: txt(b.receipt_social ?? s.receiptSocial ?? '', 200), receiptSocials: cleanSocials(b.receipt_socials, s.receiptSocials), receiptSocialOne: txt(b.receipt_social_one ?? s.receiptSocialOne ?? '', 80), receiptSocialMode: (b.receipt_social_mode ?? s.receiptSocialMode) === 'one' ? 'one' : 'each', active: act, switches: sw });
+    wb.update(ref('stores', id), { ...(s.kind !== 'warehouse' ? { brandId } : {}), name: nm, receiptFooter: txt(b.receipt_footer ?? s.receiptFooter ?? '', 200), receiptContact: txt(b.receipt_contact ?? s.receiptContact ?? '', 200), receiptAddress: txt(b.receipt_address ?? s.receiptAddress ?? '', 300), receiptFooterKm: txt(b.receipt_footer_km ?? s.receiptFooterKm ?? '', 200), receiptSocial: txt(b.receipt_social ?? s.receiptSocial ?? '', 200), receiptSocials: cleanSocials(b.receipt_socials, s.receiptSocials), receiptSocialOne: txt(b.receipt_social_one ?? s.receiptSocialOne ?? '', 80), receiptSocialMode: (b.receipt_social_mode ?? s.receiptSocialMode) === 'one' ? 'one' : 'each', receiptShow: { ...showOf(s.receiptShow), ...Object.fromEntries(['address', 'social', 'thanks'].filter((k) => b.receipt_show && k in b.receipt_show).map((k) => [k, !!b.receipt_show[k]])) }, active: act, switches: sw });
     if (s.kind !== 'warehouse') wb.set(ref('publicStores', id), { id: Number(id), code: s.code, name: nm, active: act, brandCode: cat0.brandsList.find((x) => String(x.id) === String(brandId))?.code || null });
     await wb.commit();
     await audit(Number(id), 'store.update', 'store', id, { name: b.name, switches: changed }); await B.loadStores(true); await B.startSession(); return { ok: true };

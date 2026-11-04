@@ -56,7 +56,7 @@ test('stock in, lookup and a cashier sale reduce stock and number the receipt', 
   await fails(api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 20000 }] }), 'SHIFT_REQUIRED');
   await api.post('/shifts/open', { store_id: 1, open_usd: 50, open_khr: 0 });
   const sale = await api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 2, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 40000 }] });
-  assert.equal(sale.receipt_no, 'AF-000001'); assert.equal(sale.total_cents, 40000);
+  assert.equal(sale.receipt_no, 'AF-00001'); assert.equal(sale.total_cents, 40000);
   assert.equal((await api.get(`/items/code/${sku}?store_id=1`)).on_hand, 3);
   await fails(api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 9, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 180000 }] }), 'OUT_OF_STOCK');
   await fails(api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: 100 }] }), 'PAYMENT_MISMATCH');
@@ -64,6 +64,23 @@ test('stock in, lookup and a cashier sale reduce stock and number the receipt', 
   const row = await api.get(`/items/code/${sku}?store_id=1`);
   assert.equal('cost_cents' in row, false);
   await fails(api.get('/admin/users'), 'FORBIDDEN');
+});
+
+test('receipt number goes back to 00001 after 100 receipts; receipt switches are kept', async () => {
+  const { api, d } = await setup();
+  const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);
+  await api.post('/stock/in', { store_id: 1, lines: [{ item_id: item.id, qty: 150 }] });
+  await api.post('/shifts/open', { store_id: 1, open_usd: 50, open_khr: 0 });
+  let last;
+  for (let i = 0; i < 101; i++) {
+    last = await api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: item.price_cents }] });
+    if (i === 99) assert.equal(last.receipt_no, 'AF-00100');
+  }
+  assert.equal(last.receipt_no, 'AF-00001');
+  assert.deepEqual(last.receipt_show, { address: true, social: true, thanks: true });
+  await api.put('/admin/stores/1', { receipt_show: { social: false } });
+  const st = (await api.get('/admin/stores')).stores.find((x) => x.id === 1);
+  assert.deepEqual(st.receipt_show, { address: true, social: false, thanks: true });
 });
 
 test('big discount needs a manager sign-in; self-approval and wrong password fail', async () => {
