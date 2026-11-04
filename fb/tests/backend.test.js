@@ -77,10 +77,14 @@ test('receipt number goes back to 00001 after 100 receipts; receipt switches are
     if (i === 99) assert.equal(last.receipt_no, 'AF-00100');
   }
   assert.equal(last.receipt_no, 'AF-00001');
-  assert.deepEqual(last.receipt_show, { address: true, social: true, thanks: true, rate: false });
+  assert.deepEqual(last.receipt_show, { address: true, social: true, thanks: true, rate: false, nickname: false });
+  const meId = (await api.get('/me')).id;
+  await api.put(`/admin/users/${meId}`, { nickname: 'Vi' });
+  const sale2 = await api.post('/sales', { store_id: 1, lines: [{ item_id: item.id, qty: 1, entry: 'scan' }], payments: [{ method: 'cash', currency: 'USD', amount: item.price_cents }] });
+  assert.equal(sale2.cashier_nick, 'Vi');
   await api.put('/admin/stores/1', { receipt_show: { social: false } });
   const st = (await api.get('/admin/stores')).stores.find((x) => x.id === 1);
-  assert.deepEqual(st.receipt_show, { address: true, social: false, thanks: true, rate: false });
+  assert.deepEqual(st.receipt_show, { address: true, social: false, thanks: true, rate: false, nickname: false });
 });
 
 test('big discount needs a manager sign-in; self-approval and wrong password fail', async () => {

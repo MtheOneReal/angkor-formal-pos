@@ -63,9 +63,9 @@ function Stores() {
         {!wh && <>
         <label>Show on the receipt</label>
         <div className="row wrap" style={{ gap: 18, marginBottom: 6 }} key={`rs${s.id}`}>
-          {[['address', 'Address'], ['social', 'Social media'], ['thanks', 'Thank you'], ['rate', 'Exchange rate']].map(([k, l]) => (
+          {[['address', 'Address'], ['social', 'Social media'], ['thanks', 'Thank you'], ['rate', 'Exchange rate'], ['nickname', 'Cashier nickname (instead of full name)']].map(([k, l]) => (
             <label key={k} style={{ display: 'flex', gap: 8, alignItems: 'center', textTransform: 'none', fontSize: 15, color: 'var(--text)', margin: 0 }}>
-              <input type="checkbox" checked={k === 'rate' ? s.receipt_show?.rate === true : s.receipt_show?.[k] !== false} onChange={(e) => save({ receipt_show: { [k]: e.target.checked } })} style={{ width: 22, height: 22, minHeight: 0 }} />{l}</label>))}
+              <input type="checkbox" checked={k === 'rate' || k === 'nickname' ? s.receipt_show?.[k] === true : s.receipt_show?.[k] !== false} onChange={(e) => save({ receipt_show: { [k]: e.target.checked } })} style={{ width: 22, height: 22, minHeight: 0 }} />{l}</label>))}
         </div>
         <p className="muted small" style={{ margin: '0 0 8px' }}>The shop name is not printed on the receipt. Receipt numbers go back to 00001 after every 100 receipts.</p>
         <label>Receipt footer</label><input defaultValue={s.receipt_footer} key={`f${s.id}`} onBlur={(e) => e.target.value !== s.receipt_footer && save({ receipt_footer: e.target.value })} />
@@ -139,7 +139,7 @@ function UserForm({ u, stores, onClose, onSaved }) {
   const [f, setF] = useState(u); const [err, setErr] = useState(''); const isNew = !u.id;
   const save = async () => {
     try {
-      const body = { name: f.name, role: f.role, store_ids: f.store_ids, email: f.email || null, lang: f.lang, salary_usd: f.salary_usd === '' || f.salary_usd == null ? 0 : Number(f.salary_usd), phone: f.phone || '' };
+      const body = { name: f.name, role: f.role, store_ids: f.store_ids, email: f.email || null, lang: f.lang, salary_usd: f.salary_usd === '' || f.salary_usd == null ? 0 : Number(f.salary_usd), phone: f.phone || '', nickname: f.nickname || '' };
       if (f.password) body.password = f.password; if (f.pin) body.pin = f.pin; if (f.pin_length) body.pin_length = Number(f.pin_length);
       if (isNew) await api.post('/admin/users', body); else await api.put(`/admin/users/${u.id}`, { ...body, active: f.active });
       onSaved();
@@ -153,6 +153,7 @@ function UserForm({ u, stores, onClose, onSaved }) {
       {!['owner', 'shareholder'].includes(f.role) && <><label>Stores</label><div className="row wrap">{stores.map((s) => <button key={s.id} className={`chip ${f.store_ids.includes(s.id) ? 'on' : ''}`} onClick={() => setF({ ...f, store_ids: f.store_ids.includes(s.id) ? f.store_ids.filter((x) => x !== s.id) : [...f.store_ids, s.id] })} title={s.code}>{s.name}</button>)}</div></>}
       {isNew && f.role !== 'cashier' && <><label>Email</label><input value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} /><label>Password (8+ characters)</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></>}
       {isNew && f.role === 'cashier' && <><label>PIN (4–6 digits; it signs in by itself once all digits are typed)</label><input inputMode="numeric" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value })} /></>}
+      <label>Nickname (optional — printed on receipts instead of the full name when you switch that on)</label><input value={f.nickname || ''} maxLength={40} onChange={(e) => setF({ ...f, nickname: e.target.value })} style={{ width: 220 }} />
       <label>Phone number (optional)</label><input type="tel" inputMode="tel" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} style={{ width: 220 }} />
       <label>Monthly salary (USD)</label><input type="number" min="0" step="1" value={f.salary_usd ?? ''} onChange={(e) => setF({ ...f, salary_usd: e.target.value })} style={{ width: 160 }} />
       {!isNew && f.role === 'cashier' && <><label>How many digits is this person’s PIN? (so it signs in by itself)</label><select value={f.pin_length || ''} onChange={(e) => setF({ ...f, pin_length: e.target.value })} style={{ width: 'auto', minWidth: 160 }}><option value="">— not set (shows OK) —</option><option value="4">4 digits</option><option value="5">5 digits</option><option value="6">6 digits</option></select></>}
