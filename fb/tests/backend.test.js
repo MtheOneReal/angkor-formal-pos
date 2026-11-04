@@ -620,3 +620,11 @@ test('attendance: each person has their own start/end time; late and left-early 
   await api.post('/auth/logout'); await api.post('/auth/login', { email: 'vibol@x.com', password: 'Strong-pass-1' });
   const l = await api.get('/attendance?store_id=1&month=2026-10'); assert.equal(l.summary[0].late_days, 0); assert.equal(l.summary[0].early_days, 1);
 });
+
+test('staff phone number is saved and shown to the owner on the attendance staff list', async () => {
+  const { api, cas } = await setup();
+  await api.put(`/admin/users/${cas.id}`, { phone: '012 345 678' });
+  const u = (await api.get('/admin/users')).users.find((x) => x.id === cas.id); assert.equal(u.phone, '012 345 678');
+  const s = (await api.get('/attendance/staff?store_id=1')).find((x) => x.id === cas.id); assert.equal(s.phone, '012 345 678');
+  const pub = await api.get('/public/stores/1/staff'); assert.ok(!JSON.stringify(pub).includes('012 345'));
+});

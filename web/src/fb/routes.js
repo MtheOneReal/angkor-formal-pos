@@ -858,7 +858,7 @@ export function createApi(B, extra = {}) {
     await wb.commit();
     await audit(Number(id), 'store.update', 'store', id, { name: b.name, switches: changed }); await B.loadStores(true); await B.startSession(); return { ok: true };
   }
-  const userView = (u) => ({ is_super: !!S().superUid && u.id === S().superUid, id: u.id, name: u.name, email: u.email || null, role: u.role, active: u.active === true, lang: u.lang || 'en', demo: !!u.demo, perms: u.perms || {}, store_ids: (u.storeIds || []).map(Number), has_pin: !!u.hasPin, has_password: !!u.email, salary_usd: (u.salaryCents || 0) / 100 });
+  const userView = (u) => ({ is_super: !!S().superUid && u.id === S().superUid, id: u.id, name: u.name, email: u.email || null, role: u.role, active: u.active === true, lang: u.lang || 'en', demo: !!u.demo, perms: u.perms || {}, store_ids: (u.storeIds || []).map(Number), has_pin: !!u.hasPin, has_password: !!u.email, salary_usd: (u.salaryCents || 0) / 100, phone: u.phone || '' });
   async function adminUsers() { need('users.manage'); const rows = await list('users'); return { users: rows.sort((a, b) => (a.active === b.active ? 0 : a.active ? -1 : 1) || a.role.localeCompare(b.role) || a.name.localeCompare(b.name)).map(userView), all_perms: Object.keys(ROLE_PERMS).length ? [...new Set(Object.values(ROLE_PERMS).flat())] : [], role_perms: ROLE_PERMS }; }
   const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 12) || 'staff';
   async function adminUserCreate(b) {
@@ -877,7 +877,7 @@ export function createApi(B, extra = {}) {
     else { email = String(b.email).trim().toLowerCase(); password = b.password; }
     let uid;
     try { uid = await secondary.createUser(email, password); } catch (e) { throw bad('DUPLICATE', 'This email is already used.'); }
-    const row = { name: txt(b.name, 80).trim(), email: b.role === 'cashier' ? null : email, role: b.role, storeIds: ['owner', 'shareholder'].includes(b.role) ? [] : storeIds, active: true, lang: b.lang === 'km' ? 'km' : 'en', perms: b.perms || {}, createdAt: ts(), hasPin: !!b.pin, salaryCents: Math.max(0, Math.round(Number(b.salary_usd || 0) * 100)) };
+    const row = { name: txt(b.name, 80).trim(), email: b.role === 'cashier' ? null : email, role: b.role, storeIds: ['owner', 'shareholder'].includes(b.role) ? [] : storeIds, active: true, lang: b.lang === 'km' ? 'km' : 'en', perms: b.perms || {}, createdAt: ts(), hasPin: !!b.pin, phone: txt(b.phone || '', 30).trim(), salaryCents: Math.max(0, Math.round(Number(b.salary_usd || 0) * 100)) };
     const batch = writeBatch(db);
     batch.set(ref('users', uid), row);
     batch.set(ref('staffDirectory', uid), { name: row.name, role: row.role, storeIds: row.storeIds, active: true, authEmail: b.role === 'cashier' ? email : null, ...(b.role === 'cashier' ? { pinLength: String(b.pin).length } : {}) });
@@ -896,7 +896,7 @@ export function createApi(B, extra = {}) {
     if (b.password || b.pin) throw bad('USE_RESET', 'Changing a password or PIN is done by the person under My account, or by deleting and re-adding the account.');
     const storeIds = b.store_ids ? b.store_ids.map(Number) : (u.storeIds || []);
     const batch = writeBatch(db);
-    batch.update(ref('users', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, perms: b.perms ?? u.perms ?? {}, lang: b.lang ?? u.lang ?? 'en', storeIds: ['owner', 'shareholder'].includes(role) ? [] : storeIds, salaryCents: b.salary_usd == null ? (u.salaryCents || 0) : Math.max(0, Math.round(Number(b.salary_usd) * 100)) });
+    batch.update(ref('users', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, perms: b.perms ?? u.perms ?? {}, lang: b.lang ?? u.lang ?? 'en', storeIds: ['owner', 'shareholder'].includes(role) ? [] : storeIds, phone: b.phone == null ? (u.phone || '') : txt(b.phone, 30).trim(), salaryCents: b.salary_usd == null ? (u.salaryCents || 0) : Math.max(0, Math.round(Number(b.salary_usd) * 100)) });
     const dir = await read('staffDirectory', id);
     const pl = Math.floor(Number(b.pin_length)); const plOk = role === 'cashier' && pl >= 4 && pl <= 6;
     if (dir) batch.update(ref('staffDirectory', id), { name: txt(b.name ?? u.name, 80).trim(), role, active, storeIds: ['owner', 'shareholder'].includes(role) ? [] : storeIds, ...(plOk ? { pinLength: pl } : {}) });

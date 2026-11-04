@@ -120,7 +120,7 @@ function UserForm({ u, stores, onClose, onSaved }) {
   const [f, setF] = useState(u); const [err, setErr] = useState(''); const isNew = !u.id;
   const save = async () => {
     try {
-      const body = { name: f.name, role: f.role, store_ids: f.store_ids, email: f.email || null, lang: f.lang, salary_usd: f.salary_usd === '' || f.salary_usd == null ? 0 : Number(f.salary_usd) };
+      const body = { name: f.name, role: f.role, store_ids: f.store_ids, email: f.email || null, lang: f.lang, salary_usd: f.salary_usd === '' || f.salary_usd == null ? 0 : Number(f.salary_usd), phone: f.phone || '' };
       if (f.password) body.password = f.password; if (f.pin) body.pin = f.pin; if (f.pin_length) body.pin_length = Number(f.pin_length);
       if (isNew) await api.post('/admin/users', body); else await api.put(`/admin/users/${u.id}`, { ...body, active: f.active });
       onSaved();
@@ -134,6 +134,7 @@ function UserForm({ u, stores, onClose, onSaved }) {
       {!['owner', 'shareholder'].includes(f.role) && <><label>Stores</label><div className="row wrap">{stores.map((s) => <button key={s.id} className={`chip ${f.store_ids.includes(s.id) ? 'on' : ''}`} onClick={() => setF({ ...f, store_ids: f.store_ids.includes(s.id) ? f.store_ids.filter((x) => x !== s.id) : [...f.store_ids, s.id] })}>{s.code}</button>)}</div></>}
       {isNew && f.role !== 'cashier' && <><label>Email</label><input value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} /><label>Password (8+ characters)</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></>}
       {isNew && f.role === 'cashier' && <><label>PIN (4–6 digits; it signs in by itself once all digits are typed)</label><input inputMode="numeric" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value })} /></>}
+      <label>Phone number (optional)</label><input type="tel" inputMode="tel" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} style={{ width: 220 }} />
       <label>Monthly salary (USD)</label><input type="number" min="0" step="1" value={f.salary_usd ?? ''} onChange={(e) => setF({ ...f, salary_usd: e.target.value })} style={{ width: 160 }} />
       {!isNew && f.role === 'cashier' && <><label>How many digits is this person’s PIN? (so it signs in by itself)</label><select value={f.pin_length || ''} onChange={(e) => setF({ ...f, pin_length: e.target.value })} style={{ width: 'auto', minWidth: 160 }}><option value="">— not set (shows OK) —</option><option value="4">4 digits</option><option value="5">5 digits</option><option value="6">6 digits</option></select></>}
       {!isNew && me.role === 'owner' && f.id !== me.id && f.role !== 'shareholder' && (me.is_super || f.role !== 'owner') && (
