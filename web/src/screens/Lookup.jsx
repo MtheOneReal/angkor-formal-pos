@@ -22,7 +22,7 @@ export default function Lookup() {
       <div className="col" style={{ marginTop: 14 }}>
         {data?.items.map((it) => (
           <div key={it.id} className="card">
-            <div className="row between wrap"><div><b>{nm(it)}</b> <span className="muted">· {it.size}</span><div className="small muted">{it.sku}</div></div><b>{usd(it.price_cents)}</b></div>
+            <div className="row between wrap"><div><b>{nm(it)}</b> <span className="muted">· {it.size}</span><div className="small muted">{it.sku}</div></div><div style={{ textAlign: 'right' }}>{it.discount_cents > 0 && <div className="small muted"><s>{usd(it.full_price_cents)}</s> · −{usd(it.discount_cents)}</div>}<b>{usd(it.price_cents)}</b></div></div>
             <div className="row wrap" style={{ marginTop: 10 }}>
               {it.stores.map((s) => {
                 const info = stores.find((x) => x.id === s.store_id);

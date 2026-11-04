@@ -298,7 +298,7 @@ export default function Register() {
                   <div className="pmeta"><span className="code2">{g.d.design_code}</span><span>{nm({ name_en: g.d.type_name_en, name_km: g.d.type_name_km })} · {g.d.brand_code}</span></div>
                   <b className="pname">{nm(g.d)}</b>
                   <div className="pstock"><span>{t('this_store')}: <b>{here}</b></span>{oth != null && <span>{t('other_stores')}: <b>{oth}</b></span>}</div>
-                  <div className="pfoot"><b className="num">{usd(g.d.price_cents)}</b><button className="padd" aria-label={t('select_size')} title={t('select_size')} onClick={(e) => { e.stopPropagation(); setPick(g); }}>＋</button></div>
+                  <div className="pfoot"><span>{g.d.discount_cents > 0 && <s className="small muted" style={{ marginRight: 6 }}>{usd(g.d.full_price_cents)}</s>}<b className="num">{usd(g.d.price_cents)}</b></span><button className="padd" aria-label={t('select_size')} title={t('select_size')} onClick={(e) => { e.stopPropagation(); setPick(g); }}>＋</button></div>
                 </div>
               </div>
             );

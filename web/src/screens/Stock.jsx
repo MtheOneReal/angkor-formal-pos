@@ -28,9 +28,9 @@ export default function StockScreen() {
           <span className="row"><button className="btn" onClick={async () => { await api.post('/stock/returned/resolve', { store_id: store.id, item_id: r.item_id, qty: r.qty, to: 'stock' }); show('Back in stock'); load(); }}>Good → stock</button>
             <button className="btn danger" onClick={async () => { await api.post('/stock/returned/resolve', { store_id: store.id, item_id: r.item_id, qty: r.qty, to: 'damaged' }); show('Marked damaged'); load(); }}>Damaged</button></span></div>)}</div>}
       <div className="card" style={{ overflow: 'auto' }}>
-        <table><thead><tr><th>Item</th><th>Size</th><th className="right">Price</th>{canCost && <th className="right">Cost</th>}<th className="right">On hand</th><th className="right">Reserved</th><th></th></tr></thead>
+        <table><thead><tr><th>Item</th><th>Size</th><th className="right">Full price</th><th className="right">Discount</th><th className="right">Price</th>{canCost && <th className="right">Cost</th>}<th className="right">On hand</th><th className="right">Reserved</th><th></th></tr></thead>
           <tbody>{shown.map((r) => <tr key={r.id}><td><b>{nm(r)}</b><div className="small muted">{r.sku}</div></td><td>{r.size}</td>
-            <td className="right num">{usd(r.price_cents)}</td>{canCost && <td className="right num">{usd(r.cost_cents)}</td>}
+            <td className="right num">{usd(r.full_price_cents ?? r.price_cents)}</td><td className="right num">{r.discount_cents > 0 ? usd(r.discount_cents) : '—'}</td><td className="right num"><b>{usd(r.price_cents)}</b></td>{canCost && <td className="right num">{usd(r.cost_cents)}</td>}
             <td className="right num"><b style={{ color: r.on_hand <= 0 ? 'var(--bad)' : r.on_hand <= r.low_stock ? 'var(--warn)' : undefined }}>{r.on_hand}</b></td><td className="right num">{r.reserved || ''}</td>
             <td>{me.perms.includes('stock.adjust') && <button className="btn" onClick={() => setModal({ kind: 'adjust', item: r })}>Adjust</button>}</td></tr>)}</tbody></table>
       </div>
