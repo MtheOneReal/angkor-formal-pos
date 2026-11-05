@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { useApp, useT, Modal, useToast } from '../ui.jsx';
 import { dt } from '../format.js';
 import { SOCIALS, SocialIcon } from '../socials.jsx';
+import PhoneDrop from './PhoneDrop.jsx';
 
 const SWITCHES = [
   ['require_scan_to_sell', 'Require scan to sell', 'Typed items need a manager PIN.'], ['blind_counts', 'Blind cash count', 'Cashier does not see the difference at shift close.'],
@@ -124,7 +125,7 @@ function Users() {
               <span className="sname"><b>{u.name}</b>{u.is_super && <span className="badge ok" style={{ marginLeft: 8 }}>👑 Super admin</span>}{u.demo && <span className="badge low" style={{ marginLeft: 8 }}>demo</span>}{!u.active && <span className="badge" style={{ marginLeft: 8 }}>inactive</span>}{u.email && <div className="small muted">{u.email}</div>}</span>
               <span><span className="badge">{u.role}</span></span>
               <span className="sshops">{shops || '—'}</span>
-              <span className="sphone">{u.phone ? <a href={`tel:${u.phone.replace(/\s+/g, '')}`} onClick={(e) => e.stopPropagation()}>{u.phone}</a> : <span className="muted">—</span>}</span>
+              <span className="sphone"><PhoneDrop phones={u.phones || (u.phone ? [u.phone] : [])} /></span>
               <span className="r snum">{u.salary_usd ? `$${u.salary_usd.toLocaleString()}` : <span className="muted">—</span>}</span>
             </div>);
         })}
@@ -140,7 +141,7 @@ function UserForm({ u, stores, onClose, onSaved }) {
   const [f, setF] = useState(u); const [err, setErr] = useState(''); const isNew = !u.id;
   const save = async () => {
     try {
-      const body = { name: f.name, role: f.role, store_ids: f.store_ids, email: f.email || null, lang: f.lang, salary_usd: f.salary_usd === '' || f.salary_usd == null ? 0 : Number(f.salary_usd), phone: f.phone || '' };
+      const body = { name: f.name, role: f.role, store_ids: f.store_ids, email: f.email || null, lang: f.lang, salary_usd: f.salary_usd === '' || f.salary_usd == null ? 0 : Number(f.salary_usd), phones: (f.phones || []).map((x) => x.trim()).filter(Boolean) };
       if (f.password) body.password = f.password; if (f.pin) body.pin = f.pin; if (f.pin_length) body.pin_length = Number(f.pin_length);
       if (isNew) await api.post('/admin/users', body); else await api.put(`/admin/users/${u.id}`, { ...body, active: f.active });
       onSaved();
@@ -154,7 +155,13 @@ function UserForm({ u, stores, onClose, onSaved }) {
       {!['owner', 'shareholder'].includes(f.role) && <><label>Stores</label><div className="row wrap">{stores.map((s) => <button key={s.id} className={`chip ${f.store_ids.includes(s.id) ? 'on' : ''}`} onClick={() => setF({ ...f, store_ids: f.store_ids.includes(s.id) ? f.store_ids.filter((x) => x !== s.id) : [...f.store_ids, s.id] })} title={s.code}>{s.name}</button>)}</div></>}
       {isNew && f.role !== 'cashier' && <><label>Email</label><input value={f.email || ''} onChange={(e) => setF({ ...f, email: e.target.value })} /><label>Password (8+ characters)</label><input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></>}
       {isNew && f.role === 'cashier' && <><label>PIN (4–6 digits; it signs in by itself once all digits are typed)</label><input inputMode="numeric" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value })} /></>}
-      <label>Phone number (optional)</label><input type="tel" inputMode="tel" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} style={{ width: 220 }} />
+      <label>Phone numbers (optional)</label>
+      {(f.phones?.length ? f.phones : ['']).map((p, i, arr) => (
+        <div className="row" style={{ gap: 8, marginBottom: 6 }} key={i}>
+          <input type="tel" inputMode="tel" value={p} placeholder={i === 0 ? 'Main number' : 'Another number'} onChange={(e) => setF({ ...f, phones: arr.map((x, j) => (j === i ? e.target.value : x)) })} style={{ width: 220 }} />
+          {arr.length > 1 && <button type="button" className="btn" aria-label="Remove number" onClick={() => setF({ ...f, phones: arr.filter((_, j) => j !== i) })}>×</button>}
+        </div>))}
+      {(f.phones?.length || 1) < 5 && <button type="button" className="btn" onClick={() => setF({ ...f, phones: [...(f.phones?.length ? f.phones : ['']), ''] })}>+ Add another number</button>}
       <label>Monthly salary (USD)</label><input type="number" min="0" step="1" value={f.salary_usd ?? ''} onChange={(e) => setF({ ...f, salary_usd: e.target.value })} style={{ width: 160 }} />
       {!isNew && f.role === 'cashier' && <><label>How many digits is this person’s PIN? (so it signs in by itself)</label><select value={f.pin_length || ''} onChange={(e) => setF({ ...f, pin_length: e.target.value })} style={{ width: 'auto', minWidth: 160 }}><option value="">— not set (shows OK) —</option><option value="4">4 digits</option><option value="5">5 digits</option><option value="6">6 digits</option></select></>}
       {!isNew && me.role === 'owner' && f.id !== me.id && f.role !== 'shareholder' && (me.is_super || f.role !== 'owner') && (

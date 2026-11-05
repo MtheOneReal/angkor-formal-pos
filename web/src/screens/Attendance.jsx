@@ -3,6 +3,7 @@ import { api, qs } from '../api.js';
 import { useApp, useT, useToast, Modal } from '../ui.jsx';
 import { todayISO, usd } from '../format.js';
 import { ShopQR, ClockInFlow } from './AttendanceScan.jsx';
+import PhoneDrop, { telHref } from './PhoneDrop.jsx';
 
 const hhmm = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 const clock = (ts) => (ts ? new Date(ts).toLocaleTimeString('en-GB', { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit' }) : '—');
@@ -80,7 +81,7 @@ function Team() {
         {!all && <div className="card" style={{ marginBottom: 12 }}><h3>Today</h3>
           <div className="col">{staff.map((st) => { const r = d.rows.find((x) => x.user_id === st.id && x.date === today); const pp = new Date(Date.now() + 7 * 3600000); const started = pp.getUTCHours() * 60 + pp.getUTCMinutes() > (st.start_min ?? d.work_start_minutes); const off = st.day_off != null && st.day_off === pp.getUTCDay();
             return (<div key={st.id} className="row between" style={{ borderTop: '1px solid var(--line)', paddingTop: 6 }}><span><b>{st.name}</b> <span className="small muted">{hhmm(st.start_min ?? d.work_start_minutes)}{st.end_min != null ? `–${hhmm(st.end_min)}` : ''}</span></span>
-              <span className="row" style={{ gap: 8 }}>{st.phone && !r && <a className="btn" href={`tel:${st.phone.replace(/[^\d+]/g, '')}`}>📞 Call</a>}{r ? <><span>{clock(r.in_ts)}</span>{r.late_minutes > 0 ? <span className={`badge ${r.excused ? 'ok' : 'out'}`}>{r.excused ? 'late (excused)' : `late ${r.late_minutes} min`}</span> : <span className="badge ok">on time</span>}{r.dist_m != null && <span className="small muted">{r.dist_m} m</span>}{r.has_selfie && <button className="btn" onClick={() => showPhoto(r)}>📷</button>}</>
+              <span className="row" style={{ gap: 8 }}>{(st.phones?.length || st.phone) && !r && (st.phones?.length > 1 ? <PhoneDrop phones={st.phones} label="📞 Call" /> : <a className="btn" href={telHref(st.phones?.[0] || st.phone)}>📞 Call</a>)}{r ? <><span>{clock(r.in_ts)}</span>{r.late_minutes > 0 ? <span className={`badge ${r.excused ? 'ok' : 'out'}`}>{r.excused ? 'late (excused)' : `late ${r.late_minutes} min`}</span> : <span className="badge ok">on time</span>}{r.dist_m != null && <span className="small muted">{r.dist_m} m</span>}{r.has_selfie && <button className="btn" onClick={() => showPhoto(r)}>📷</button>}</>
                 : off ? <span className="badge ok">Day off</span> : <span className={`badge ${started ? 'out' : 'low'}`}>{started ? 'Not in yet' : 'Not in yet (shift not started)'}</span>}</span></div>); })}
             {!staff.length && <p className="muted">No staff are set up for this shop yet.</p>}</div></div>}
         <div className="card" style={{ marginBottom: 12 }}><h3>Lateness this month</h3>

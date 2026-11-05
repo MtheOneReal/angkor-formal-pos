@@ -271,7 +271,7 @@ body { min-height:100vh; min-height:100dvh; }
 @media (max-width:860px) { .bottomnav { padding-bottom:env(safe-area-inset-bottom); } }
 
 .stafflist { padding:6px 4px; }
-.srow { display:grid; grid-template-columns:minmax(180px,1.5fr) 90px minmax(160px,2fr) 130px 130px; gap:12px; align-items:center; padding:12px 14px; border-bottom:1px solid var(--line); }
+.srow { display:grid; grid-template-columns:minmax(180px,1.5fr) 90px minmax(160px,2fr) 170px 130px; gap:12px; align-items:center; padding:12px 14px; border-bottom:1px solid var(--line); }
 .srow:last-child { border-bottom:0; }
 .srow.click { cursor:pointer; border-radius:10px; } .srow.click:hover { background:var(--surface2); }
 .srow.shead { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding-top:8px; padding-bottom:8px; }
@@ -284,3 +284,4 @@ body { min-height:100vh; min-height:100dvh; }
   .srow .sshops { grid-column:1 / -1; grid-row:2; color:var(--muted); }
   .srow .sphone { grid-column:1; grid-row:3; } .srow .snum { grid-column:2; grid-row:3; }
 }
+.phonedrop { width:auto; min-height:0; padding:6px 28px 6px 10px; font-size:14px; border-radius:999px; max-width:100%; }

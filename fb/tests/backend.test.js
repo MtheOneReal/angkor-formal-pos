@@ -139,6 +139,16 @@ test('a cashier can approve another person\'s transfer request, not their own; e
   assert.ok(acts.includes('transfer.request') && acts.includes('transfer.approve'));
 });
 
+test('a staff member can have several phone numbers', async () => {
+  const { api, d } = await setup();
+  const u = await api.post('/admin/users', { name: 'Many Phones', role: 'cashier', store_ids: [1], pin: '123456', phones: ['012 111 111', ' ', '098 222 222'] });
+  const row = (await api.get('/admin/users')).users.find((x) => x.id === u.id);
+  assert.deepEqual(row.phones, ['012 111 111', '098 222 222']); assert.equal(row.phone, '012 111 111');
+  await api.put(`/admin/users/${u.id}`, { phones: ['070 333 333'] });
+  const row2 = (await api.get('/admin/users')).users.find((x) => x.id === u.id);
+  assert.deepEqual(row2.phones, ['070 333 333']);
+});
+
 test('void restores stock and dashboard totals follow sales', async () => {
   const { api, d } = await setup();
   const item = await api.get(`/items/code/${d.skus[0]}?store_id=1`);

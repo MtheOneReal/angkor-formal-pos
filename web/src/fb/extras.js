@@ -191,7 +191,7 @@ export function createExtras(B) {
   }
   async function attStaff(q) {
     need('attendance.manage'); const storeId = assertStore(q.store_id || S().storeId);
-    const rows = await list('staffDirectory'); const phones = S().user.role === 'owner' ? new Map((await list('users')).map((u) => [u.id, u.phone || ''])) : new Map(); return rows.filter((r) => r.active !== false && (r.storeIds || []).map(Number).includes(storeId)).map((r) => ({ id: r.id, name: r.name, role: r.role, start_min: Number.isInteger(r.workStartMin) ? r.workStartMin : null, end_min: Number.isInteger(r.workEndMin) ? r.workEndMin : null, day_off: Number.isInteger(r.dayOff) ? r.dayOff : null, phone: phones.get(r.id) || '' }));
+    const rows = await list('staffDirectory'); const phones = S().user.role === 'owner' ? new Map((await list('users')).map((u) => [u.id, Array.isArray(u.phones) && u.phones.length ? u.phones : u.phone ? [u.phone] : []])) : new Map(); return rows.filter((r) => r.active !== false && (r.storeIds || []).map(Number).includes(storeId)).map((r) => ({ id: r.id, name: r.name, role: r.role, start_min: Number.isInteger(r.workStartMin) ? r.workStartMin : null, end_min: Number.isInteger(r.workEndMin) ? r.workEndMin : null, day_off: Number.isInteger(r.dayOff) ? r.dayOff : null, phones: phones.get(r.id) || [], phone: (phones.get(r.id) || [])[0] || '' }));
   }
   const parseTime = (s) => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '')); if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null; return Number(m[1]) * 60 + Number(m[2]); };
   const atLocal = (date, minutes) => Date.parse(`${date}T00:00:00Z`) - PP + minutes * 60000;
