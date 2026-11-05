@@ -284,4 +284,5 @@ body { min-height:100vh; min-height:100dvh; }
   .srow .sshops { grid-column:1 / -1; grid-row:2; color:var(--muted); }
   .srow .sphone { grid-column:1; grid-row:3; } .srow .snum { grid-column:2; grid-row:3; }
 }
-.phonedrop { width:auto; min-height:0; padding:6px 28px 6px 10px; font-size:14px; border-radius:999px; max-width:100%; }
+.phonewrap { display:inline-flex; align-items:center; gap:4px; }
+.phonemore { width:30px; min-height:0; padding:4px 0; font-size:13px; text-align:center; text-align-last:center; border-radius:999px; background-image:none; appearance:none; -webkit-appearance:none; cursor:pointer; }
