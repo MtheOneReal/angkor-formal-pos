@@ -5,6 +5,7 @@ import { Ctx, useApp, useT, PinPad, Modal, Spinner } from './ui.jsx';
 import { tr } from './i18n.js';
 import Register from './screens/Register.jsx';
 import Clock from './screens/Clock.jsx';
+import ErrorBoundary from './ErrorBoundary.jsx';
 import Capital from './screens/Capital.jsx';
 import Restock from './screens/Restock.jsx';
 import Jobs from './screens/Jobs.jsx';
@@ -208,7 +209,7 @@ export default function App() {
               <button className="chip" onClick={() => prefs({ lang: lang === 'en' ? 'km' : 'en' })}>{lang === 'en' ? 'ខ្មែរ' : 'EN'}</button>
               <button className="chip" onClick={() => prefs({ theme: effTheme === 'dark' ? 'light' : 'dark' })} aria-label={t('theme')}>{effTheme === 'dark' ? '☀' : '☾'}</button>
             </div>}
-            {store && <Screen key={`${cur}-${me.store_id}`} />}
+            {store && <ErrorBoundary key={`${cur}-${me.store_id}`}><Screen /></ErrorBoundary>}
           </main>
         </div>
         <nav className="bottomnav">
