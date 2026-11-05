@@ -1,3 +1,4 @@
+import React from 'react';
 // One number = a call link. Several numbers = a small dropdown; pick a number to call it.
 export const telHref = (p) => `tel:${String(p).replace(/[^\d+]/g, '')}`;
 export default function PhoneDrop({ phones = [], label = '📞' }) {
