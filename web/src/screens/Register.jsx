@@ -40,6 +40,23 @@ function CameraScan({ onCode, onClose }) {
 function Receipt({ sale, onDone }) {
   const { store } = useApp(); const t = useT();
   const show = { address: true, social: true, thanks: true, rate: false, nickname: false, ...(sale.receipt_show || {}) };
+  // 80 mm roll paper, no margins. Chrome ignores "size: 80mm auto", so the page height is the measured receipt height
+  // (receipt laid out at the printed width of 72 mm) and is refreshed just before printing. Only while this receipt is open.
+  useEffect(() => {
+    const st = document.createElement('style'); st.id = 'receipt-page'; document.head.appendChild(st);
+    const fit = () => {
+      let mm = 0;
+      const el = document.getElementById('receipt');
+      if (el) {
+        const c = el.cloneNode(true); c.removeAttribute('id');
+        c.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;width:72mm;max-width:72mm;box-sizing:border-box;margin:0;padding:2mm';
+        document.body.appendChild(c); mm = Math.ceil(c.getBoundingClientRect().height * 25.4 / 96) + 3; c.remove();
+      }
+      st.textContent = `@page { size: 80mm ${mm > 20 ? mm + 'mm' : 'auto'}; margin: 0; }`;
+    };
+    fit(); window.addEventListener('beforeprint', fit);
+    return () => { window.removeEventListener('beforeprint', fit); st.remove(); };
+  }, [sale]);
   return (
     <Modal title={t('receipt')} onClose={onDone}>
       <div className="receipt" id="receipt">
