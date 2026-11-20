@@ -114,9 +114,13 @@ td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middl
   html:has(#receipt), body:has(#receipt) { width:auto !important; height:auto !important; min-height:0 !important; margin:0 !important; padding:0 !important; overflow:visible !important; background:#fff !important; }
   body:has(#receipt) *:not(:has(#receipt)):not(#receipt):not(#receipt *) { display:none !important; }
   body:has(#receipt) :has(#receipt) { display:block !important; position:static !important; inset:auto !important; width:auto !important; height:auto !important; min-height:0 !important; max-height:none !important; overflow:visible !important; margin:0 !important; padding:0 !important; border:0 !important; box-shadow:none !important; background:none !important; transform:none !important; animation:none !important; }
-  body:has(#receipt) #receipt { visibility:visible; position:static !important; display:block; width:72mm !important; max-width:72mm; box-sizing:border-box; margin:0 auto !important; padding:2mm 2mm 14mm !important; font-size:12px; break-inside:avoid; }
+  body:has(#receipt) #receipt { visibility:visible; position:static !important; display:block; width:72mm !important; max-width:72mm; box-sizing:border-box; margin:0 auto !important; padding:2mm 2mm 0 !important; font-size:12px; break-inside:avoid; }
   #receipt .l > * { min-width:0; }
+  /* 14 mm of space under the last line, ended by a 1 mm dot so a printer that trims blank paper still feeds it */
+  #receipt .rend { display:block; height:14mm; position:relative; }
+  #receipt .rend::after { content:''; position:absolute; left:50%; bottom:0; width:1mm; height:.5mm; margin-left:-.5mm; background:#000; }
 }
+.receipt .rend { display:none; }
 
 .theme-ivory, .theme-dark { background:var(--bg); color:var(--text); }
 

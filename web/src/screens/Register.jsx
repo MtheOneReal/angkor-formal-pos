@@ -83,6 +83,7 @@ function Receipt({ sale, onDone }) {
             {SOCIALS.filter((so) => sale.receipt_socials?.[so.key]?.on && sale.receipt_socials[so.key].handle).map((so) => <div key={so.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><SocialIcon path={so.path} size={13} />{sale.receipt_socials[so.key].handle}</div>)}
           </div>}
         {show.social && sale.receipt_social && <div className="small" style={{ textAlign: 'center', whiteSpace: 'pre-line' }}>{sale.receipt_social}</div>}
+        <div className="rend" aria-hidden="true" />
       </div>
       <div className="row" style={{ marginTop: 14 }}>
         <button className="btn" onClick={() => window.print()}>{t('print')}</button>
