@@ -41,12 +41,23 @@ function Receipt({ sale, onDone }) {
   const { store } = useApp(); const t = useT();
   const show = { address: true, social: true, thanks: true, rate: false, nickname: false, ...(sale.receipt_show || {}) };
   const hasDisc = sale.lines.some((l) => (l.discount_cents || 0) > 0); // Disc column only appears when a line has a discount
-  // Thermal roll: leave the paper size to the printer driver (an explicit @page size made Chrome print it sideways).
-  // Only the margin is zeroed, and only while this receipt is open.
+  // Thermal roll, 80 mm wide. The page is exactly as tall as the receipt (so no long blank tail after the cut line),
+  // but never shorter than 85 mm: a page wider than tall is printed sideways. Refreshed right before printing.
+  const BOTTOM_MM = 4; // blank space under the last line; raise it if the cutter slices the last line
   useEffect(() => {
-    const st = document.createElement('style'); st.id = 'receipt-page'; st.textContent = '@page { margin: 0; }'; document.head.appendChild(st);
-    return () => st.remove();
-  }, []);
+    const st = document.createElement('style'); st.id = 'receipt-page'; document.head.appendChild(st);
+    const fit = () => {
+      let mm = 0; const el = document.getElementById('receipt');
+      if (el) {
+        const c = el.cloneNode(true); c.removeAttribute('id');
+        c.style.cssText = `position:absolute;left:-9999px;top:0;visibility:hidden;width:72mm;max-width:72mm;box-sizing:border-box;margin:0;padding:2mm 2mm ${BOTTOM_MM}mm`;
+        document.body.appendChild(c); mm = Math.ceil(c.getBoundingClientRect().height * 25.4 / 96); c.remove();
+      }
+      st.textContent = `@page { size: 80mm ${Math.max(mm, 85)}mm; margin: 0; }`;
+    };
+    fit(); window.addEventListener('beforeprint', fit);
+    return () => { window.removeEventListener('beforeprint', fit); st.remove(); };
+  }, [sale]);
   return (
     <Modal title={t('receipt')} onClose={onDone}>
       <div className="receipt" id="receipt">
@@ -73,8 +84,7 @@ function Receipt({ sale, onDone }) {
         {sale.deposit && <><div className="l"><span>Deposit paid / បានកក់</span><span>{usd(sale.total_cents - sale.balance_cents)}</span></div><div className="l"><b>Balance to pay / នៅខ្វះ</b><b>{usd(sale.balance_cents)}</b></div>{sale.due_date && <div className="small">Pickup / ថ្ងៃមកយក: {sale.due_date}</div>}</>}
         {sale.customer_name && <div className="small">{sale.customer_name} {sale.customer_phone || ''}</div>}
         {sale.alteration && sale.alteration_note && <div className="small" style={{ whiteSpace: 'pre-line' }}>✂️ Alteration / កែសម្រួល: {sale.alteration_note}</div>}
-        {show.rate && <div className="small">Rate / អត្រា: {sale.rate_khr_per_usd} ៛ / $1</div>}
-        <hr />{show.thanks && <><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you'}</div><div style={{ textAlign: 'center' }}>{sale.receipt_footer_km || 'សូមអរគុណ។'}</div></>}
+        <hr />{show.rate && <div style={{ textAlign: 'center' }}>អត្រាប្តូរប្រាក់៖ $1 = {Number(sale.rate_khr_per_usd).toLocaleString('en-US')}រៀល</div>}{show.thanks && <><div style={{ textAlign: 'center' }}>{sale.receipt_footer || 'Thank you'}</div><div style={{ textAlign: 'center' }}>{sale.receipt_footer_km || 'សូមអរគុណ។'}</div></>}
         {!show.social ? null : sale.receipt_social_mode === 'one'
           ? (SOCIALS.some((so) => sale.receipt_socials?.[so.key]?.on) && sale.receipt_social_one && <div className="small" style={{ textAlign: 'center', marginTop: 4 }}>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>{SOCIALS.filter((so) => sale.receipt_socials?.[so.key]?.on).map((so) => <SocialIcon key={so.key} path={so.path} size={16} />)}</div>
