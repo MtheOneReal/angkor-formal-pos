@@ -40,6 +40,7 @@ function CameraScan({ onCode, onClose }) {
 function Receipt({ sale, onDone }) {
   const { store } = useApp(); const t = useT();
   const show = { address: true, social: true, thanks: true, rate: false, nickname: false, ...(sale.receipt_show || {}) };
+  const hasDisc = sale.lines.some((l) => (l.discount_cents || 0) > 0); // Disc column only appears when a line has a discount
   // Thermal roll: leave the paper size to the printer driver (an explicit @page size made Chrome print it sideways).
   // Only the margin is zeroed, and only while this receipt is open.
   useEffect(() => {
@@ -56,7 +57,15 @@ function Receipt({ sale, onDone }) {
           <div>{new Date(sale.ts).toLocaleString('en-GB', { timeZone: 'Asia/Phnom_Penh' })}</div><div>{sale.receipt_no}</div></div>
         {sale.cashier_name && <div className="l" style={{ marginTop: 4 }}><span>Cashier / អ្នកលក់</span><b>{sale.cashier_name}</b></div>}
         <hr />
-        {sale.lines.map((l) => <div key={l.id}><div>{l.name_en}{l.name_km ? ` / ${l.name_km}` : ''} · {l.size}</div><div className="l"><span>{l.qty} × {usd(l.unit_price_cents ?? l.price_cents ?? 0)}</span><span>{usd(l.line_total_cents)}</span></div></div>)}
+        <div className="rtbl" style={{ gridTemplateColumns: hasDisc ? 'minmax(0,1fr) auto auto auto' : 'minmax(0,1fr) auto auto' }}>
+          <b>Item / ទំនិញ</b><b className="r">Qty × Price</b>{hasDisc && <b className="r">Disc</b>}<b className="r">Subtotal</b>
+          {sale.lines.map((l) => <React.Fragment key={l.id}>
+            <div className="nm">{l.name_en}{l.name_km ? ` / ${l.name_km}` : ''} · {l.size}</div>
+            <div className="r">{l.qty} × {usd(l.unit_price_cents ?? l.price_cents ?? 0)}</div>
+            {hasDisc && <div className="r">{l.discount_cents > 0 ? `-${usd(l.discount_cents)}` : '0.00'}</div>}
+            <div className="r">{usd(l.line_total_cents)}</div>
+          </React.Fragment>)}
+        </div>
         <hr />
         {sale.discount_cents > 0 && <div className="l"><span>Discount / បញ្ចុះតម្លៃ</span><span>-{usd(sale.discount_cents)}</span></div>}
         <div className="l"><b>Total / សរុប</b><b>{usd(sale.total_cents)}</b></div>

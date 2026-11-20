@@ -174,7 +174,8 @@ body[data-inv-tab="find"] .topbar { display:none; }
 .pos .cart .paysum input, .pos .cart .paypanel input { width:100%; }
 
 /* receipt: tighter lines to save paper (Khmer needs a little room above/below) */
-.receipt { line-height:1.38; padding:7px 12px; } .receipt hr { margin:4px 0; } .receipt .small { margin:0; line-height:1.38; } .receipt p, .receipt div { margin:0; }
+.receipt { line-height:1.38; padding:7px 12px; } .receipt hr { margin:4px 0; } .receipt .rtbl { display:grid; column-gap:6px; row-gap:2px; align-items:start; } .receipt .rtbl .r { text-align:right; white-space:nowrap; } .receipt .rtbl .nm { overflow-wrap:anywhere; } .receipt .rtbl > b { font-size:11px; padding-bottom:2px; border-bottom:1px solid #000; }
+.receipt .small { margin:0; line-height:1.38; } .receipt p, .receipt div { margin:0; }
 
 /* keep the pay button on screen: the item list shrinks and scrolls, the pay button stays at the bottom */
 .pos .cart .cartlines { flex:1 1 auto; min-height:56px; overflow-y:auto; }
