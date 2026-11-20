@@ -43,7 +43,7 @@ function Receipt({ sale, onDone }) {
   const hasDisc = sale.lines.some((l) => (l.discount_cents || 0) > 0); // Disc column only appears when a line has a discount
   // Thermal roll, 80 mm wide. The page is exactly as tall as the receipt (so no long blank tail after the cut line),
   // but never shorter than 85 mm: a page wider than tall is printed sideways. Refreshed right before printing.
-  const BOTTOM_MM = 4; // blank space under the last line; raise it if the cutter slices the last line
+  const BOTTOM_MM = 14; // blank space under the last line; raise it if the cutter slices the last line
   useEffect(() => {
     const st = document.createElement('style'); st.id = 'receipt-page'; document.head.appendChild(st);
     const fit = () => {
