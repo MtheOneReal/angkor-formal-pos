@@ -52,7 +52,8 @@ function Receipt({ sale, onDone }) {
         c.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;width:72mm;max-width:72mm;box-sizing:border-box;margin:0;padding:2mm';
         document.body.appendChild(c); mm = Math.ceil(c.getBoundingClientRect().height * 25.4 / 96) + 3; c.remove();
       }
-      st.textContent = `@page { size: 80mm ${mm > 20 ? mm + 'mm' : 'auto'}; margin: 0; }`;
+      // never let the page be wider than it is tall: Chrome would print it landscape (sideways) on the roll
+      st.textContent = `@page { size: 80mm ${Math.max(mm, 100)}mm; margin: 0; }`;
     };
     fit(); window.addEventListener('beforeprint', fit);
     return () => { window.removeEventListener('beforeprint', fit); st.remove(); };
