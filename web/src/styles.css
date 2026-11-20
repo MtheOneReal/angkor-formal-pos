@@ -109,7 +109,7 @@ td { padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middl
 }
 /* Receipt printing (80 mm thermal, e.g. Xprinter XP-80): print ONE receipt and nothing else.
    Everything not on the path to #receipt is removed from layout, so the app shell cannot add pages and the
-   fixed modal cannot repeat on each page. The Receipt component sets the @page size (80 mm x receipt height, min 85 mm) and zero margin while it is open. */
+   fixed modal cannot repeat on each page. The Receipt component zeroes the @page margin while it is open; paper size comes from the printer driver. */
 @media print {
   html:has(#receipt), body:has(#receipt) { width:auto !important; height:auto !important; min-height:0 !important; margin:0 !important; padding:0 !important; overflow:visible !important; background:#fff !important; }
   body:has(#receipt) *:not(:has(#receipt)):not(#receipt):not(#receipt *) { display:none !important; }

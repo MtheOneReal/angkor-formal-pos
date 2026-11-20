@@ -41,23 +41,13 @@ function Receipt({ sale, onDone }) {
   const { store } = useApp(); const t = useT();
   const show = { address: true, social: true, thanks: true, rate: false, nickname: false, ...(sale.receipt_show || {}) };
   const hasDisc = sale.lines.some((l) => (l.discount_cents || 0) > 0); // Disc column only appears when a line has a discount
-  // Thermal roll, 80 mm wide. The page is exactly as tall as the receipt (so no long blank tail after the cut line),
-  // but never shorter than 85 mm: a page wider than tall is printed sideways. Refreshed right before printing.
-  const BOTTOM_MM = 14; // blank space under the last line; raise it if the cutter slices the last line
+  // Thermal roll: the paper size comes from the printer driver. Setting an @page size here only makes Chrome centre a
+  // smaller page on the driver's long roll (blank space above and below) or flip it sideways, so only the margin is zeroed.
+  // The blank space under the last line is the receipt's own bottom padding (14 mm, see styles.css); the printer trims after it.
   useEffect(() => {
-    const st = document.createElement('style'); st.id = 'receipt-page'; document.head.appendChild(st);
-    const fit = () => {
-      let mm = 0; const el = document.getElementById('receipt');
-      if (el) {
-        const c = el.cloneNode(true); c.removeAttribute('id');
-        c.style.cssText = `position:absolute;left:-9999px;top:0;visibility:hidden;width:72mm;max-width:72mm;box-sizing:border-box;margin:0;padding:2mm 2mm ${BOTTOM_MM}mm`;
-        document.body.appendChild(c); mm = Math.ceil(c.getBoundingClientRect().height * 25.4 / 96); c.remove();
-      }
-      st.textContent = `@page { size: 80mm ${Math.max(mm, 85)}mm; margin: 0; }`;
-    };
-    fit(); window.addEventListener('beforeprint', fit);
-    return () => { window.removeEventListener('beforeprint', fit); st.remove(); };
-  }, [sale]);
+    const st = document.createElement('style'); st.id = 'receipt-page'; st.textContent = '@page { margin: 0; }'; document.head.appendChild(st);
+    return () => st.remove();
+  }, []);
   return (
     <Modal title={t('receipt')} onClose={onDone}>
       <div className="receipt" id="receipt">
