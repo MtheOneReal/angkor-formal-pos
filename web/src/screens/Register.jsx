@@ -93,6 +93,23 @@ function Receipt({ sale, onDone }) {
   );
 }
 
+const ALT = [['tl', 'Trouser length', 'ប្រវែងខោ'], ['tw', 'Trouser waist', 'ចង្កេះខោ'], ['tg', 'Trouser leg width', 'ទំហំជើងខោ'], ['sl', 'Sleeve length', 'ប្រវែងដៃអាវ'], ['jl', 'Jacket length', 'ប្រវែងអាវ'], ['jw', 'Jacket waist', 'ចង្កេះអាវ'], ['sh', 'Shoulder', 'ស្មា']];
+const altNote = (alt) => ALT.filter(([k]) => alt[k]).map(([k, en, km]) => `${en} / ${km}: ${alt[k].add ? '+' : '−'}${alt[k].n || '?'} cm`).join('\n');
+function AltPicker({ cust, setCust }) {
+  const alt = cust.alt || {};
+  const put = (a) => setCust({ ...cust, alt: a, note: altNote(a) });
+  const toggle = (k) => { const a = { ...alt }; if (a[k]) delete a[k]; else a[k] = { n: '', add: false }; put(a); };
+  const set = (k, v) => put({ ...alt, [k]: { ...alt[k], ...v } });
+  return <div style={{ marginBottom: 8 }}>
+    <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>{ALT.map(([k, en, km]) => <button key={k} type="button" className={`chip ${alt[k] ? 'on' : ''}`} onClick={() => toggle(k)}>{en} · {km}</button>)}</div>
+    {ALT.filter(([k]) => alt[k]).map(([k, en, km]) => <div key={k} className="row" style={{ gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <span style={{ flexBasis: '100%', fontSize: 13 }}>{en} · {km}</span>
+      <button type="button" className={`chip ${!alt[k].add ? 'on' : ''}`} onClick={() => set(k, { add: false })}>− កាត់ Cut</button>
+      <button type="button" className={`chip ${alt[k].add ? 'on' : ''}`} onClick={() => set(k, { add: true })}>+ បន្ថែម Add</button>
+      <input inputMode="decimal" style={{ width: 70, marginLeft: 'auto' }} placeholder="cm" value={alt[k].n} onChange={(e) => set(k, { n: e.target.value.replace(/[^0-9.]/g, '').slice(0, 4) })} />
+    </div>)}
+  </div>;
+}
 function PayPanel({ cart, subtotal, rate, store, sw, canDiscount, extra, onCancel, onPaid }) {
   const t = useT();
   const [disc, setDisc] = useState({ type: 'percent', value: '', reason: '' });
@@ -328,7 +345,7 @@ export default function Register() {
       <div className="card cart" ref={cartRef}>
         <div className="grid g2" style={{ gap: 8 }}><input placeholder={t('cust_name')} value={cust.name} onChange={(e) => setCust({ ...cust, name: e.target.value })} /><input inputMode="tel" placeholder={t('cust_phone')} value={cust.phone} onChange={(e) => setCust({ ...cust, phone: e.target.value })} /></div>
         <label className="row" style={{ textTransform: 'none', fontSize: 14, color: 'var(--text)', margin: '10px 0' }}><input type="checkbox" style={{ width: 20, minHeight: 20 }} checked={cust.alteration} onChange={(e) => setCust({ ...cust, alteration: e.target.checked })} />✂️ {t('alteration')}</label>
-        {cust.alteration && <input style={{ marginBottom: 8 }} placeholder={t('alteration_note')} value={cust.note || ''} onChange={(e) => setCust({ ...cust, note: e.target.value })} />}
+        {cust.alteration && <AltPicker cust={cust} setCust={setCust} />}
         <h3>{t('cart')} {pieces > 0 && <span className="muted small">({pieces})</span>}</h3>
         <div className="cartlines">
           {!cart.length && <p className="muted">{t('empty_cart')}</p>}
